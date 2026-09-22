@@ -48,6 +48,4 @@ Mỗi người 1 nhánh `module-1` … `module-4` (đã tạo sẵn), chỉ sử
 
 Khi mở Pull Request về `main`, GitHub Actions tự kiểm tra code chạy được và không đụng file ngoài phạm vi module (xem `.github/workflows/`).
 
-## 6. Lưu ý
-- Script SQL chưa chạy thử trên SQL Server thật khi tạo sườn - chạy lỗi thì gửi lại thông báo lỗi (kèm số dòng) để sửa.
-- Giao diện dùng Bootstrap qua CDN → cần Internet khi chạy.
+
