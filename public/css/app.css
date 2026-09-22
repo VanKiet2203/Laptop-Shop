@@ -1,0 +1,20 @@
+/* CSS dùng chung - mỗi khu vực có theme riêng để giao diện Admin / Bán hàng / Kho / Cửa hàng tách biệt rõ */
+body.store { background: #f4f6fa; }
+.hero { background: linear-gradient(120deg, #0d6efd, #6610f2); }
+.product-card img { height: 170px; object-fit: contain; }
+.product-card:hover { box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); transform: translateY(-2px); transition: .15s; }
+
+body.panel { background: #f1f3f7; min-height: 100vh; }
+.sidebar { width: 250px; min-height: 100vh; color: #fff; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.25rem; }
+.sidebar-brand small { font-weight: 400; font-size: .75rem; opacity: .7; }
+.sidebar .nav-link { color: rgba(255,255,255,.8); border-radius: .4rem; margin-bottom: 2px; }
+.sidebar .nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
+.sidebar .nav-link.active { background: rgba(255,255,255,.22); color: #fff; }
+.sidebar-section { text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; opacity: .55; margin: 1rem 0 .3rem .5rem; list-style: none; }
+.panel-admin .sidebar { background: #1f2937; }
+.panel-staff .sidebar { background: #0f766e; }
+.panel-warehouse .sidebar { background: #9a3412; }
+.content { min-width: 0; }
+.stat-card { border-left-width: 4px; }
+@media print { .sidebar, .topbar, .no-print, footer, nav { display: none !important; } body { background: #fff; } }

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><%- include('../partials/head') %></head>
+<body class="store">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/"><i class="bi bi-laptop"></i> Laptop Shop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <form class="d-flex mx-lg-4 flex-grow-1" action="/products" method="get">
+          <input class="form-control" name="q" placeholder="Tìm laptop, RAM, SSD, chuột..." value="<%= typeof q !== 'undefined' ? q : '' %>">
+          <button class="btn btn-warning ms-2" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+        <ul class="navbar-nav ms-auto align-items-lg-center">
+          <li class="nav-item"><a class="nav-link" href="/products">Sản phẩm</a></li>
+          <li class="nav-item"><a class="nav-link" href="/cart"><i class="bi bi-cart3"></i> Giỏ hàng <span class="badge bg-danger"><%= cartCount %></span></a></li>
+          <% if (currentUser) { %>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> <%= currentUser.fullName %></a>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <% if (currentUser.role === 'CUSTOMER') { %>
+                  <li><a class="dropdown-item" href="/account">Hồ sơ của tôi</a></li>
+                  <li><a class="dropdown-item" href="/orders">Đơn hàng của tôi</a></li>
+                <% } else { %>
+                  <li><a class="dropdown-item" href="<%= { ADMIN: '/admin', SALES: '/staff', WAREHOUSE: '/warehouse' }[currentUser.role] %>">Vào khu quản lý</a></li>
+                <% } %>
+                <li><hr class="dropdown-divider"></li>
+                <li><form action="/auth/logout" method="post"><button class="dropdown-item">Đăng xuất</button></form></li>
+              </ul>
+            </li>
+          <% } else { %>
+            <li class="nav-item"><a class="nav-link" href="/auth/login">Đăng nhập</a></li>
+            <li class="nav-item"><a class="btn btn-outline-light btn-sm ms-lg-2" href="/register">Đăng ký</a></li>
+          <% } %>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <main class="container py-4">
+    <%- include('../partials/flash') %>
+    <%- body %>
+  </main>
+  <footer class="bg-dark text-white-50 py-4 mt-5">
+    <div class="container small">© 2026 Laptop Shop - Đồ án Phân tích thiết kế HTTT - Đại học Sài Gòn</div>
+  </footer>
+  <%- include('../partials/scripts') %>
+</body>
+</html>

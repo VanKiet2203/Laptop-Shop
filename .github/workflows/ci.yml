@@ -1,0 +1,33 @@
+name: CI - Kiểm tra module khi mở Pull Request
+
+# Chạy khi có PR từ nhánh module-1..4 vào main, hoặc push trực tiếp lên các nhánh module-*.
+# Mục đích: đảm bảo code của từng thành viên cài đặt được và không phá app trước khi chủ nhóm review & merge.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ['module-*']
+
+jobs:
+  build-check:
+    name: Cài đặt & kiểm tra cú pháp
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cài Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cài dependencies
+        run: npm ci
+
+      - name: Kiểm tra cú pháp toàn bộ file .js (node --check)
+        run: |
+          find src -name "*.js" -print0 | xargs -0 -n1 node --check
+
+      - name: Thử require toàn bộ app (phát hiện lỗi cú pháp/require sai đường dẫn)
+        run: node -e "require('./src/app.js'); console.log('OK: app.js load được')"

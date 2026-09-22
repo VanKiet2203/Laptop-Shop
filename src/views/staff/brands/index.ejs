@@ -1,0 +1,18 @@
+<div class="d-flex justify-content-between mb-3">
+  <form class="d-flex" method="get"><input class="form-control me-2" name="q" value="<%= q %>" placeholder="Tìm thương hiệu"><button class="btn btn-outline-secondary">Tìm</button></form>
+  <a href="/staff/brands/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm thương hiệu</a>
+</div>
+<table class="table table-hover bg-white align-middle">
+  <thead><tr><th>#</th><th>Thương hiệu</th><th>Quốc gia</th><th>Số SP</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+  <tbody>
+  <% brands.forEach(function (b) { %>
+    <tr><td><%= b.BrandId %></td><td><%= b.BrandName %></td><td><%= b.Country || '' %></td><td><%= b.ProductCount %></td>
+      <td><span class="badge text-bg-<%= b.IsActive ? 'success' : 'secondary' %>"><%= b.IsActive ? 'Đang dùng' : 'Ngừng' %></span></td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-primary" href="/staff/brands/<%= b.BrandId %>/edit">Sửa</a>
+        <form class="d-inline" method="post" action="/staff/brands/<%= b.BrandId %>/delete" onsubmit="return confirm('Xoá thương hiệu này?')"><button class="btn btn-sm btn-outline-danger">Xoá</button></form>
+      </td></tr>
+  <% }) %>
+  <% if (!brands.length) { %><tr><td colspan="6" class="text-center text-muted">Không có dữ liệu</td></tr><% } %>
+  </tbody>
+</table>

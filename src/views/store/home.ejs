@@ -1,0 +1,21 @@
+<div class="p-4 p-lg-5 mb-4 rounded-3 hero text-white">
+  <h1 class="display-6 fw-bold">Laptop &amp; linh kiện chính hãng</h1>
+  <p class="lead mb-3">Bảo hành điện tử theo Serial - tư vấn nâng cấp RAM/SSD đúng chuẩn tương thích.</p>
+  <a href="/products" class="btn btn-warning btn-lg">Xem tất cả sản phẩm</a>
+</div>
+<div class="mb-4">
+  <% categories.forEach(function (c) { %><a class="btn btn-outline-primary me-2 mb-2" href="/category/<%= c.Slug %>"><%= c.CategoryName %></a><% }) %>
+</div>
+<h2 class="h4 mb-3">Sản phẩm mới</h2>
+<div class="row row-cols-2 row-cols-md-4 g-3">
+  <% products.forEach(function (p) { %>
+    <div class="col"><div class="card h-100 product-card">
+      <img src="<%= p.PrimaryImage || '/images/placeholder.svg' %>" class="card-img-top p-3" alt="">
+      <div class="card-body d-flex flex-column">
+        <div class="small text-muted"><%= p.BrandName %></div>
+        <a class="stretched-link text-decoration-none text-dark fw-semibold" href="/products/<%= p.Slug %>"><%= p.ProductName %></a>
+        <div class="mt-auto pt-2"><span class="text-danger fw-bold"><%= fmtMoney(p.SalePrice) %></span>
+          <div class="small <%= p.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>"><%= p.QtyAvailable > 0 ? 'Còn ' + p.QtyAvailable + ' sản phẩm' : 'Hết hàng' %></div></div>
+      </div></div></div>
+  <% }) %>
+</div>

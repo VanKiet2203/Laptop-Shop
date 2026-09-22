@@ -1,0 +1,33 @@
+name: Module guard
+
+# PR từ nhánh module-N chỉ được sửa file thuộc module N (hoặc docs). Sửa file dùng chung -> fail để admin xem xét.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check changed files belong to the branch's module
+        env:
+          BRANCH: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          case "$BRANCH" in
+            module-1) ALLOW='^src/(routes/(admin|warehouse|auth)\.routes\.js|controllers/(admin|warehouse|auth)/|models/(account|role|audit|supplier|goodsReceipt|stock)\.model\.js|views/(admin|warehouse|auth)/)' ;;
+            module-2) ALLOW='^src/(routes/(store|staff-catalog)\.routes\.js|controllers/store/|controllers/staff/(product|category|brand|attribute)\.controller\.js|models/(product|category|brand|attribute)\.model\.js|views/(store|staff/(products|categories|brands|attributes))/)' ;;
+            module-3) ALLOW='^src/(routes/customer\.routes\.js|controllers/customer/|models/(customer|cart|checkout|customerOrder)\.model\.js|views/customer/)' ;;
+            module-4) ALLOW='^src/(routes/staff-sales\.routes\.js|controllers/staff/(dashboard|order|invoice|report|warranty)\.controller\.js|models/(order|invoice|report|warranty)\.model\.js|views/staff/(orders|invoices|reports|warranty)/)' ;;
+            *) echo "Nhánh $BRANCH không thuộc module-*, bỏ qua."; exit 0 ;;
+          esac
+          BAD=$(git diff --name-only "origin/$BASE...HEAD" | grep -Ev "$ALLOW" | grep -Ev '^docs/' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::PR sửa file ngoài phạm vi $BRANCH:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "OK: chỉ sửa file thuộc $BRANCH"

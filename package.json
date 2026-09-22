@@ -1,0 +1,21 @@
+{
+  "name": "laptop-shop",
+  "version": "1.0.0",
+  "description": "Hệ thống quản lý bán laptop & linh kiện - Node.js MVC + SQL Server (Đồ án PTTK HTTT)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:check": "node src/config/db-check.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.18.0",
+    "mssql": "^11.0.1"
+  }
+}

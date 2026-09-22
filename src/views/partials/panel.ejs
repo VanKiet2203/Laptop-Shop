@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><%- include('head') %></head>
+<body class="panel panel-<%= panel.theme %>">
+  <div class="d-flex">
+    <aside class="sidebar d-flex flex-column p-3">
+      <a class="sidebar-brand mb-3" href="<%= panel.home %>"><i class="bi <%= panel.icon %>"></i> <%= panel.name %><small class="d-block"><%= panel.subtitle %></small></a>
+      <ul class="nav nav-pills flex-column mb-auto">
+        <% panel.nav.forEach(function (n) { if (n.section) { %>
+          <li class="sidebar-section"><%= n.section %></li>
+        <% } else { var active = currentPath === n.href || (n.href !== panel.home && currentPath.indexOf(n.href) === 0); %>
+          <li class="nav-item"><a class="nav-link <%= active ? 'active' : '' %>" href="<%= n.href %>"><i class="bi <%= n.icon %>"></i> <%= n.label %></a></li>
+        <% } }) %>
+      </ul>
+      <hr>
+      <div class="small text-white-50 mb-2"><i class="bi bi-person-badge"></i> <%= currentUser ? currentUser.fullName : '' %></div>
+      <a class="btn btn-sm btn-outline-light mb-1" href="/" target="_blank">Xem cửa hàng</a>
+      <form action="/auth/logout" method="post"><button class="btn btn-sm btn-light w-100">Đăng xuất</button></form>
+    </aside>
+    <div class="content flex-grow-1">
+      <header class="topbar px-4 py-3 border-bottom bg-white"><h1 class="h4 m-0"><%= title %></h1></header>
+      <main class="p-4">
+        <%- include('flash') %>
+        <%- body %>
+      </main>
+    </div>
+  </div>
+  <%- include('scripts') %>
+</body>
+</html>

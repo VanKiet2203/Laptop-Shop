@@ -1,0 +1,16 @@
+<%- include('../partials/panel', { body: body, panel: {
+  theme: 'staff', name: 'BÁN HÀNG', subtitle: 'Nhân viên bán hàng', icon: 'bi-bag-check', home: '/staff',
+  nav: [
+    { href: '/staff', label: 'Tổng quan', icon: 'bi-speedometer2' },
+    { section: 'Bán hàng' },
+    { href: '/staff/orders', label: 'Đơn hàng', icon: 'bi-receipt' },
+    { href: '/staff/invoices', label: 'Hoá đơn', icon: 'bi-file-earmark-text' },
+    { href: '/staff/warranty', label: 'Tra cứu bảo hành', icon: 'bi-shield-check' },
+    { href: '/staff/reports', label: 'Thống kê doanh thu', icon: 'bi-graph-up' },
+    { href: '/staff/reports/products', label: 'Sản phẩm bán chạy', icon: 'bi-trophy' },
+    { section: 'Sản phẩm' },
+    { href: '/staff/products', label: 'Sản phẩm', icon: 'bi-laptop' },
+    { href: '/staff/categories', label: 'Danh mục', icon: 'bi-diagram-3' },
+    { href: '/staff/brands', label: 'Thương hiệu', icon: 'bi-tags' },
+    { href: '/staff/attributes', label: 'Thuộc tính kỹ thuật', icon: 'bi-sliders' }
+  ] } }) %>

@@ -1,0 +1,10 @@
+<%- include('../partials/panel', { body: body, panel: {
+  theme: 'admin', name: 'ADMIN', subtitle: 'Quản trị hệ thống', icon: 'bi-shield-lock', home: '/admin',
+  nav: [
+    { href: '/admin', label: 'Tổng quan', icon: 'bi-speedometer2' },
+    { section: 'Người dùng' },
+    { href: '/admin/users', label: 'Tài khoản', icon: 'bi-people' },
+    { href: '/admin/roles', label: 'Vai trò & phân quyền', icon: 'bi-key' },
+    { section: 'Hệ thống' },
+    { href: '/admin/audit-logs', label: 'Nhật ký hoạt động', icon: 'bi-journal-text' }
+  ] } }) %>

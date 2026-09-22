@@ -1,0 +1,20 @@
+<div class="card border-warning shadow-sm">
+  <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+    <strong><i class="bi bi-cone-striped"></i> CHƯA TRIỂN KHAI</strong>
+    <span class="badge text-bg-dark"><%= info.module %></span>
+  </div>
+  <div class="card-body">
+    <h2 class="h5"><%= info.title %></h2>
+    <p class="text-muted mb-3"><code><%= info.route %></code> · <%= info.owner %></p>
+    <% if (info.tasks && info.tasks.length) { %>
+      <h3 class="h6">Việc cần làm</h3>
+      <ul><% info.tasks.forEach(function (t) { %><li><%= t %></li><% }) %></ul>
+    <% } %>
+    <dl class="row small mb-0">
+      <% if (info.db) { %><dt class="col-sm-3">Bảng / proc / view DB</dt><dd class="col-sm-9"><%= info.db %></dd><% } %>
+      <% if (info.rubric) { %><dt class="col-sm-3">Mục barem liên quan</dt><dd class="col-sm-9"><%= info.rubric %></dd><% } %>
+      <dt class="col-sm-3">Controller</dt><dd class="col-sm-9"><code><%= info.controller %></code></dd>
+      <dt class="col-sm-3">View gợi ý</dt><dd class="col-sm-9"><code><%= info.view %></code></dd>
+    </dl>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+name: Tạo nhánh module
+
+# Chạy tay 1 lần (hoặc mỗi khi cần) để tự tạo 4 nhánh module-1..module-4 từ main trên GitHub,
+# để từng thành viên chỉ cần `git fetch` + `git checkout module-N` rồi code, không cần tự tạo nhánh.
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Số lượng nhánh module cần tạo (mặc định 4)'
+        required: false
+        default: '4'
+
+permissions:
+  contents: write
+
+jobs:
+  create-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tạo nhánh module-1 .. module-N nếu chưa có
+        env:
+          COUNT: ${{ github.event.inputs.count }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in $(seq 1 "${COUNT:-4}"); do
+            BRANCH="module-$i"
+            if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+              echo "Nhánh $BRANCH đã tồn tại, bỏ qua."
+            else
+              git branch "$BRANCH" origin/main
+              git push origin "$BRANCH"
+              echo "Đã tạo nhánh $BRANCH"
+            fi
+          done

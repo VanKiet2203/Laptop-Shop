@@ -1,0 +1,12 @@
+<%- include('../partials/panel', { body: body, panel: {
+  theme: 'warehouse', name: 'KHO', subtitle: 'Nhập hàng & tồn kho', icon: 'bi-box-seam', home: '/warehouse',
+  nav: [
+    { href: '/warehouse', label: 'Tổng quan', icon: 'bi-speedometer2' },
+    { section: 'Nhập kho' },
+    { href: '/warehouse/receipts', label: 'Phiếu nhập kho', icon: 'bi-box-arrow-in-down' },
+    { href: '/warehouse/suppliers', label: 'Nhà cung cấp', icon: 'bi-truck' },
+    { section: 'Tồn kho' },
+    { href: '/warehouse/stock', label: 'Tồn kho', icon: 'bi-boxes' },
+    { href: '/warehouse/stock/serials', label: 'Tra cứu Serial', icon: 'bi-upc-scan' },
+    { href: '/warehouse/stock/movements', label: 'Sổ kho', icon: 'bi-arrow-left-right' }
+  ] } }) %>

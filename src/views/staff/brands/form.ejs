@@ -1,0 +1,8 @@
+<div class="card" style="max-width:560px"><div class="card-body">
+  <form method="post" action="<%= action %>">
+    <div class="mb-3"><label class="form-label">Tên thương hiệu *</label><input name="brandName" class="form-control" required value="<%= brand.BrandName || '' %>"></div>
+    <div class="mb-3"><label class="form-label">Quốc gia</label><input name="country" class="form-control" value="<%= brand.Country || '' %>"></div>
+    <% if (brand.BrandId) { %><div class="form-check mb-3"><input type="checkbox" class="form-check-input" id="ia" name="isActive" value="1" <%= brand.IsActive ? 'checked' : '' %>><label class="form-check-label" for="ia">Đang sử dụng</label></div><% } %>
+    <button class="btn btn-primary">Lưu</button> <a href="/staff/brands" class="btn btn-link">Quay lại</a>
+  </form>
+</div></div>

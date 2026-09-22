@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Build / temp
+dist/
+build/
+tmp/
+*.tmp
+*.tmp.js
+*.bak
+
+# Coverage / test
+coverage/
+
+# Zip nguồn gốc (không cần commit)
+*.zip
