@@ -1,0 +1,110 @@
+<% const qs = (over) => {
+  const p = Object.assign({}, filters, over);
+  return Object.keys(p).filter(k => p[k] !== undefined && p[k] !== null && p[k] !== '').map(k => `${k}=${encodeURIComponent(p[k])}`).join('&');
+} %>
+<%
+  const priceRanges = [
+    { v: '', label: 'Tất cả mức giá' },
+    { v: '0-1000000', label: 'Dưới 1 triệu' },
+    { v: '1000000-5000000', label: '1 - 5 triệu' },
+    { v: '5000000-10000000', label: '5 - 10 triệu' },
+    { v: '10000000-20000000', label: '10 - 20 triệu' },
+    { v: '20000000-30000000', label: '20 - 30 triệu' },
+    { v: '30000000-', label: 'Trên 30 triệu' },
+  ];
+  const currentRange = (filters.minPrice || filters.maxPrice) ? `${filters.minPrice || ''}-${filters.maxPrice || ''}` : '';
+%>
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0"><%= typeof activeCategory !== 'undefined' ? activeCategory.CategoryName : 'Tất cả sản phẩm' %></h1>
+    <p class="text-muted small mb-0 tabular-nums"><%= pg.total %> sản phẩm</p>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <% if (filters.q) { %><input type="hidden" name="q" value="<%= filters.q %>"><% } %>
+      <div class="col-6 col-md-3">
+        <label class="form-label small text-muted" for="f-price">Khoảng giá</label>
+        <select id="f-price" name="priceRange" class="form-select">
+          <% priceRanges.forEach(function (r) { %>
+            <option value="<%= r.v %>" <%= currentRange === r.v ? 'selected' : '' %>><%= r.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small text-muted" for="f-brand">Thương hiệu</label>
+        <select id="f-brand" name="brandId" class="form-select">
+          <option value="">Tất cả</option>
+          <% brands.forEach(function (b) { %>
+            <option value="<%= b.BrandId %>" <%= String(filters.brandId) === String(b.BrandId) ? 'selected' : '' %>><%= b.BrandName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small text-muted" for="f-sort">Sắp xếp</label>
+        <select id="f-sort" name="sort" class="form-select">
+          <option value="newest" <%= (!filters.sort || filters.sort === 'newest') ? 'selected' : '' %>>Mới nhất</option>
+          <option value="price_asc" <%= filters.sort === 'price_asc' ? 'selected' : '' %>>Giá tăng dần</option>
+          <option value="price_desc" <%= filters.sort === 'price_desc' ? 'selected' : '' %>>Giá giảm dần</option>
+          <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Tên A-Z</option>
+        </select>
+      </div>
+      <% if (typeof activeCategory !== 'undefined') { %><input type="hidden" name="categoryId" value="<%= activeCategory.CategoryId %>"><% } %>
+      <div class="col-6 col-md-3 d-flex gap-2">
+        <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Lọc</button>
+        <a class="btn btn-outline-secondary" href="<%= typeof activeCategory !== 'undefined' ? '/category/' + activeCategory.Slug : '/products' %>" aria-label="Xoá lọc"><i class="bi bi-x-lg"></i></a>
+      </div>
+    </form>
+    <% if (filters.q) { %>
+      <div class="small text-muted mt-2">Đang tìm: <strong>"<%= filters.q %>"</strong> · <a href="?<%= qs({ q: undefined }) %>">bỏ tìm kiếm</a></div>
+    <% } %>
+  </div>
+</div>
+
+<% if (typeof activeCategory === 'undefined') { %>
+<div class="mb-4 d-flex flex-wrap gap-2">
+  <a class="btn btn-sm <%= !filters.categoryId ? 'btn-primary' : 'btn-outline-primary' %>" href="/products">Tất cả</a>
+  <% categories.forEach(function (c) { %>
+    <a class="btn btn-sm <%= String(filters.categoryId) === String(c.CategoryId) ? 'btn-primary' : 'btn-outline-primary' %>" href="/category/<%= c.Slug %>"><%= c.CategoryName %></a>
+  <% }) %>
+</div>
+<% } %>
+
+<% if (!products.length) { %>
+  <div class="card"><div class="card-body text-center text-muted py-5">
+    <i class="bi bi-search fs-1 d-block mb-2"></i>
+    Không tìm thấy sản phẩm phù hợp. Thử bỏ bớt điều kiện lọc.
+  </div></div>
+<% } else { %>
+<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+  <% products.forEach(function (p) { %>
+    <div class="col"><div class="card h-100 product-card">
+      <img src="<%= p.PrimaryImage || '/images/placeholder.svg' %>" class="card-img-top p-3" alt="<%= p.ProductName %>" loading="lazy">
+      <div class="card-body d-flex flex-column">
+        <div class="small text-muted"><%= p.BrandName %></div>
+        <a class="stretched-link text-decoration-none text-dark fw-semibold" href="/products/<%= p.Slug %>"><%= p.ProductName %></a>
+        <div class="mt-auto pt-2"><span class="text-danger fw-bold tabular-nums"><%= fmtMoney(p.SalePrice) %></span>
+          <div class="small <%= p.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>"><%= p.QtyAvailable > 0 ? 'Còn ' + p.QtyAvailable + ' sản phẩm' : 'Hết hàng' %></div></div>
+      </div></div></div>
+  <% }) %>
+</div>
+
+<% if (pg.pages > 1) { %>
+<nav class="mt-4" aria-label="Phân trang sản phẩm">
+  <ul class="pagination justify-content-center">
+    <li class="page-item <%= pg.page <= 1 ? 'disabled' : '' %>">
+      <a class="page-link" href="?<%= qs({ page: pg.page - 1 }) %>" aria-label="Trang trước">&laquo;</a>
+    </li>
+    <% for (let i = 1; i <= pg.pages; i++) { %>
+      <li class="page-item <%= i === pg.page ? 'active' : '' %>"><a class="page-link tabular-nums" href="?<%= qs({ page: i }) %>"><%= i %></a></li>
+    <% } %>
+    <li class="page-item <%= pg.page >= pg.pages ? 'disabled' : '' %>">
+      <a class="page-link" href="?<%= qs({ page: pg.page + 1 }) %>" aria-label="Trang sau">&raquo;</a>
+    </li>
+  </ul>
+</nav>
+<% } %>
+<% } %>

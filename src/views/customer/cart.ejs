@@ -1,0 +1,64 @@
+<h1 class="h4 mb-3"><i class="bi bi-cart3"></i> Giỏ hàng</h1>
+
+<% if (!items.length) { %>
+  <div class="card"><div class="card-body text-center text-muted py-5">
+    <i class="bi bi-cart-x fs-1 d-block mb-2"></i>
+    Giỏ hàng đang trống.
+    <div class="mt-3"><a href="/products" class="btn btn-primary">Tiếp tục mua sắm</a></div>
+  </div></div>
+<% } else { %>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Sản phẩm</th><th class="text-end">Đơn giá</th><th class="text-center" style="width:9rem">Số lượng</th><th class="text-end">Thành tiền</th><th></th></tr></thead>
+          <tbody>
+            <% items.forEach(function (i) { %>
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <img src="<%= i.PrimaryImage || '/images/placeholder.svg' %>" style="width:48px;height:48px;object-fit:contain" alt="<%= i.ProductName %>">
+                    <div>
+                      <a href="/products/<%= i.Slug %>" class="text-decoration-none text-dark fw-semibold"><%= i.ProductName %></a>
+                      <div class="small text-muted part-no"><%= i.Sku %></div>
+                      <% if (!i.IsActive) { %><span class="badge text-bg-secondary mt-1">Ngừng bán</span>
+                      <% } else if (i.Quantity > i.QtyAvailable) { %><span class="badge text-bg-warning mt-1">Chỉ còn <%= i.QtyAvailable %></span><% } %>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end tabular-nums"><%= fmtMoney(i.SalePrice) %></td>
+                <td>
+                  <form method="post" action="/cart/update" class="d-flex align-items-center justify-content-center gap-1">
+                    <input type="hidden" name="productId" value="<%= i.ProductId %>">
+                    <input type="number" name="qty" value="<%= i.Quantity %>" min="1" max="99" class="form-control form-control-sm text-center tabular-nums" style="width:4.5rem" onchange="this.form.requestSubmit()">
+                  </form>
+                </td>
+                <td class="text-end fw-semibold tabular-nums"><%= fmtMoney(i.Quantity * i.SalePrice) %></td>
+                <td class="text-end">
+                  <form method="post" action="/cart/remove/<%= i.ProductId %>" onsubmit="return confirm('Bỏ sản phẩm này khỏi giỏ?')">
+                    <button class="btn btn-sm btn-outline-danger" aria-label="Bỏ khỏi giỏ"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6">Tổng cộng</h2>
+        <div class="d-flex justify-content-between mb-3">
+          <span class="text-muted">Tạm tính</span>
+          <span class="fs-5 fw-bold text-danger tabular-nums"><%= fmtMoney(subtotal) %></span>
+        </div>
+        <a href="/checkout" class="btn btn-primary w-100 py-2">Tiến hành đặt hàng <i class="bi bi-arrow-right"></i></a>
+        <a href="/products" class="btn btn-outline-secondary w-100 mt-2">Tiếp tục mua sắm</a>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>

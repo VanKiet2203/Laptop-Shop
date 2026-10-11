@@ -225,7 +225,7 @@ CREATE INDEX IX_Products_Name ON dbo.Products(ProductName);
 CREATE TABLE dbo.ProductImages (
     ImageId         INT IDENTITY(1,1) NOT NULL,   -- Mã ảnh
     ProductId       INT           NOT NULL,       -- Sản phẩm
-    ImageUrl        VARCHAR(300)  NOT NULL,       -- Đường dẫn ảnh
+    ImageUrl        VARCHAR(500)  NOT NULL,       -- Đường dẫn ảnh
     IsPrimary       BIT           NOT NULL CONSTRAINT DF_Img_Primary DEFAULT 0, -- Ảnh đại diện
     SortOrder       INT           NOT NULL CONSTRAINT DF_Img_Sort DEFAULT 0, -- Thứ tự
     CONSTRAINT PK_ProductImages PRIMARY KEY (ImageId),
@@ -308,7 +308,9 @@ CREATE TABLE dbo.GoodsReceipts (
     CONSTRAINT FK_GR_Supplier FOREIGN KEY (SupplierId) REFERENCES dbo.Suppliers(SupplierId),
     CONSTRAINT FK_GR_Employee FOREIGN KEY (EmployeeId) REFERENCES dbo.Employees(EmployeeId),
     CONSTRAINT CK_GR_Status CHECK (Status IN ('Draft','Posted','Cancelled')),
-    CONSTRAINT CK_GR_Paid CHECK (PaidAmount >= 0 AND PaidAmount <= TotalAmount OR Status = 'Draft')
+    CONSTRAINT CK_GR_Total CHECK (TotalAmount >= 0),
+    -- PaidAmount luôn phải >= 0; chỉ miễn kiểm tra <= TotalAmount khi còn Nháp (Draft)
+    CONSTRAINT CK_GR_Paid CHECK (PaidAmount >= 0 AND (PaidAmount <= TotalAmount OR Status = 'Draft'))
 );
 CREATE INDEX IX_GR_Date ON dbo.GoodsReceipts(ReceiptDate DESC);
 CREATE INDEX IX_GR_Supplier ON dbo.GoodsReceipts(SupplierId, ReceiptDate DESC);
@@ -397,6 +399,8 @@ CREATE TABLE dbo.Promotions (
     CONSTRAINT UQ_Promotions_Code UNIQUE (Code),
     CONSTRAINT CK_Promo_Type CHECK (DiscountType IN ('Percent','Amount')),
     CONSTRAINT CK_Promo_Value CHECK (DiscountValue > 0 AND (DiscountType = 'Amount' OR DiscountValue <= 100)),
+    CONSTRAINT CK_Promo_MinOrder CHECK (MinOrderAmount >= 0),
+    CONSTRAINT CK_Promo_MaxDiscount CHECK (MaxDiscount IS NULL OR MaxDiscount >= 0),
     CONSTRAINT CK_Promo_Dates CHECK (EndDate >= StartDate),
     CONSTRAINT CK_Promo_Used CHECK (UsedCount >= 0 AND (UsageLimit IS NULL OR UsedCount <= UsageLimit))
 );
@@ -410,7 +414,7 @@ CREATE TABLE dbo.Orders (
     PromotionId     INT           NULL,           -- Khuyến mãi đã áp dụng
     Status          VARCHAR(10)   NOT NULL CONSTRAINT DF_Ord_Status DEFAULT 'Pending', -- Pending / Approved / Completed / Cancelled
     PaymentMethod   VARCHAR(15)   NOT NULL,       -- COD / BankTransfer / Card / Installment / Cash
-    PaymentStatus   VARCHAR(10)   NOT NULL CONSTRAINT DF_Ord_PayStatus DEFAULT 'Pending', -- Pending / Paid / Refunded (gộp từ bảng Payments cũ)
+    PaymentStatus   VARCHAR(13)   NOT NULL CONSTRAINT DF_Ord_PayStatus DEFAULT 'Pending', -- Pending / Paid / RefundPending / Refunded (gộp từ bảng Payments cũ)
     PaidAt          DATETIME2(0)  NULL,           -- Thời điểm thanh toán
     ReceiverName    NVARCHAR(100) NOT NULL,       -- Người nhận (snapshot)
     ReceiverPhone   VARCHAR(15)   NOT NULL,       -- SĐT nhận (snapshot)
@@ -434,8 +438,10 @@ CREATE TABLE dbo.Orders (
     CONSTRAINT FK_Orders_Promotion FOREIGN KEY (PromotionId) REFERENCES dbo.Promotions(PromotionId),
     CONSTRAINT CK_Orders_Status CHECK (Status IN ('Pending','Approved','Completed','Cancelled')),
     CONSTRAINT CK_Orders_Payment CHECK (PaymentMethod IN ('COD','BankTransfer','Card','Installment','Cash')),
-    CONSTRAINT CK_Orders_PayStatus CHECK (PaymentStatus IN ('Pending','Paid','Refunded')),
-    CONSTRAINT CK_Orders_Money CHECK (Subtotal >= 0 AND DiscountAmount >= 0 AND DiscountAmount <= Subtotal AND ShippingFee >= 0)
+    -- RefundPending = đã yêu cầu hoàn tiền cho đơn Paid bị huỷ, chờ xác nhận đã hoàn tiền thực tế (sp_ConfirmRefund)
+    CONSTRAINT CK_Orders_PayStatus CHECK (PaymentStatus IN ('Pending','Paid','RefundPending','Refunded')),
+    CONSTRAINT CK_Orders_Money CHECK (Subtotal >= 0 AND DiscountAmount >= 0 AND DiscountAmount <= Subtotal AND ShippingFee >= 0),
+    CONSTRAINT CK_Orders_Vat CHECK (VatRate >= 0 AND VatRate <= 100)
 );
 CREATE INDEX IX_Orders_Customer ON dbo.Orders(CustomerId, CreatedAt DESC);
 CREATE INDEX IX_Orders_StatusDate ON dbo.Orders(Status, CreatedAt DESC) INCLUDE (Subtotal, DiscountAmount, ShippingFee, VatRate);
@@ -494,7 +500,8 @@ CREATE TABLE dbo.Invoices (
     CONSTRAINT UQ_Invoices_Order UNIQUE (OrderId),
     CONSTRAINT FK_Invoices_Order FOREIGN KEY (OrderId) REFERENCES dbo.Orders(OrderId),
     CONSTRAINT FK_Invoices_Employee FOREIGN KEY (IssuedByEmployee) REFERENCES dbo.Employees(EmployeeId),
-    CONSTRAINT CK_Invoices_Status CHECK (Status IN ('Issued','Voided'))
+    CONSTRAINT CK_Invoices_Status CHECK (Status IN ('Issued','Voided')),
+    CONSTRAINT CK_Invoices_Money CHECK (SubtotalAmount >= 0 AND DiscountAmount >= 0 AND VatAmount >= 0 AND TotalAmount >= 0)
 );
 CREATE INDEX IX_Invoices_IssuedAt ON dbo.Invoices(IssuedAt DESC);
 
@@ -516,4 +523,104 @@ CREATE TABLE dbo.Warranties (
     CONSTRAINT CK_War_Status CHECK (Status IN ('Active','Voided'))
 );
 CREATE INDEX IX_War_Customer ON dbo.Warranties(CustomerId);
+GO
+
+/* =====================================================================
+   NHÓM 5: TRIGGER KIỂM SOÁT TOÀN VẸN
+   Chặn các thay đổi hợp lệ về mặt ràng buộc cột nhưng sai nghiệp vụ khi
+   có ai đó (hoặc công cụ nào đó) ghi SQL trực tiếp, bỏ qua stored procedure.
+   ===================================================================== */
+
+-- Categories: không cho một danh mục tự làm cha của chính nó hoặc tạo vòng
+-- cha-con nhiều cấp (A -> B -> C -> A).
+CREATE TRIGGER dbo.trg_Categories_NoCycle ON dbo.Categories
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM inserted WHERE ParentId IS NOT NULL) RETURN;
+
+    IF EXISTS (SELECT 1 FROM inserted WHERE ParentId = CategoryId)
+        THROW 50001, N'Danh mục không thể là cha của chính nó.', 1;
+
+    -- Đi ngược chuỗi cha tối đa 100 cấp; nếu quay lại đúng điểm xuất phát thì có vòng lặp.
+    -- (CTE phải là câu lệnh riêng - không thể đặt trực tiếp bên trong IF EXISTS(...).)
+    ;WITH chain AS (
+        SELECT i.CategoryId AS StartId, c.CategoryId, c.ParentId, 1 AS Depth
+        FROM inserted i JOIN dbo.Categories c ON c.CategoryId = i.ParentId
+        UNION ALL
+        SELECT ch.StartId, p.CategoryId, p.ParentId, ch.Depth + 1
+        FROM chain ch JOIN dbo.Categories p ON p.CategoryId = ch.ParentId
+        WHERE ch.Depth < 100
+    )
+    SELECT StartId INTO #CategoryCycleCheck FROM chain WHERE CategoryId = StartId;
+
+    IF EXISTS (SELECT 1 FROM #CategoryCycleCheck)
+        THROW 50002, N'Không thể gán danh mục cha: tạo thành vòng lặp nhiều cấp.', 1;
+
+    DROP TABLE #CategoryCycleCheck;
+END
+GO
+
+-- Accounts: Username và Email chỉ UNIQUE riêng từng cột (xem UQ_Accounts_Username,
+-- UX_Accounts_Email); chặn thêm trường hợp Username của một tài khoản trùng Email
+-- của tài khoản KHÁC (và ngược lại), vì khi đó câu lệnh đăng nhập
+-- "WHERE Username = @x OR Email = @x" sẽ mơ hồ giữa hai tài khoản.
+CREATE TRIGGER dbo.trg_Accounts_NoCrossLogin ON dbo.Accounts
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        JOIN dbo.Accounts a
+          ON a.AccountId <> i.AccountId
+         AND (a.Username = i.Email OR a.Email = i.Username)
+    )
+        THROW 50003, N'Username/Email bị trùng với Email/Username của một tài khoản khác.', 1;
+END
+GO
+
+-- Orders.Status: chỉ cho phép đi theo đúng sơ đồ trạng thái nghiệp vụ,
+-- bất kể ai/thứ gì phát sinh câu UPDATE (qua procedure hay SQL trực tiếp).
+CREATE TRIGGER dbo.trg_Orders_StatusGuard ON dbo.Orders
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i JOIN deleted d ON d.OrderId = i.OrderId
+        WHERE i.Status <> d.Status
+          AND NOT (
+                (d.Status = 'Pending'  AND i.Status IN ('Approved','Cancelled'))
+             OR (d.Status = 'Approved' AND i.Status IN ('Completed','Cancelled'))
+          )
+    )
+        THROW 50004, N'Chuyển trạng thái đơn hàng không hợp lệ.', 1;
+END
+GO
+
+-- ProductSerials.Status: chặn các bước nhảy trạng thái vô lý đối với từng cá thể
+-- sản phẩm (ví dụ Sold -> Pending, hoặc Defective -> Sold).
+CREATE TRIGGER dbo.trg_ProductSerials_StatusGuard ON dbo.ProductSerials
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i JOIN deleted d ON d.SerialId = i.SerialId
+        WHERE i.Status <> d.Status
+          AND NOT (
+                (d.Status = 'Pending'      AND i.Status IN ('InStock','Defective'))
+             OR (d.Status = 'InStock'      AND i.Status IN ('Sold','SentToVendor','Defective'))
+             OR (d.Status = 'Sold'         AND i.Status IN ('InStock','InWarranty'))
+             OR (d.Status = 'InWarranty'   AND i.Status IN ('InStock'))
+             OR (d.Status = 'SentToVendor' AND i.Status IN ('InStock','Defective'))
+             OR (d.Status = 'Defective'    AND i.Status IN ('InStock'))
+          )
+    )
+        THROW 50005, N'Chuyển trạng thái Serial không hợp lệ.', 1;
+END
 GO

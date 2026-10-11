@@ -14,6 +14,9 @@ router.get('/orders', requirePermission('order.view'), wrap(staff_order.index));
 router.get('/orders/:id', requirePermission('order.view'), wrap(staff_order.show));
 router.post('/orders/:id/approve', requirePermission('order.approve'), wrap(staff_order.approve));
 router.post('/orders/:id/cancel', requirePermission('order.cancel'), wrap(staff_order.cancel));
+router.post('/orders/:id/confirm-payment', requirePermission('order.approve'), wrap(staff_order.confirmPayment));
+router.post('/orders/:id/complete', requirePermission('order.approve'), wrap(staff_order.complete));
+router.post('/orders/:id/confirm-refund', requirePermission('order.cancel'), wrap(staff_order.confirmRefund));
 
 const staff_invoice = require('../controllers/staff/invoice.controller');
 

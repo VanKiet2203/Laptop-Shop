@@ -1,71 +1,47 @@
 // MODULE 3 - KHÁCH MUA HÀNG
 // Chủ sở hữu: Thành viên 3 - Khách mua hàng
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+const Cart = require('../../models/cart.model');
+const { isBusinessError } = require('../../core/helpers');
+
+async function syncCartCount(req) {
+  req.session.cartCount = await Cart.count(req.session.user.customerId);
+}
 
 // GET /cart
 exports.show = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Giỏ hàng",
-    "route": "GET /cart",
-    "tasks": [
-      "Hiển thị CartItems JOIN Products, tổng tiền, cảnh báo vượt tồn (QtyAvailable)"
-    ],
-    "db": "Carts, CartItems, vw_ProductCatalog",
-    "rubric": "A3 thực hiện chức năng mua hàng",
-    "controller": "src/controllers/customer/cart.controller.js",
-    "view": "src/views/customer/..."
-  });
+  const items = await Cart.items(req.session.user.customerId);
+  const subtotal = items.reduce((sum, i) => sum + i.Quantity * i.SalePrice, 0);
+  res.render('customer/cart', { title: 'Giỏ hàng', items, subtotal });
 };
 
 // POST /cart/add
 exports.add = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Thêm vào giỏ",
-    "route": "POST /cart/add",
-    "tasks": [
-      "Tạo Carts nếu chưa có; cộng dồn số lượng (CartItems PK cartId+productId); kiểm tra tồn",
-      "Nâng cao: kiểm tra tương thích laptop ↔ RAM/SSD bằng CompatibilityRules + ProductAttributeValues",
-      "Cập nhật req.session.cartCount"
-    ],
-    "db": "CartItems, CompatibilityRules",
-    "rubric": "",
-    "controller": "src/controllers/customer/cart.controller.js",
-    "view": "src/views/customer/..."
-  });
+  const productId = parseInt(req.body.productId, 10);
+  const qty = Math.max(1, Math.min(99, parseInt(req.body.qty, 10) || 1));
+  try {
+    await Cart.add(req.session.user.customerId, productId, qty);
+    await syncCartCount(req);
+    req.flash('success', 'Đã thêm vào giỏ hàng.');
+  } catch (e) {
+    if (isBusinessError(e)) req.flash('danger', e.message); else throw e;
+  }
+  res.redirect(req.get('Referer') || '/cart');
 };
 
 // POST /cart/update
 exports.update = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Sửa số lượng",
-    "route": "POST /cart/update",
-    "tasks": [],
-    "db": "",
-    "rubric": "",
-    "controller": "src/controllers/customer/cart.controller.js",
-    "view": "src/views/customer/..."
-  });
+  const productId = parseInt(req.body.productId, 10);
+  const qty = parseInt(req.body.qty, 10) || 0;
+  await Cart.updateQty(req.session.user.customerId, productId, qty);
+  await syncCartCount(req);
+  req.flash('success', 'Đã cập nhật giỏ hàng.');
+  res.redirect('/cart');
 };
 
 // POST /cart/remove/:productId
 exports.remove = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Bỏ khỏi giỏ",
-    "route": "POST /cart/remove/:productId",
-    "tasks": [],
-    "db": "",
-    "rubric": "",
-    "controller": "src/controllers/customer/cart.controller.js",
-    "view": "src/views/customer/..."
-  });
+  await Cart.remove(req.session.user.customerId, parseInt(req.params.productId, 10));
+  await syncCartCount(req);
+  req.flash('success', 'Đã bỏ sản phẩm khỏi giỏ.');
+  res.redirect('/cart');
 };

@@ -1,7 +1,12 @@
 // Gắn biến dùng chung cho mọi view + hàm req.flash + hàm chọn layout theo khu vực
 const h = require('./helpers');
 
+// Cache-buster cho /css/app.css: cố định theo lần khởi động server, để trình duyệt
+// không giữ bản CSS cũ sau khi deploy/sửa file (thêm ?v=... vào link).
+const assetVersion = Date.now();
+
 exports.locals = (req, res, next) => {
+  res.locals.assetVersion = assetVersion;
   req.flash = (type, message) => {
     req.session.flash = req.session.flash || [];
     req.session.flash.push({ type, message });

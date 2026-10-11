@@ -282,7 +282,7 @@ Sản phẩm (laptop, linh kiện, phụ kiện)
 |-----|------|------|------|----------|-------|
 | `ImageId` | INT (IDENTITY) | Không | PK |  | Mã ảnh |
 | `ProductId` | INT | Không | FK → Products |  | Sản phẩm |
-| `ImageUrl` | VARCHAR(300) | Không |  |  | Đường dẫn ảnh |
+| `ImageUrl` | VARCHAR(500) | Không |  |  | Đường dẫn ảnh |
 | `IsPrimary` | BIT | Không |  | 0 | Ảnh đại diện |
 | `SortOrder` | INT | Không |  | 0 | Thứ tự |
 
@@ -360,7 +360,7 @@ Phiếu nhập kho
 | `Note` | NVARCHAR(255) | Có |  |  | Ghi chú |
 
 **Unique:** (ReceiptNo)  
-**Check:** `(Status IN ('Draft','Posted','Cancelled'))`; `(PaidAmount >= 0 AND PaidAmount <= TotalAmount OR Status = 'Draft')`
+**Check:** `(Status IN ('Draft','Posted','Cancelled'))`; `(TotalAmount >= 0)`; `(PaidAmount >= 0 AND (PaidAmount <= TotalAmount OR Status = 'Draft'))`
 
 ### GoodsReceiptDetails
 
@@ -440,7 +440,7 @@ Mã khuyến mãi / voucher
 | `IsActive` | BIT | Không |  | 1 | Đang bật |
 
 **Unique:** (Code)  
-**Check:** `(DiscountType IN ('Percent','Amount'))`; `(DiscountValue > 0 AND (DiscountType = 'Amount' OR DiscountValue <= 100))`; `(EndDate >= StartDate)`; `(UsedCount >= 0 AND (UsageLimit IS NULL OR UsedCount <= UsageLimit))`
+**Check:** `(DiscountType IN ('Percent','Amount'))`; `(DiscountValue > 0 AND (DiscountType = 'Amount' OR DiscountValue <= 100))`; `(MinOrderAmount >= 0)`; `(MaxDiscount IS NULL OR MaxDiscount >= 0)`; `(EndDate >= StartDate)`; `(UsedCount >= 0 AND (UsageLimit IS NULL OR UsedCount <= UsageLimit))`
 
 ### Orders
 
@@ -455,7 +455,7 @@ Mã khuyến mãi / voucher
 | `PromotionId` | INT | Có | FK → Promotions |  | Khuyến mãi đã áp dụng |
 | `Status` | VARCHAR(10) | Không |  | 'Pending' | Pending / Approved / Completed / Cancelled |
 | `PaymentMethod` | VARCHAR(15) | Không |  |  | COD / BankTransfer / Card / Installment / Cash |
-| `PaymentStatus` | VARCHAR(10) | Không |  | 'Pending' | Pending / Paid / Refunded (gộp từ bảng Payments cũ) |
+| `PaymentStatus` | VARCHAR(13) | Không |  | 'Pending' | Pending / Paid / RefundPending / Refunded (gộp từ bảng Payments cũ) |
 | `PaidAt` | DATETIME2(0) | Có |  |  | Thời điểm thanh toán |
 | `ReceiverName` | NVARCHAR(100) | Không |  |  | Người nhận (snapshot) |
 | `ReceiverPhone` | VARCHAR(15) | Không |  |  | SĐT nhận (snapshot) |
@@ -474,7 +474,7 @@ Mã khuyến mãi / voucher
 | `CancelledAt` | DATETIME2(0) | Có |  |  | Ngày huỷ |
 
 **Unique:** (OrderNo)  
-**Check:** `(Status IN ('Pending','Approved','Completed','Cancelled'))`; `(PaymentMethod IN ('COD','BankTransfer','Card','Installment','Cash'))`; `(PaymentStatus IN ('Pending','Paid','Refunded'))`; `(Subtotal >= 0 AND DiscountAmount >= 0 AND DiscountAmount <= Subtotal AND ShippingFee >= 0)`
+**Check:** `(Status IN ('Pending','Approved','Completed','Cancelled'))`; `(PaymentMethod IN ('COD','BankTransfer','Card','Installment','Cash'))`; `(PaymentStatus IN ('Pending','Paid','RefundPending','Refunded'))`; `(Subtotal >= 0 AND DiscountAmount >= 0 AND DiscountAmount <= Subtotal AND ShippingFee >= 0)`; `(VatRate >= 0 AND VatRate <= 100)`
 
 ### OrderDetails
 
@@ -526,7 +526,7 @@ Hoá đơn bán hàng (phát hành khi duyệt đơn, lưu trữ, in lại đư�
 | `Status` | VARCHAR(10) | Không |  | 'Issued' | Issued / Voided |
 
 **Unique:** (InvoiceNo); (OrderId)  
-**Check:** `(Status IN ('Issued','Voided'))`
+**Check:** `(Status IN ('Issued','Voided'))`; `(SubtotalAmount >= 0 AND DiscountAmount >= 0 AND VatAmount >= 0 AND TotalAmount >= 0)`
 
 ### Warranties
 

@@ -1,20 +1,182 @@
-/* CSS dùng chung - mỗi khu vực có theme riêng để giao diện Admin / Bán hàng / Kho / Cửa hàng tách biệt rõ */
-body.store { background: #f4f6fa; }
-.hero { background: linear-gradient(120deg, #0d6efd, #6610f2); }
-.product-card img { height: 170px; object-fit: contain; }
-.product-card:hover { box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); transform: translateY(-2px); transition: .15s; }
+/* CSS dùng chung - mỗi khu vực có theme riêng để giao diện Admin / Bán hàng / Kho / Cửa hàng tách biệt rõ.
+   Chiến lược độ sâu: LAYERED SHADOWS (nhiều lớp, có khối) - áp dụng NHẤT QUÁN cho mọi card/nút/dropdown,
+   không trộn với kiểu chỉ-viền. Xem skill interface-design + laptopshop-interface-design. */
 
+:root {
+  --ls-radius: .75rem;
+  --ls-radius-sm: .55rem;
+  --ls-shadow-sm: 0 0 0 .5px rgba(16, 24, 40, .05), 0 1px 2px rgba(16, 24, 40, .04), 0 2px 4px rgba(16, 24, 40, .04);
+  --ls-shadow-md: 0 0 0 .5px rgba(16, 24, 40, .06), 0 2px 4px rgba(16, 24, 40, .05), 0 6px 14px rgba(16, 24, 40, .08);
+  --ls-shadow-lg: 0 0 0 .5px rgba(16, 24, 40, .06), 0 4px 10px rgba(16, 24, 40, .08), 0 16px 32px rgba(16, 24, 40, .14);
+  --ls-ease: cubic-bezier(.4, 0, .2, 1);
+  --ls-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Chữ số định danh (SKU, Serial, mã đơn/hoá đơn/phiếu nhập) hiển thị kiểu "part number",
+   không phải chữ thường - xem laptopshop-interface-design skill, mục "Signature". */
+.part-no {
+  font-family: var(--ls-mono);
+  letter-spacing: .02em;
+  background: rgba(16, 24, 40, .06);
+  padding: .1rem .45rem;
+  border-radius: .35rem;
+  font-size: .875em;
+}
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+@keyframes ls-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ls-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Khung chung: thẻ (card), nút, bảng - mọi khu vực ---------- */
+.card {
+  border: 0;
+  border-radius: var(--ls-radius);
+  box-shadow: var(--ls-shadow-sm);
+  transition: box-shadow .25s var(--ls-ease), transform .25s var(--ls-ease);
+}
+.card:hover { box-shadow: var(--ls-shadow-md); }
+.card-header { background: transparent; border-bottom: 1px solid rgba(16, 24, 40, .08); font-weight: 600; }
+
+/* Nút: khối rõ, có gradient nhẹ cho nút chính, nhấc lên khi hover, lún xuống khi bấm. */
+.btn {
+  border-radius: var(--ls-radius-sm);
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: transform .15s var(--ls-ease), box-shadow .15s var(--ls-ease), background-color .15s var(--ls-ease), border-color .15s var(--ls-ease), filter .15s var(--ls-ease);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(.97); filter: brightness(.96); }
+
+.btn-primary, .btn-warning, .btn-danger, .btn-success {
+  border: 0;
+  box-shadow: var(--ls-shadow-sm);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 55%);
+}
+.btn-primary:hover, .btn-primary:focus { box-shadow: var(--ls-shadow-md), 0 .3rem .6rem rgba(13, 110, 253, .28); }
+.btn-warning:hover, .btn-warning:focus { box-shadow: var(--ls-shadow-md), 0 .3rem .6rem rgba(255, 193, 7, .35); }
+.btn-danger:hover, .btn-danger:focus { box-shadow: var(--ls-shadow-md), 0 .3rem .6rem rgba(220, 53, 69, .3); }
+.btn-success:hover, .btn-success:focus { box-shadow: var(--ls-shadow-md), 0 .3rem .6rem rgba(25, 135, 84, .3); }
+
+.btn-lg { border-radius: var(--ls-radius); }
+/* Giữ nguyên focus ring mặc định của Bootstrap (box-shadow) cho mọi .btn - không override:
+   nhiều người dùng Kho/Bán hàng thao tác bằng bàn phím/máy quét, không chỉ chuột. */
+
+.table-responsive { border-radius: var(--ls-radius); box-shadow: var(--ls-shadow-sm); }
+.table-hover tbody tr { transition: background-color .12s var(--ls-ease); }
+
+.badge { font-weight: 600; letter-spacing: .01em; border-radius: .4rem; }
+.badge.rounded-pill { border-radius: 50rem; }
+
+.alert {
+  border: 0;
+  border-radius: var(--ls-radius-sm);
+  box-shadow: var(--ls-shadow-sm);
+  animation: ls-fade-up .3s var(--ls-ease) both;
+}
+
+main.container, .content main {
+  animation: ls-fade-up .4s var(--ls-ease) both;
+}
+
+/* ---------- Cửa hàng (store) ---------- */
+body.store { background: #f4f6fa; }
+.hero {
+  background: linear-gradient(135deg, #0d6efd 0%, #4f3fe0 55%, #6610f2 100%);
+  border-radius: var(--ls-radius);
+  box-shadow: var(--ls-shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, .18), transparent 55%);
+  pointer-events: none;
+}
+.hero .btn-warning { font-weight: 700; }
+
+.product-card {
+  border-radius: var(--ls-radius);
+  box-shadow: var(--ls-shadow-sm);
+  overflow: hidden;
+  transition: box-shadow .25s var(--ls-ease), transform .25s var(--ls-ease);
+}
+.product-card img { height: 170px; object-fit: contain; transition: transform .35s var(--ls-ease); }
+.product-card:hover { box-shadow: var(--ls-shadow-lg); transform: translateY(-4px); }
+.product-card:hover img { transform: scale(1.06); }
+
+/* Badge giỏ hàng: nảy nhẹ khi số lượng đổi (JS thêm class .is-updated rồi tự gỡ). */
+#cart-count.is-updated { animation: ls-pop .4s var(--ls-ease); }
+
+/* ---------- Khu quản trị (Admin / Bán hàng / Kho) ---------- */
 body.panel { background: #f1f3f7; min-height: 100vh; }
-.sidebar { width: 250px; min-height: 100vh; color: #fff; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar {
+  width: 250px; min-height: 100vh; color: #fff;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  box-shadow: var(--ls-shadow-lg);
+}
 .sidebar-brand { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.25rem; }
 .sidebar-brand small { font-weight: 400; font-size: .75rem; opacity: .7; }
-.sidebar .nav-link { color: rgba(255,255,255,.8); border-radius: .4rem; margin-bottom: 2px; }
-.sidebar .nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
-.sidebar .nav-link.active { background: rgba(255,255,255,.22); color: #fff; }
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, .8);
+  border-radius: var(--ls-radius-sm);
+  margin-bottom: 2px;
+  border-left: 3px solid transparent;
+  transition: background-color .15s var(--ls-ease), color .15s var(--ls-ease), border-color .15s var(--ls-ease), padding-left .15s var(--ls-ease);
+}
+.sidebar .nav-link:hover { background: rgba(255, 255, 255, .1); color: #fff; padding-left: .9rem; }
+.sidebar .nav-link.active { background: rgba(255, 255, 255, .16); color: #fff; border-left-color: #fff; font-weight: 600; box-shadow: var(--ls-shadow-sm); }
 .sidebar-section { text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; opacity: .55; margin: 1rem 0 .3rem .5rem; list-style: none; }
-.panel-admin .sidebar { background: #1f2937; }
-.panel-staff .sidebar { background: #0f766e; }
-.panel-warehouse .sidebar { background: #9a3412; }
+.panel-admin .sidebar { background: linear-gradient(180deg, #1f2937, #161e29); }
+.panel-staff .sidebar { background: linear-gradient(180deg, #0f766e, #0b5c56); }
+.panel-warehouse .sidebar { background: linear-gradient(180deg, #9a3412, #7c2a0f); }
 .content { min-width: 0; }
-.stat-card { border-left-width: 4px; }
+.topbar { box-shadow: 0 1px 2px rgba(16, 24, 40, .06); position: sticky; top: 0; z-index: 10; }
+
+/* Màu nhấn (nút chính, liên kết) khớp với màu sidebar của từng khu vực, thay vì xanh
+   Bootstrap mặc định dùng chung cho cả 3 vai trò - xem laptopshop-interface-design skill. */
+.panel-admin { --ls-accent: #1f2937; --ls-accent-rgb: 31, 41, 55; --ls-accent-hover: #111827; }
+.panel-staff { --ls-accent: #0f766e; --ls-accent-rgb: 15, 118, 110; --ls-accent-hover: #0b5c56; }
+.panel-warehouse { --ls-accent: #9a3412; --ls-accent-rgb: 154, 52, 18; --ls-accent-hover: #7c2a0f; }
+.panel-admin .content .btn-primary,
+.panel-staff .content .btn-primary,
+.panel-warehouse .content .btn-primary {
+  background-color: var(--ls-accent); border-color: var(--ls-accent); color: #fff;
+}
+.panel-admin .content .btn-primary:hover, .panel-admin .content .btn-primary:focus,
+.panel-staff .content .btn-primary:hover, .panel-staff .content .btn-primary:focus,
+.panel-warehouse .content .btn-primary:hover, .panel-warehouse .content .btn-primary:focus {
+  background-color: var(--ls-accent-hover); border-color: var(--ls-accent-hover); color: #fff;
+  box-shadow: var(--ls-shadow-md), 0 .3rem .6rem rgba(var(--ls-accent-rgb), .35);
+}
+.panel-admin .content a, .panel-staff .content a, .panel-warehouse .content a { color: var(--ls-accent); }
+.panel-admin .content .text-primary, .panel-staff .content .text-primary, .panel-warehouse .content .text-primary { color: var(--ls-accent) !important; }
+
+.stat-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+  transition: box-shadow .25s var(--ls-ease), transform .25s var(--ls-ease);
+}
+.stat-card:hover { box-shadow: var(--ls-shadow-lg); transform: translateY(-3px); }
+
 @media print { .sidebar, .topbar, .no-print, footer, nav { display: none !important; } body { background: #fff; } }
+
+/* ---------- Trang "chưa triển khai" (partials/todo.ejs) ---------- */
+.todo-card { border-top: 3px solid #f59e0b; }
+.todo-icon {
+  width: 2.75rem; height: 2.75rem; border-radius: 50%;
+  background: rgba(245, 158, 11, .12); color: #b45309;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem;
+}
+
+/* ---------- Tôn trọng người dùng tắt hiệu ứng chuyển động ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

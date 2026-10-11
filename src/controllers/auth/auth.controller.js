@@ -1,6 +1,7 @@
 // MODULE 1 - Đăng nhập / đăng xuất (dùng chung cho mọi vai trò)
 const bcrypt = require('bcryptjs');
 const Account = require('../../models/account.model');
+const Cart = require('../../models/cart.model');
 const audit = require('../../models/audit.model');
 const { homeFor } = require('../../core/auth');
 
@@ -23,6 +24,9 @@ exports.login = async (req, res) => {
     permissions: await Account.getPermissions(acc.RoleId),
   };
   await Account.touchLastLogin(acc.AccountId);
+  if (acc.RoleCode === 'CUSTOMER' && acc.CustomerId) {
+    req.session.cartCount = await Cart.count(acc.CustomerId);
+  }
   req.accountForLog = acc;
   await audit.log(req, 'LOGIN', 'Account', acc.AccountId, `Đăng nhập (${acc.RoleCode})`);
   const back = req.session.returnTo;
