@@ -47,9 +47,9 @@ exports.movements = async (req, res) => {
     "title": "Kho - Sổ kho (xuất nhập tồn)",
     "route": "GET /warehouse/stock/movements",
     "tasks": [
-      "Truy vấn StockMovements theo sản phẩm + khoảng ngày"
+      "Truy vấn AuditLogs (Action IN ('STOCK_IN','STOCK_OUT'), EntityName='Product') theo sản phẩm + khoảng ngày - bảng StockMovements đã bỏ, lịch sử xuất/nhập nay ghi qua AuditLogs dùng chung"
     ],
-    "db": "StockMovements",
+    "db": "AuditLogs",
     "rubric": "",
     "controller": "src/controllers/warehouse/stock.controller.js",
     "view": "src/views/warehouse/..."

@@ -29,9 +29,9 @@ exports.show = async (req, res) => {
     "title": "Khách - Chi tiết đơn",
     "route": "GET /orders/:id",
     "tasks": [
-      "Chi tiết + lịch sử trạng thái (OrderStatusHistory) + serial & bảo hành nếu đã duyệt; chỉ xem đơn của chính mình"
+      "Chi tiết + lịch sử trạng thái (AuditLogs, EntityName='Order') + serial & bảo hành nếu đã duyệt; chỉ xem đơn của chính mình - bảng OrderStatusHistory đã bỏ"
     ],
-    "db": "Orders, OrderDetails, OrderStatusHistory, Warranties",
+    "db": "Orders, OrderDetails, AuditLogs, Warranties",
     "rubric": "",
     "controller": "src/controllers/customer/order.controller.js",
     "view": "src/views/customer/..."

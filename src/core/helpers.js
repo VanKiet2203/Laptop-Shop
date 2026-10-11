@@ -10,6 +10,13 @@ const ORDER_STATUS = {
   Completed: { label: 'Hoàn tất', cls: 'success' },
   Cancelled: { label: 'Đã huỷ', cls: 'secondary' },
 };
+// Orders.PaymentStatus (xem CK_Orders_PayStatus trong database/01_schema.sql)
+const PAYMENT_STATUS = {
+  Pending: { label: 'Chờ thanh toán', cls: 'warning' },
+  Paid: { label: 'Đã thanh toán', cls: 'success' },
+  RefundPending: { label: 'Chờ hoàn tiền', cls: 'info' },
+  Refunded: { label: 'Đã hoàn tiền', cls: 'secondary' },
+};
 const PAYMENT_METHOD = { COD: 'Thanh toán khi nhận hàng', BankTransfer: 'Chuyển khoản', Card: 'Thẻ', Installment: 'Trả góp', Cash: 'Tiền mặt' };
 
 /** Tính phân trang: paginate(page, pageSize, total) -> { page, pageSize, total, pages, offset } */
@@ -26,4 +33,4 @@ const isBusinessError = (err) => err && typeof err.number === 'number' && err.nu
 const slugify = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-module.exports = { fmtMoney, fmtDate, fmtDateTime, ORDER_STATUS, PAYMENT_METHOD, paginate, isBusinessError, slugify };
+module.exports = { fmtMoney, fmtDate, fmtDateTime, ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD, paginate, isBusinessError, slugify };

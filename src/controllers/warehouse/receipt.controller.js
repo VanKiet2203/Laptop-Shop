@@ -82,8 +82,8 @@ exports.post = async (req, res) => {
     "title": "Kho - Chốt phiếu nhập",
     "route": "POST /warehouse/receipts/:id/post",
     "tasks": [
-      "db.exec(\"sp_PostGoodsReceipt\", { ReceiptId })  → tồn kho tăng, serial thành InStock",
-      "Bắt lỗi nghiệp vụ 50040-50043"
+      "db.exec(\"sp_PostGoodsReceipt\", { ReceiptId, AccountId: req.session.user.accountId })  → tồn kho tăng, serial thành InStock",
+      "Bắt lỗi nghiệp vụ 50039-50043"
     ],
     "db": "sp_PostGoodsReceipt",
     "rubric": "Nhập kho: số lượng tăng",

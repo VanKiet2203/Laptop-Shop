@@ -1,6 +1,18 @@
-<div class="text-center py-5">
-  <h1 class="display-4">500</h1><p class="lead">Đã có lỗi xảy ra trong hệ thống.</p>
-  <% if (error) { %><pre class="text-start bg-light border p-3 small"><%= error.message %>
-<%= error.stack %></pre><% } %>
-  <a href="/" class="btn btn-primary">Về trang chủ</a>
+<div class="row justify-content-center">
+  <div class="col-md-9 col-lg-7">
+    <div class="card text-center">
+      <div class="card-body p-4 p-md-5">
+        <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10 text-danger mb-3" style="width:3.75rem;height:3.75rem;font-size:1.75rem;">
+          <i class="bi bi-exclamation-triangle"></i>
+        </span>
+        <h1 class="display-5 fw-bold mb-1">500</h1>
+        <p class="text-muted mb-4">Đã có lỗi xảy ra trong hệ thống.</p>
+        <% if (error) { %>
+          <pre class="text-start bg-light border rounded-3 p-3 small mb-4" style="white-space:pre-wrap;"><%= error.message %>
+<%= error.stack %></pre>
+        <% } %>
+        <a href="/" class="btn btn-primary"><i class="bi bi-house"></i> Về trang chủ</a>
+      </div>
+    </div>
+  </div>
 </div>

@@ -1,19 +1,40 @@
 <div class="row justify-content-center">
   <div class="col-md-5 col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h4 mb-3 text-center">Đăng nhập</h1>
+    <div class="card">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary mb-3" style="width:3.25rem;height:3.25rem;font-size:1.4rem;">
+            <i class="bi bi-laptop"></i>
+          </span>
+          <h1 class="h4 mb-1">Đăng nhập</h1>
+          <p class="text-muted small mb-0">Vào Laptop Shop để tiếp tục</p>
+        </div>
         <form method="post" action="/auth/login">
-          <div class="mb-3"><label class="form-label">Tên đăng nhập hoặc email</label><input name="username" class="form-control" required autofocus></div>
-          <div class="mb-3"><label class="form-label">Mật khẩu</label><input name="password" type="password" class="form-control" required></div>
-          <button class="btn btn-primary w-100">Đăng nhập</button>
+          <div class="mb-3">
+            <label class="form-label" for="login-username">Tên đăng nhập hoặc email</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+              <input id="login-username" name="username" class="form-control" required autofocus placeholder="vd: sales1">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="login-password">Mật khẩu</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
+              <input id="login-password" name="password" type="password" class="form-control" required placeholder="••••••••">
+            </div>
+          </div>
+          <button class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center gap-2">
+            Đăng nhập <i class="bi bi-arrow-right"></i>
+          </button>
         </form>
         <p class="text-center small mt-3 mb-0">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
       </div>
     </div>
-    <div class="card mt-3 border-info"><div class="card-body small">
-      <strong>Tài khoản test</strong> (mật khẩu <code>123456</code>):<br>
-      <code>admin</code> · <code>sales1</code> · <code>kho1</code> · <code>khach1</code>
+    <div class="card mt-3"><div class="card-body small d-flex gap-2">
+      <i class="bi bi-info-circle text-primary"></i>
+      <div><strong>Tài khoản test</strong> (mật khẩu <code>123456</code>):<br>
+      <code>admin</code> · <code>sales1</code> · <code>kho1</code> · <code>khach1</code></div>
     </div></div>
   </div>
 </div>

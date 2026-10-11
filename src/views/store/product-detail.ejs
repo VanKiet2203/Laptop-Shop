@@ -1,0 +1,66 @@
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb small">
+    <li class="breadcrumb-item"><a href="/">Trang chủ</a></li>
+    <li class="breadcrumb-item"><a href="/category/<%= product.CategorySlug %>"><%= product.CategoryName %></a></li>
+    <li class="breadcrumb-item active" aria-current="page"><%= product.ProductName %></li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+  <div class="col-md-5">
+    <div class="card">
+      <img src="<%= (images[0] && images[0].ImageUrl) || '/images/placeholder.svg' %>" class="card-img-top p-4" alt="<%= product.ProductName %>">
+    </div>
+    <% if (images.length > 1) { %>
+    <div class="d-flex gap-2 mt-2">
+      <% images.forEach(function (img) { %>
+        <img src="<%= img.ImageUrl %>" class="rounded border" style="width:64px;height:64px;object-fit:contain;" alt="">
+      <% }) %>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="col-md-7">
+    <div class="small text-muted mb-1"><%= product.BrandName %> · <span class="part-no"><%= product.Sku %></span></div>
+    <h1 class="h3 mb-2"><%= product.ProductName %></h1>
+    <% if (product.ShortDesc) { %><p class="text-muted"><%= product.ShortDesc %></p><% } %>
+
+    <div class="d-flex align-items-baseline gap-3 mb-3">
+      <span class="fs-2 fw-bold text-danger tabular-nums"><%= fmtMoney(product.SalePrice) %></span>
+      <% if (product.QtyAvailable > 0) { %>
+        <span class="badge text-bg-success">Còn <%= product.QtyAvailable %> sản phẩm</span>
+      <% } else { %>
+        <span class="badge text-bg-secondary">Hết hàng</span>
+      <% } %>
+    </div>
+
+    <p class="small text-muted mb-4"><i class="bi bi-shield-check text-primary"></i> Bảo hành <%= product.WarrantyMonths %> tháng<% if (product.IsSerialTracked) { %> · theo dõi theo Serial/IMEI<% } %></p>
+
+    <% if (currentUser && currentUser.role === 'CUSTOMER') { %>
+      <form method="post" action="/cart/add" class="d-flex gap-2 mb-4">
+        <input type="hidden" name="productId" value="<%= product.ProductId %>">
+        <input type="number" name="qty" value="1" min="1" max="99" class="form-control" style="max-width:6rem" <%= product.QtyAvailable <= 0 ? 'disabled' : '' %>>
+        <button class="btn btn-primary flex-grow-1" <%= product.QtyAvailable <= 0 ? 'disabled' : '' %>>
+          <i class="bi bi-cart-plus"></i> Thêm vào giỏ
+        </button>
+      </form>
+    <% } else if (!currentUser) { %>
+      <a href="/auth/login" class="btn btn-primary mb-4"><i class="bi bi-cart-plus"></i> Đăng nhập để mua</a>
+    <% } %>
+
+    <% if (attributes.length) { %>
+    <div class="card">
+      <div class="card-header">Thông số kỹ thuật</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <tbody>
+            <% attributes.forEach(function (a) { %>
+              <tr><th class="text-muted fw-normal" style="width:40%"><%= a.AttrName %></th><td><%= a.AttrValue %><%= a.Unit ? ' ' + a.Unit : '' %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% } %>
+  </div>
+</div>
