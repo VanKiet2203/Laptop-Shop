@@ -1,0 +1,87 @@
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Sổ địa chỉ giao hàng</h1>
+    <p class="text-muted mb-0">Địa chỉ mặc định được chọn trước khi thanh toán; bạn có thể đổi lại ở bước đặt hàng.</p>
+  </div>
+  <a href="/account" class="btn btn-outline-secondary"><i class="bi bi-person"></i> Hồ sơ</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Thêm địa chỉ</h2>
+        <form method="post" action="/account/addresses" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="address-receiver-name">Tên người nhận</label>
+            <input id="address-receiver-name" name="receiverName" class="form-control" maxlength="100" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="address-receiver-phone">Số điện thoại người nhận</label>
+            <input id="address-receiver-phone" name="receiverPhone" type="tel" class="form-control" maxlength="15" pattern="0[0-9]{9,10}" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="address-line">Số nhà, tên đường</label>
+            <input id="address-line" name="addressLine" class="form-control" maxlength="200" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="address-ward">Phường/Xã <span class="text-muted">(tuỳ chọn)</span></label>
+            <input id="address-ward" name="ward" class="form-control" maxlength="100">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="address-district">Quận/Huyện <span class="text-muted">(tuỳ chọn)</span></label>
+            <input id="address-district" name="district" class="form-control" maxlength="100">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="address-province">Tỉnh/Thành phố</label>
+            <input id="address-province" name="province" class="form-control" maxlength="100" required>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input id="address-is-default" name="isDefault" value="1" type="checkbox" class="form-check-input">
+              <label class="form-check-label" for="address-is-default">Đặt làm địa chỉ mặc định</label>
+            </div>
+            <div class="form-text">Địa chỉ đầu tiên sẽ tự động trở thành địa chỉ mặc định.</div>
+          </div>
+          <div class="col-12"><button class="btn btn-primary" type="submit">Thêm địa chỉ</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <% if (!addresses.length) { %>
+      <div class="card"><div class="card-body text-center text-muted py-5">
+        <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>
+        Bạn chưa lưu địa chỉ giao hàng nào.
+      </div></div>
+    <% } else { %>
+      <div class="d-flex flex-column gap-3">
+        <% addresses.forEach(function (address) { %>
+          <article class="card">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="fw-semibold"><%= address.ReceiverName %> <span class="text-muted fw-normal">· <%= address.ReceiverPhone %></span></div>
+                  <div><%= address.AddressLine %></div>
+                  <div class="text-muted"><%= [address.Ward, address.District, address.Province].filter(Boolean).join(', ') %></div>
+                </div>
+                <% if (address.IsDefault) { %><span class="badge text-bg-primary">Mặc định</span><% } %>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <% if (!address.IsDefault) { %>
+                  <form method="post" action="/account/addresses/<%= address.AddressId %>/default">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Đặt làm mặc định</button>
+                  </form>
+                <% } %>
+                <form method="post" action="/account/addresses/<%= address.AddressId %>/delete" onsubmit="return confirm('Bạn có chắc muốn xoá địa chỉ này?')">
+                  <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Xoá địa chỉ của <%= address.ReceiverName %>"><i class="bi bi-trash"></i> Xoá</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>

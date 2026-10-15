@@ -61,6 +61,47 @@
         </table>
       </div>
     </div>
+
+    <% if (compatibilityGroups.length) { %>
+    <section class="mt-4" aria-labelledby="compatible-components-heading">
+      <div class="d-flex align-items-end justify-content-between gap-2 mb-3">
+        <div>
+          <h2 id="compatible-components-heading" class="h5 mb-1">Linh kiện tương thích</h2>
+          <p class="small text-muted mb-0">Gợi ý theo chuẩn RAM/SSD và khả năng nâng cấp của sản phẩm.</p>
+        </div>
+      </div>
+
+      <% compatibilityGroups.forEach(function (group) { %>
+      <div class="mb-4">
+        <h3 class="h6 mb-2"><%= group.categoryName %></h3>
+        <div class="row row-cols-2 row-cols-md-4 g-3">
+          <% group.products.forEach(function (component) { %>
+          <div class="col">
+            <div class="card h-100 product-card">
+              <img src="<%= component.PrimaryImage || '/images/placeholder.svg' %>"
+                   class="card-img-top p-3"
+                   alt="<%= component.ProductName %>"
+                   loading="lazy">
+              <div class="card-body d-flex flex-column">
+                <div class="small text-muted"><%= component.BrandName %></div>
+                <a class="stretched-link text-decoration-none text-dark fw-semibold"
+                   href="/products/<%= component.Slug %>"><%= component.ProductName %></a>
+                <div class="small text-muted part-no mt-1"><%= component.Sku %></div>
+                <div class="mt-auto pt-2">
+                  <div class="text-danger fw-bold tabular-nums"><%= fmtMoney(component.SalePrice) %></div>
+                  <div class="small <%= component.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>">
+                    <%= component.QtyAvailable > 0 ? 'Còn ' + component.QtyAvailable + ' sản phẩm' : 'Hết hàng' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+      </div>
+      <% }) %>
+    </section>
+    <% } %>
     <% } %>
   </div>
 </div>

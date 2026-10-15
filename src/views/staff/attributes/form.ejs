@@ -1,0 +1,30 @@
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="<%= action %>" class="row g-3">
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="attribute-code">Mã thuộc tính <span class="text-danger">*</span></label>
+        <input id="attribute-code" name="attrCode" class="form-control text-uppercase" maxlength="40" pattern="[A-Za-z0-9_]+" required value="<%= attribute.AttrCode || '' %>">
+        <div class="form-text">Ví dụ: RAM_TYPE, SSD_INTERFACE.</div>
+      </div>
+      <div class="col-12 col-md-5">
+        <label class="form-label" for="attribute-name">Tên hiển thị <span class="text-danger">*</span></label>
+        <input id="attribute-name" name="attrName" class="form-control" maxlength="100" required value="<%= attribute.AttrName || '' %>">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label" for="attribute-unit">Đơn vị</label>
+        <input id="attribute-unit" name="unit" class="form-control" maxlength="20" value="<%= attribute.Unit || '' %>" placeholder="GB, Hz, kg...">
+      </div>
+      <div class="col-12">
+        <div class="form-check">
+          <input id="attribute-filterable" type="checkbox" class="form-check-input" name="isFilterable" value="1" <%= attribute.IsFilterable ? 'checked' : '' %>>
+          <label class="form-check-label" for="attribute-filterable">Cho phép khách dùng thuộc tính này để lọc sản phẩm</label>
+        </div>
+        <div class="form-text">Bộ lọc storefront sẽ được hoàn thiện ở phần cửa hàng.</div>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">Lưu thuộc tính</button>
+        <a href="/staff/attributes" class="btn btn-outline-secondary">Quay lại</a>
+      </div>
+    </form>
+  </div>
+</div>
