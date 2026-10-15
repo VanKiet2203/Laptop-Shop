@@ -21,6 +21,7 @@
               <ul class="dropdown-menu dropdown-menu-end">
                 <% if (currentUser.role === 'CUSTOMER') { %>
                   <li><a class="dropdown-item" href="/account">Hồ sơ của tôi</a></li>
+                  <li><a class="dropdown-item" href="/account/addresses">Sổ địa chỉ</a></li>
                   <li><a class="dropdown-item" href="/orders">Đơn hàng của tôi</a></li>
                 <% } else { %>
                   <li><a class="dropdown-item" href="<%= { ADMIN: '/admin', SALES: '/staff', WAREHOUSE: '/warehouse' }[currentUser.role] %>">Vào khu quản lý</a></li>

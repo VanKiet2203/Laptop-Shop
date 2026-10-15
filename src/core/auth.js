@@ -14,9 +14,8 @@ function goToLogin(req, res) {
 }
 
 /**
- * Không chỉ kiểm tra session còn hay không: đối chiếu lại IsActive/vai trò với DB mỗi request.
- * Nếu tài khoản bị khoá hoặc đổi vai trò sau khi đăng nhập, phiên cũ bị thu hồi ngay (vấn đề #5
- * trong báo cáo rà soát: "quyền và trạng thái tài khoản đã đăng nhập không được kiểm tra lại").
+ * Đối chiếu trạng thái, role và permissions với DB trên mọi request để thay đổi quyền
+ * có hiệu lực ngay mà không phải chờ người dùng đăng nhập lại.
  */
 const requireLogin = wrap(async (req, res, next) => {
   if (!req.session.user) return goToLogin(req, res);
@@ -25,11 +24,8 @@ const requireLogin = wrap(async (req, res, next) => {
   if (!state || !state.IsActive) {
     return req.session.destroy(() => goToLogin(req, res));
   }
-  if (state.RoleCode !== req.session.user.role) {
-    // Vai trò đã đổi: nạp lại quyền mới nhất thay vì dùng permissions cũ trong session.
-    req.session.user.role = state.RoleCode;
-    req.session.user.permissions = await Account.getPermissions(state.RoleId);
-  }
+  req.session.user.role = state.RoleCode;
+  req.session.user.permissions = state.permissions;
   return next();
 });
 

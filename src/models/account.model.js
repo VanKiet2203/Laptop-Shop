@@ -19,21 +19,41 @@ exports.findForLogin = async (username) =>
   (await db.queryOne(`${LOGIN_SELECT} WHERE a.Username = @username`, { username }))
   || db.queryOne(`${LOGIN_SELECT} WHERE a.Email = @username`, { username });
 
-exports.getPermissions = async (roleId) =>
-  (await db.query(
+exports.getPermissions = async (roleId, transaction = null) => {
+  const query = transaction ? transaction.query : db.query;
+  return (await query(
     `SELECT p.PermCode FROM dbo.RolePermissions rp JOIN dbo.Permissions p ON p.PermissionId = rp.PermissionId WHERE rp.RoleId = @roleId`,
     { roleId })).map((r) => r.PermCode);
+};
 
 exports.touchLastLogin = (accountId) =>
   db.query('UPDATE dbo.Accounts SET LastLoginAt = SYSDATETIME() WHERE AccountId = @accountId', { accountId });
 
 /**
- * Trạng thái mới nhất của tài khoản (IsActive, vai trò) để middleware auth kiểm tra lại
- * mỗi request - đảm bảo khoá tài khoản/đổi quyền có hiệu lực ngay với phiên đã đăng nhập,
- * không phải chờ khách đăng nhập lại.
+ * Trạng thái và quyền mới nhất của tài khoản để middleware auth kiểm tra lại mỗi request.
  */
-exports.getAuthState = (accountId) => db.queryOne(
-  `SELECT a.IsActive, r.RoleId, r.RoleCode FROM dbo.Accounts a JOIN dbo.Roles r ON r.RoleId = a.RoleId WHERE a.AccountId = @accountId`,
-  { accountId });
+exports.getAuthState = async (accountId) => {
+  const rows = await db.query(
+    `SELECT a.IsActive, r.RoleId, r.RoleCode, p.PermCode
+     FROM dbo.Accounts a
+     JOIN dbo.Roles r ON r.RoleId = a.RoleId
+     LEFT JOIN dbo.RolePermissions rp ON rp.RoleId = r.RoleId
+     LEFT JOIN dbo.Permissions p ON p.PermissionId = rp.PermissionId
+     WHERE a.AccountId = @accountId
+     ORDER BY p.PermCode`,
+    { accountId });
+  if (!rows.length) return null;
+
+  const state = {
+    IsActive: rows[0].IsActive,
+    RoleId: rows[0].RoleId,
+    RoleCode: rows[0].RoleCode,
+    permissions: [],
+  };
+  for (const row of rows) {
+    if (row.PermCode != null) state.permissions.push(row.PermCode);
+  }
+  return state;
+};
 
 // TODO (M1): list(), findById(), create(), update(), setActive(), resetPassword(), remove() cho trang Admin > Người dùng

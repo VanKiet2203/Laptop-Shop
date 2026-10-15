@@ -1,0 +1,51 @@
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0">Danh mục được tổ chức theo cây; danh mục đang được tham chiếu không thể xoá.</p>
+  <a href="/staff/categories/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm danh mục</a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Mã</th>
+        <th>Danh mục</th>
+        <th>Slug</th>
+        <th class="text-end">Thứ tự</th>
+        <th class="text-end">Sản phẩm</th>
+        <th class="text-end">Danh mục con</th>
+        <th class="text-end">Luật tương thích</th>
+        <th>Trạng thái</th>
+        <th class="text-end">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% categories.forEach(function (category) { %>
+        <tr>
+          <td><span class="part-no">#<%= category.CategoryId %></span></td>
+          <td>
+            <span class="text-muted" aria-hidden="true"><%= '- '.repeat(Math.min(category.Level, 8)) %></span><%= category.CategoryName %>
+          </td>
+          <td><span class="part-no"><%= category.Slug %></span></td>
+          <td class="text-end tabular-nums"><%= category.SortOrder %></td>
+          <td class="text-end tabular-nums"><%= category.ProductCount %></td>
+          <td class="text-end tabular-nums"><%= category.ChildCount %></td>
+          <td class="text-end tabular-nums"><%= category.RuleCount %></td>
+          <td><span class="badge text-bg-<%= category.IsActive ? 'success' : 'secondary' %>"><%= category.IsActive ? 'Đang dùng' : 'Ngừng' %></span></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/staff/categories/<%= category.CategoryId %>/edit">Sửa</a>
+            <% if (category.ProductCount || category.ChildCount || category.RuleCount) { %>
+              <button class="btn btn-sm btn-outline-secondary" type="button" disabled aria-label="Danh mục đang được tham chiếu, không thể xoá">Đang dùng</button>
+            <% } else { %>
+              <form class="d-inline" method="post" action="/staff/categories/<%= category.CategoryId %>/delete" onsubmit="return confirm('Xoá danh mục này?')">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!categories.length) { %>
+        <tr><td colspan="9" class="text-center text-muted py-4">Chưa có danh mục nào.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>

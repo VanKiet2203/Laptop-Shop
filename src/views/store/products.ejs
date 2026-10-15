@@ -12,7 +12,9 @@
     { v: '20000000-30000000', label: '20 - 30 triệu' },
     { v: '30000000-', label: 'Trên 30 triệu' },
   ];
-  const currentRange = (filters.minPrice || filters.maxPrice) ? `${filters.minPrice || ''}-${filters.maxPrice || ''}` : '';
+  const currentRange = (filters.minPrice != null || filters.maxPrice != null)
+    ? `${filters.minPrice == null ? '' : filters.minPrice}-${filters.maxPrice == null ? '' : filters.maxPrice}`
+    : '';
 %>
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">

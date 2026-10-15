@@ -13,15 +13,25 @@ Khu vực: `/admin`, `/warehouse`, `/auth`.
 ## Module 2 - Danh mục & Cửa hàng
 Khu vực: `/` (công khai), `/staff/products|categories|brands|attributes`.
 - Cửa hàng: danh sách sản phẩm (tìm/lọc/sắp xếp/phân trang), chi tiết sản phẩm, gợi ý linh kiện tương thích.
-- Quản lý (NV bán hàng): CRUD sản phẩm, danh mục, thuộc tính kỹ thuật.
+- Quản lý (NV bán hàng): CRUD sản phẩm, danh mục, thương hiệu và thuộc tính kỹ thuật.
+- Mọi thao tác ghi của Module 2 phải ghi `AuditLogs` trong cùng transaction; lỗi ghi audit làm rollback thao tác nghiệp vụ.
+- Không cho ngừng thương hiệu khi còn sản phẩm đang bán; thao tác ngừng thương hiệu và tạo/sửa sản phẩm khóa cùng bản ghi thương hiệu trong transaction để tránh race condition.
+- Cây danh mục giới hạn tối đa 100 cấp; tạo mới hoặc di chuyển cả nhánh vượt giới hạn bị từ chối.
+- Kiểm thử tự động catalog, storefront và toàn bộ test hiện có: `node --test`.
 - File: `routes/{store,staff-catalog}.routes.js`, `controllers/{store,staff}/{home,product,category,brand,attribute}`, `models/{product,category,brand,attribute}.model.js`, `views/{store,staff/products,...}`.
 - Đã có sẵn: trang chủ, **CRUD Thương hiệu hoàn chỉnh làm mẫu**.
+- Gợi ý linh kiện tương thích dùng `CompatibilityRules`, chỉ khớp thuộc tính kỹ thuật tương ứng; RAM chỉ gợi ý khi laptop có `RAM_UPGRADABLE = 'Có'`. Kết quả được nhóm theo danh mục và ưu tiên sản phẩm còn hàng.
 
 ## Module 3 - Khách mua hàng
 Khu vực: `/register /account /cart /checkout /orders`.
 - Đăng ký, hồ sơ + sổ địa chỉ, giỏ hàng, thanh toán, đặt hàng, lịch sử đơn, huỷ đơn.
 - File: `routes/customer.routes.js`, `controllers/customer/`, `models/{customer,cart,checkout,customerOrder}.model.js`, `views/customer/`.
 - Phụ thuộc M2 (trang sản phẩm gọi `POST /cart/add`); có thể test tạm bằng form riêng trong lúc chờ.
+- Kiểm thử tự động luồng đăng ký/audit: `node --test src/controllers/customer/register.controller.test.js`.
+
+## Xác thực và phân quyền
+- Mỗi request đã đăng nhập tải lại trạng thái tài khoản, vai trò và danh sách quyền hiện hành; thay đổi quyền của cùng một vai trò có hiệu lực ngay trong request tiếp theo.
+- Kiểm thử middleware và truy vấn quyền: `node --test src/core/auth.test.js`.
 
 ## Module 4 - Đơn hàng, hoá đơn & báo cáo
 Khu vực: `/staff` (tổng quan), `/staff/orders|invoices|reports|warranty`.
