@@ -36,4 +36,5 @@ exports.getAuthState = (accountId) => db.queryOne(
   `SELECT a.IsActive, r.RoleId, r.RoleCode FROM dbo.Accounts a JOIN dbo.Roles r ON r.RoleId = a.RoleId WHERE a.AccountId = @accountId`,
   { accountId });
 
-// TODO (M1): list(), findById(), create(), update(), setActive(), resetPassword(), remove() cho trang Admin > Người dùng
+  
+// TODO (M1): list(), findById(), create(), update(), setActive(), resetPassword(), remove()  cho trang Admin > Người dùng

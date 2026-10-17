@@ -182,7 +182,10 @@ BEGIN
     DECLARE @RName NVARCHAR(100), @RPhone VARCHAR(15), @Addr NVARCHAR(400);
     DECLARE @Seq INT, @SeqStr VARCHAR(10), @OrderNo VARCHAR(20);
 
-    SELECT @CartId = CartId FROM dbo.Carts WHERE CustomerId = @CustomerId;
+    -- Khoá giỏ cho đến khi transaction đặt hàng kết thúc.
+    SELECT @CartId = CartId
+    FROM dbo.Carts WITH (UPDLOCK, HOLDLOCK)
+    WHERE CustomerId = @CustomerId;
     IF @CartId IS NULL THROW 50020, N'Giỏ hàng trống.', 1;
 
     -- Khoá và SAO CHỤP toàn bộ dòng giỏ hàng (+ giá/tồn sản phẩm liên quan) NGAY TỪ ĐẦU giao dịch,
@@ -385,6 +388,15 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Customers c WHERE c.CustomerId = @OrderCustomerId AND c.AccountId = @AccountId)
        AND NOT EXISTS (SELECT 1 FROM dbo.Employees e WHERE e.AccountId = @AccountId)
         THROW 50038, N'Không có quyền huỷ đơn hàng này.', 1;
+        -- Khách chỉ được huỷ đơn của mình khi đang chờ duyệt.
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.Customers
+        WHERE CustomerId = @OrderCustomerId
+          AND AccountId = @AccountId
+    )
+    AND @Status <> 'Pending'
+        THROW 50064, N'Khách chỉ được huỷ đơn đang chờ duyệt.', 1;
 
     IF @Status = 'Pending'
     BEGIN

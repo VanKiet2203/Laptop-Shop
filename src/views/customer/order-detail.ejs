@@ -1,0 +1,211 @@
+<% const ord = typeof order !== 'undefined' ? order : (typeof orderDetails !== 'undefined' ? orderDetails : {}); %>
+<% const stInfo = (typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[ord.Status]) ? ORDER_STATUS[ord.Status] : { label: ord.Status, cls: 'secondary' }; %>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+  <div class="d-flex align-items-center gap-2">
+    <a href="/orders" class="btn btn-outline-secondary btn-sm me-2">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="h4 mb-0 d-flex align-items-center gap-2">
+        <span>Chi tiết đơn hàng</span>
+        <span class="part-no text-primary">#<%= ord.OrderNo %></span>
+      </h1>
+      <div class="text-muted small mt-1">
+        <i class="bi bi-calendar3 me-1"></i>Đặt ngày <%= fmtDateTime(ord.CreatedAt) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge text-bg-<%= stInfo.cls %> fs-6 px-3 py-2">
+      <%= stInfo.label %>
+    </span>
+
+    <% if (ord.Status === 'Pending') { %>
+      <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalCancelOrder">
+        <i class="bi bi-x-circle me-1"></i>Huỷ đơn hàng
+      </button>
+    <% } %>
+  </div>
+</div>
+
+<% if (ord.Status === 'Cancelled' && ord.CancelReason) { %>
+  <div class="alert alert-danger d-flex align-items-center gap-2 mb-4">
+    <i class="bi bi-info-circle-fill fs-5"></i>
+    <div>
+      <strong>Đơn hàng đã bị huỷ:</strong> <%= ord.CancelReason %>
+    </div>
+  </div>
+<% } %>
+
+<div class="row g-4">
+  <!-- Cột trái: Thông tin giao hàng & Danh sách sản phẩm -->
+  <div class="col-lg-8">
+    <!-- Địa chỉ nhận hàng -->
+    <div class="card mb-4 border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0 text-dark"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Thông tin nhận hàng</h2>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="text-muted small">Người nhận</div>
+            <div class="fw-bold text-dark"><%= ord.ReceiverName %></div>
+          </div>
+          <div class="col-md-6">
+            <div class="text-muted small">Số điện thoại</div>
+            <div class="fw-bold text-dark"><%= ord.ReceiverPhone %></div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">Địa chỉ giao hàng</div>
+            <div class="text-dark"><%= ord.ShippingAddress %></div>
+          </div>
+          <% if (ord.Note) { %>
+            <div class="col-12">
+              <div class="text-muted small">Ghi chú của khách</div>
+              <div class="fst-italic text-secondary small bg-light p-2 rounded"><%= ord.Note %></div>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách sản phẩm -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0 text-dark"><i class="bi bi-laptop text-primary me-2"></i>Danh sách sản phẩm</h2>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light small">
+              <tr>
+                <th class="ps-4">Sản phẩm</th>
+                <th class="text-end">Đơn giá</th>
+                <th class="text-center">Số lượng</th>
+                <th class="text-center">Bảo hành</th>
+                <th class="text-end pe-4">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (ord.items && ord.items.length) { %>
+                <% ord.items.forEach(function(item) { %>
+                  <tr>
+                    <td class="ps-4 py-3">
+                      <div class="d-flex align-items-center gap-3">
+                        <img src="<%= item.PrimaryImage || '/images/placeholder.svg' %>" alt="<%= item.ProductName %>" style="width:52px;height:52px;object-fit:contain" class="rounded border p-1 bg-white">
+                        <div>
+                          <a href="/products/<%= item.Slug %>" class="text-dark fw-semibold text-decoration-none small d-block">
+                            <%= item.ProductName %>
+                          </a>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-end tabular-nums small"><%= fmtMoney(item.UnitPrice) %></td>
+                    <td class="text-center small"><%= item.Quantity %></td>
+                    <td class="text-center small">
+                      <span class="badge text-bg-light border text-muted"><%= item.WarrantyMonths || 12 %> tháng</span>
+                    </td>
+                    <td class="text-end pe-4 fw-semibold tabular-nums small text-dark"><%= fmtMoney(item.LineTotal) %></td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">Không có thông tin chi tiết sản phẩm.</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cột phải: Thanh toán & Tóm tắt tiền -->
+  <div class="col-lg-4">
+    <!-- Phương thức thanh toán -->
+    <div class="card mb-4 border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0 text-dark"><i class="bi bi-wallet2 text-primary me-2"></i>Thanh toán</h2>
+      </div>
+      <div class="card-body p-4 small">
+        <div class="mb-2">
+          <span class="text-muted">Hình thức:</span>
+          <span class="fw-semibold text-dark ms-1"><%= ord.PaymentMethod %></span>
+        </div>
+        <div>
+          <span class="text-muted">Trạng thái:</span>
+          <% if (ord.PaymentStatus === 'Paid') { %>
+            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 ms-1">Đã thanh toán</span>
+          <% } else { %>
+            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 ms-1">Chờ thanh toán</span>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tóm tắt số tiền -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0 text-dark"><i class="bi bi-receipt me-2"></i>Tổng kết thanh toán</h2>
+      </div>
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between mb-2 small">
+          <span class="text-muted">Tiền hàng:</span>
+          <span class="fw-semibold tabular-nums"><%= fmtMoney(ord.Subtotal) %></span>
+        </div>
+
+        <% if (ord.DiscountAmount && ord.DiscountAmount > 0) { %>
+          <div class="d-flex justify-content-between mb-2 small text-success">
+            <span>Giảm giá voucher <%= ord.PromoCode ? '(' + ord.PromoCode + ')' : '' %>:</span>
+            <span class="fw-semibold tabular-nums">-<%= fmtMoney(ord.DiscountAmount) %></span>
+          </div>
+        <% } %>
+
+        <div class="d-flex justify-content-between mb-2 small">
+          <span class="text-muted">Phí vận chuyển:</span>
+          <span class="fw-semibold tabular-nums"><%= ord.ShippingFee === 0 ? 'Miễn phí' : fmtMoney(ord.ShippingFee) %></span>
+        </div>
+
+        <div class="d-flex justify-content-between mb-3 small">
+          <span class="text-muted">Thuế VAT:</span>
+          <span class="fw-semibold tabular-nums"><%= fmtMoney(ord.VatAmount) %></span>
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="fs-6 fw-bold text-dark">Tổng cộng:</span>
+          <span class="fs-4 fw-bold text-danger tabular-nums"><%= fmtMoney(ord.TotalAmount) %></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal xác nhận Huỷ đơn -->
+<% if (ord.Status === 'Pending') { %>
+  <div class="modal fade" id="modalCancelOrder" tabindex="-1" aria-labelledby="modalCancelOrderLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="/orders/<%= ord.OrderId %>/cancel">
+          <div class="modal-header">
+            <h5 class="modal-title h6 fw-bold" id="modalCancelOrderLabel"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Xác nhận huỷ đơn hàng #<%= ord.OrderNo %></h5>
+            <button type="button" class="btn-close" data-bs-toggle="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted mb-3">Đơn hàng đang chờ duyệt. Sau khi huỷ, số lượng sản phẩm sẽ được nhả lại cho kho.</p>
+            <label class="form-label small fw-semibold" for="cancel-reason">Lý do huỷ đơn</label>
+            <textarea id="cancel-reason" name="reason" class="form-control" rows="3" placeholder="Nhập lý do bạn muốn huỷ đơn (tuỳ chọn)..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+            <button type="submit" class="btn btn-danger btn-sm">Xác nhận huỷ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+<% } %>
+

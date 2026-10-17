@@ -1,0 +1,251 @@
+<h1 class="h4 mb-4"><i class="bi bi-credit-card-2-front text-primary me-2"></i>Thanh toán & Đặt hàng</h1>
+
+<% const itemsList = typeof items !== 'undefined' ? items : (typeof checkoutData !== 'undefined' && checkoutData.items ? checkoutData.items : []); %>
+<% const addrList = typeof addresses !== 'undefined' ? addresses : (typeof checkoutData !== 'undefined' && checkoutData.addresses ? checkoutData.addresses : []); %>
+<% const sub = typeof subtotal !== 'undefined' ? subtotal : (typeof checkoutData !== 'undefined' ? checkoutData.subtotal : 0); %>
+<% const ship = typeof shippingFee !== 'undefined' ? shippingFee : (typeof checkoutData !== 'undefined' ? checkoutData.shippingFee : 0); %>
+<% const vat = typeof vatAmount !== 'undefined' ? vatAmount : (typeof checkoutData !== 'undefined' ? checkoutData.vatAmount : 0); %>
+<% const total = typeof totalAmount !== 'undefined' ? totalAmount : (typeof checkoutData !== 'undefined' ? checkoutData.totalAmount : 0); %>
+<% const pMethods = typeof paymentMethods !== 'undefined' ? paymentMethods : (typeof checkoutData !== 'undefined' && checkoutData.paymentMethods ? checkoutData.paymentMethods : [
+  { code: 'COD', name: 'Thanh toán khi nhận hàng (COD)', desc: 'Kiểm tra hàng rồi thanh toán tiền mặt' },
+  { code: 'BankTransfer', name: 'Chuyển khoản ngân hàng', desc: 'Chuyển qua mã VietQR / Internet Banking' },
+  { code: 'Card', name: 'Thẻ tín dụng / Ghi nợ', desc: 'Hỗ trợ thẻ Visa, MasterCard, JCB' },
+  { code: 'Installment', name: 'Trả góp', desc: 'Trả góp thẻ tín dụng 0% lãi suất' }
+]); %>
+
+<form method="post" action="/checkout" id="checkout-form">
+  <div class="row g-4">
+    <!-- Cột trái: Thông tin nhận hàng & Thanh toán -->
+    <div class="col-lg-7">
+      <!-- 1. Chọn địa chỉ nhận hàng -->
+      <div class="card mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0 text-dark"><i class="bi bi-geo-alt-fill text-danger me-2"></i>1. Địa chỉ nhận hàng</h2>
+          <a href="/account/addresses" target="_blank" class="small text-decoration-none fw-semibold">
+            <i class="bi bi-plus-lg me-1"></i>Thêm địa chỉ mới
+          </a>
+        </div>
+        <div class="card-body p-4">
+          <% if (!addrList || !addrList.length) { %>
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>Bạn chưa có địa chỉ nhận hàng nào.
+              <div class="mt-2">
+                <a href="/account/addresses" class="btn btn-sm btn-primary">Tạo địa chỉ ngay</a>
+              </div>
+            </div>
+          <% } else { %>
+            <div class="d-flex flex-column gap-3">
+              <% addrList.forEach(function(addr, index) { %>
+                <label class="card p-3 border cursor-pointer address-card <%= (addr.IsDefault || index === 0) ? 'border-primary bg-primary bg-opacity-10' : '' %>" style="cursor:pointer">
+                  <div class="d-flex align-items-start gap-3">
+                    <input class="form-check-input mt-1" type="radio" name="addressId" value="<%= addr.AddressId %>" <%= (addr.IsDefault || index === 0) ? 'checked' : '' %> required>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center gap-2 mb-1">
+                        <strong class="text-dark"><%= addr.ReceiverName %></strong>
+                        <span class="text-muted">|</span>
+                        <span class="text-muted"><%= addr.ReceiverPhone %></span>
+                        <% if (addr.IsDefault) { %>
+                          <span class="badge bg-primary ms-1">Mặc định</span>
+                        <% } %>
+                      </div>
+                      <div class="small text-secondary">
+                        <%= [addr.AddressLine, addr.Ward, addr.District, addr.Province].filter(Boolean).join(', ') %>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- 2. Phương thức thanh toán -->
+      <div class="card mb-4">
+        <div class="card-header bg-white py-3">
+          <h2 class="h6 mb-0 text-dark"><i class="bi bi-wallet2 text-primary me-2"></i>2. Phương thức thanh toán</h2>
+        </div>
+        <div class="card-body p-4">
+          <div class="d-flex flex-column gap-3">
+            <% pMethods.forEach(function(pm, index) { %>
+              <label class="card p-3 border payment-card <%= index === 0 ? 'border-primary bg-primary bg-opacity-10' : '' %>" style="cursor:pointer">
+                <div class="d-flex align-items-start gap-3">
+                  <input class="form-check-input mt-1" type="radio" name="paymentMethod" value="<%= pm.code %>" <%= index === 0 ? 'checked' : '' %> required>
+                  <div>
+                    <div class="fw-semibold text-dark"><%= pm.name %></div>
+                    <div class="small text-muted"><%= pm.desc %></div>
+                  </div>
+                </div>
+              </label>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Ghi chú đơn hàng -->
+      <div class="card mb-4">
+        <div class="card-header bg-white py-3">
+          <h2 class="h6 mb-0 text-dark"><i class="bi bi-chat-left-text me-2"></i>3. Ghi chú giao hàng (tuỳ chọn)</h2>
+        </div>
+        <div class="card-body p-4">
+          <textarea name="note" class="form-control" rows="2" placeholder="Ví dụ: Giao hàng vào giờ hành chính, gọi trước khi giao 15 phút..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cột phải: Tóm tắt đơn hàng & Tổng tiền -->
+    <div class="col-lg-5">
+      <div class="card sticky-top" style="top:5rem">
+        <div class="card-header bg-white py-3">
+          <h2 class="h6 mb-0 text-dark"><i class="bi bi-bag-check me-2"></i>Đơn hàng của bạn (<%= itemsList.length %> sản phẩm)</h2>
+        </div>
+        <div class="card-body p-4">
+          <!-- Danh sách món -->
+          <div class="d-flex flex-column gap-3 mb-4 pe-1" style="max-height: 280px; overflow-y: auto;">
+            <% itemsList.forEach(function(item) { %>
+              <div class="d-flex align-items-center gap-3 pb-2 border-bottom">
+                <img src="<%= item.PrimaryImage || '/images/placeholder.svg' %>" alt="<%= item.ProductName %>" style="width:52px;height:52px;object-fit:contain" class="rounded border p-1 bg-white">
+                <div class="flex-grow-1">
+                  <div class="fw-semibold small text-truncate" style="max-width:200px;" title="<%= item.ProductName %>">
+                    <%= item.ProductName %>
+                  </div>
+                  <div class="small text-muted">SL: <%= item.Quantity %> &times; <span class="tabular-nums"><%= fmtMoney(item.SalePrice) %></span></div>
+                </div>
+                <div class="text-end fw-semibold small tabular-nums">
+                  <%= fmtMoney(item.Quantity * item.SalePrice) %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+
+          <!-- Áp dụng mã giảm giá -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold small" for="promo-input">Mã khuyến mãi / Voucher</label>
+            <div class="input-group">
+              <input type="text" id="promo-input" name="promoCode" class="form-control" placeholder="Nhập mã voucher (nếu có)">
+              <button class="btn btn-outline-primary" type="button" id="btn-apply-promo">Áp dụng</button>
+            </div>
+            <div id="promo-msg" class="small mt-1"></div>
+          </div>
+
+          <!-- Bảng tính tiền chi tiết -->
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Tạm tính:</span>
+            <span class="fw-semibold tabular-nums" id="summary-subtotal"><%= fmtMoney(sub) %></span>
+          </div>
+
+          <div class="d-flex justify-content-between mb-2 small text-success" id="row-discount" style="display:none !important">
+            <span>Giảm giá voucher:</span>
+            <span class="fw-semibold tabular-nums" id="summary-discount">-0 ₫</span>
+          </div>
+
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Phí vận chuyển:</span>
+            <span class="fw-semibold tabular-nums" id="summary-shipping"><%= ship === 0 ? 'Miễn phí' : fmtMoney(ship) %></span>
+          </div>
+
+          <div class="d-flex justify-content-between mb-3 small">
+            <span class="text-muted">Thuế VAT (10%):</span>
+            <span class="fw-semibold tabular-nums" id="summary-vat"><%= fmtMoney(vat) %></span>
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <span class="fs-6 fw-bold text-dark">Tổng thanh toán:</span>
+            <span class="fs-4 fw-bold text-danger tabular-nums" id="summary-total"><%= fmtMoney(total) %></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg w-100 py-3 shadow-sm d-flex align-items-center justify-content-center gap-2" <%= (!addrList || !addrList.length) ? 'disabled' : '' %>>
+            <span>Xác nhận đặt hàng</span>
+            <i class="bi bi-arrow-right"></i>
+          </button>
+          
+          <div class="text-center mt-3">
+            <a href="/cart" class="text-muted small text-decoration-none">
+              <i class="bi bi-arrow-left me-1"></i>Quay lại giỏ hàng
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+  // Hiệu ứng chọn radio card
+  document.querySelectorAll('input[name="addressId"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('.address-card').forEach(function(c) {
+        c.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+      });
+      if (this.checked) {
+        this.closest('.address-card').classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+      }
+    });
+  });
+
+  document.querySelectorAll('input[name="paymentMethod"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('.payment-card').forEach(function(c) {
+        c.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+      });
+      if (this.checked) {
+        this.closest('.payment-card').classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+      }
+    });
+  });
+
+  // Áp dụng voucher bằng fetch
+  const btnPromo = document.getElementById('btn-apply-promo');
+  const inputPromo = document.getElementById('promo-input');
+  const promoMsg = document.getElementById('promo-msg');
+  const currentSubtotal = <%= sub %>;
+
+  function fmtMoneyJS(n) {
+    return new Intl.NumberFormat('vi-VN').format(Math.round(Number(n))) + ' ₫';
+  }
+
+  btnPromo.addEventListener('click', async function() {
+    const code = inputPromo.value.trim();
+    if (!code) {
+      promoMsg.className = 'small text-danger mt-1';
+      promoMsg.textContent = 'Vui lòng nhập mã khuyến mãi.';
+      return;
+    }
+
+    btnPromo.disabled = true;
+    btnPromo.textContent = 'Đang kiểm tra...';
+
+    try {
+      const res = await fetch('/checkout/promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promoCode: code, subtotal: currentSubtotal })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        promoMsg.className = 'small text-success mt-1';
+        promoMsg.textContent = 'Áp dụng mã ' + data.code + ' thành công!';
+        
+        // Cập nhật số tiền
+        const rowDisc = document.getElementById('row-discount');
+        rowDisc.style.removeProperty('display');
+        document.getElementById('summary-discount').textContent = '-' + fmtMoneyJS(data.discountAmount);
+        document.getElementById('summary-vat').textContent = fmtMoneyJS(data.vatAmount);
+        document.getElementById('summary-total').textContent = fmtMoneyJS(data.totalAmount);
+      } else {
+        promoMsg.className = 'small text-danger mt-1';
+        promoMsg.textContent = data.message || 'Mã khuyến mãi không hợp lệ.';
+      }
+    } catch (err) {
+      promoMsg.className = 'small text-danger mt-1';
+      promoMsg.textContent = 'Không thể kiểm tra mã khuyến mãi.';
+    } finally {
+      btnPromo.disabled = false;
+      btnPromo.textContent = 'Áp dụng';
+    }
+  });
+</script>
+

@@ -1,57 +1,66 @@
 // MODULE 3 - KHÁCH MUA HÀNG
 // Chủ sở hữu: Thành viên 3 - Khách mua hàng
 // Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+const Checkout  = require('../../models/checkout.model');
+const Customer  = require('../../models/customer.model');
 
 // GET /checkout
 exports.show = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Thanh toán",
-    "route": "GET /checkout",
-    "tasks": [
-      "Chọn địa chỉ giao, phương thức thanh toán (COD/BankTransfer/Card/Installment), nhập voucher, xem tóm tắt (tiền hàng, giảm giá, ship, VAT)"
-    ],
-    "db": "CustomerAddresses, Promotions",
-    "rubric": "A3",
-    "controller": "src/controllers/customer/checkout.controller.js",
-    "view": "src/views/customer/..."
-  });
+  // tìm checkout từ id tài khoản hoặc id khách hàng 
+  try{
+    const customer = await Customer.findByAccountId(req.session.user.accountId);
+    if (!customer) {
+       req.flash('error', 'Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại.');
+       return res.redirect('/auth/login');
+        } else {
+      const checkoutData = await Checkout.getCheckoutData(customer.CustomerId);
+      if (checkoutData.items.length === 0) {
+         req.flash('error', 'Giỏ hàng trống');
+         return res.redirect('/cart');
+      }
+      return res.render('customer/checkout', { title: 'Khách - Thanh toán', checkoutData });
+    }
+  } catch (error) {
+    return res.status(500).send('Lỗi khi lấy thông tin thanh toán');
+  }
+
+  
 };
 
 // POST /checkout/promo
 exports.checkPromo = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Kiểm tra voucher",
-    "route": "POST /checkout/promo",
-    "tasks": [
-      "Tính trước số tiền giảm (không tăng UsedCount) — logic phải giống sp_PlaceOrderFromCart"
-    ],
-    "db": "Promotions",
-    "rubric": "",
-    "controller": "src/controllers/customer/checkout.controller.js",
-    "view": "src/views/customer/..."
-  });
+  const { promoCode, subtotal } = req.body;
+  if (!subtotal) {
+    return res.status(400).json({ success: false, message: 'Không có tổng tiền hàng' });
+  }
+  try {
+    // Gọi đúng tên previewPromo trong Model
+    const promoData = await Checkout.previewPromo(promoCode, Number(subtotal));
+    return res.json({ success: true, ...promoData });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
 };
+
 
 // POST /checkout
 exports.place = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Đặt hàng",
-    "route": "POST /checkout",
-    "tasks": [
-      "db.exec(\"sp_PlaceOrderFromCart\", { CustomerId, AddressId, PaymentMethod, PromoCode, Note }, { OrderId: db.sql.Int })",
-      "Bắt lỗi nghiệp vụ 50020-50024 (giỏ trống, thiếu tồn, voucher sai...), chuyển tới /orders/:id"
-    ],
-    "db": "sp_PlaceOrderFromCart",
-    "rubric": "A3 mua hàng",
-    "controller": "src/controllers/customer/checkout.controller.js",
-    "view": "src/views/customer/..."
+  try {
+    const orderId = await Checkout.placeOrder({
+  customerId: req.session.user.customerId,
+  addressId: parseInt(req.body.addressId, 10),
+  paymentMethod: req.body.paymentMethod,
+  promoCode: req.body.promoCode || null,
+  note: req.body.note || null,
   });
+  req.session.cartCount = 0; // Reset số lượng trên giỏ hàng
+  req.flash('success', 'Đặt hàng thành công!');
+  res.redirect(`/orders/${orderId}`);
+  } catch (e) {
+    if (e.number >= 50020 && e.number <= 50024) {
+      req.flash('danger', e.message);  
+      return res.redirect('/checkout');
+    }
+    throw e;
+  }
 };

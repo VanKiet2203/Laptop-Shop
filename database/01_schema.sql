@@ -418,7 +418,7 @@ CREATE TABLE dbo.Orders (
     PaidAt          DATETIME2(0)  NULL,           -- Thời điểm thanh toán
     ReceiverName    NVARCHAR(100) NOT NULL,       -- Người nhận (snapshot)
     ReceiverPhone   VARCHAR(15)   NOT NULL,       -- SĐT nhận (snapshot)
-    ShippingAddress NVARCHAR(400) NOT NULL,       -- Địa chỉ giao (snapshot)
+    ShippingAddress NVARCHAR(600) NOT NULL,       -- Địa chỉ giao (snapshot) /// ghép từ AddressLine + Ward + District + Province (tổng 500 ký tự)
     Subtotal        DECIMAL(18,0) NOT NULL,       -- Tổng tiền hàng
     DiscountAmount  DECIMAL(18,0) NOT NULL CONSTRAINT DF_Ord_Disc DEFAULT 0, -- Giảm giá
     ShippingFee     DECIMAL(18,0) NOT NULL CONSTRAINT DF_Ord_Ship DEFAULT 0, -- Phí vận chuyển
@@ -488,7 +488,7 @@ CREATE TABLE dbo.Invoices (
     BuyerName       NVARCHAR(100) NOT NULL,       -- Tên người mua
     BuyerCompany    NVARCHAR(200) NULL,           -- Tên đơn vị (nếu xuất công ty)
     BuyerTaxCode    VARCHAR(20)   NULL,           -- MST người mua
-    BuyerAddress    NVARCHAR(400) NOT NULL,       -- Địa chỉ người mua
+    BuyerAddress    NVARCHAR(600) NOT NULL,       -- Địa chỉ người mua
     SubtotalAmount  DECIMAL(18,0) NOT NULL,       -- Tiền hàng
     DiscountAmount  DECIMAL(18,0) NOT NULL,       -- Giảm giá
     VatAmount       DECIMAL(18,0) NOT NULL,       -- Tiền VAT
