@@ -531,8 +531,7 @@ GO
    có ai đó (hoặc công cụ nào đó) ghi SQL trực tiếp, bỏ qua stored procedure.
    ===================================================================== */
 
--- Categories: không cho một danh mục tự làm cha của chính nó hoặc tạo vòng
--- cha-con nhiều cấp (A -> B -> C -> A).
+-- Categories: chặn vòng cha-con và giới hạn cây tối đa 100 cấp.
 CREATE TRIGGER dbo.trg_Categories_NoCycle ON dbo.Categories
 AFTER INSERT, UPDATE
 AS
@@ -543,7 +542,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM inserted WHERE ParentId = CategoryId)
         THROW 50001, N'Danh mục không thể là cha của chính nó.', 1;
 
-    -- Đi ngược chuỗi cha tối đa 100 cấp; nếu quay lại đúng điểm xuất phát thì có vòng lặp.
+    -- Đi ngược chuỗi cha; nếu quay lại đúng điểm xuất phát thì có vòng lặp.
     -- (CTE phải là câu lệnh riêng - không thể đặt trực tiếp bên trong IF EXISTS(...).)
     ;WITH chain AS (
         SELECT i.CategoryId AS StartId, c.CategoryId, c.ParentId, 1 AS Depth
@@ -559,6 +558,41 @@ BEGIN
         THROW 50002, N'Không thể gán danh mục cha: tạo thành vòng lặp nhiều cấp.', 1;
 
     DROP TABLE #CategoryCycleCheck;
+
+    -- Độ sâu tính từ gốc, bao gồm cả nút gốc. Khi di chuyển một nhánh,
+    -- kiểm tra cả độ sâu tổ tiên và mọi hậu duệ của từng nút vừa thay đổi.
+    ;WITH AncestorChain AS (
+        SELECT i.CategoryId AS StartId, c.CategoryId, c.ParentId, 1 AS Depth
+        FROM inserted i JOIN dbo.Categories c ON c.CategoryId = i.CategoryId
+        UNION ALL
+        SELECT a.StartId, p.CategoryId, p.ParentId, a.Depth + 1
+        FROM AncestorChain a JOIN dbo.Categories p ON p.CategoryId = a.ParentId
+        WHERE a.Depth <= 100
+    ),
+    RootDepth AS (
+        SELECT StartId, MAX(Depth) AS Depth
+        FROM AncestorChain
+        GROUP BY StartId
+    ),
+    DescendantTree AS (
+        SELECT i.CategoryId AS StartId, i.CategoryId, 0 AS Depth
+        FROM inserted i
+        UNION ALL
+        SELECT d.StartId, child.CategoryId, d.Depth + 1
+        FROM DescendantTree d
+        JOIN dbo.Categories child ON child.ParentId = d.CategoryId
+        WHERE d.Depth < 100
+    )
+    SELECT d.StartId INTO #CategoryDepthCheck
+    FROM DescendantTree d
+    JOIN RootDepth r ON r.StartId = d.StartId
+    WHERE r.Depth + d.Depth > 100
+    OPTION (MAXRECURSION 101);
+
+    IF EXISTS (SELECT 1 FROM #CategoryDepthCheck)
+        THROW 50006, N'Cây danh mục không được vượt quá 100 cấp.', 1;
+
+    DROP TABLE #CategoryDepthCheck;
 END
 GO
 

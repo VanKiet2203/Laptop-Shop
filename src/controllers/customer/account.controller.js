@@ -1,175 +1,169 @@
 // MODULE 3 - KHÁCH MUA HÀNG
 // Chủ sở hữu: Thành viên 3 - Khách mua hàng
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const Customer  = require('../../models/customer.model');
+const Customer = require('../../models/customer.model');
+
+function textField(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseAddressId(value) {
+  const id = Number(value);
+  return /^\d+$/.test(String(value)) && Number.isSafeInteger(id) && id > 0 && id <= 2147483647
+    ? id
+    : null;
+}
+
+function profileValues(body) {
+  const values = {
+    fullName: textField(body.fullName),
+    phone: textField(body.phone),
+    email: textField(body.email),
+  };
+  const errors = [];
+  if (!values.fullName) errors.push('Họ tên không được để trống.');
+  else if (values.fullName.length > 100) errors.push('Họ tên không được vượt quá 100 ký tự.');
+  if (!/^0\d{9,10}$/.test(values.phone)) errors.push('Số điện thoại không hợp lệ (bắt đầu bằng 0, 10-11 số).');
+  if (values.email.length > 150) errors.push('Email không được vượt quá 150 ký tự.');
+  else if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.push('Email không hợp lệ.');
+  return { values, errors };
+}
+
+function addressValues(body) {
+  const values = {
+    receiverName: textField(body.receiverName),
+    receiverPhone: textField(body.receiverPhone),
+    addressLine: textField(body.addressLine),
+    ward: textField(body.ward),
+    district: textField(body.district),
+    province: textField(body.province),
+    isDefault: body.isDefault === '1',
+  };
+  const errors = [];
+  if (!values.receiverName) errors.push('Tên người nhận không được để trống.');
+  else if (values.receiverName.length > 100) errors.push('Tên người nhận không được vượt quá 100 ký tự.');
+  if (!/^0\d{9,10}$/.test(values.receiverPhone)) errors.push('Số điện thoại người nhận không hợp lệ.');
+  if (!values.addressLine) errors.push('Địa chỉ không được để trống.');
+  else if (values.addressLine.length > 200) errors.push('Địa chỉ không được vượt quá 200 ký tự.');
+  if (values.ward.length > 100) errors.push('Phường/Xã không được vượt quá 100 ký tự.');
+  if (values.district.length > 100) errors.push('Quận/Huyện không được vượt quá 100 ký tự.');
+  if (!values.province) errors.push('Tỉnh/Thành phố không được để trống.');
+  else if (values.province.length > 100) errors.push('Tỉnh/Thành phố không được vượt quá 100 ký tự.');
+  return { values, errors };
+}
+
+function isUniqueViolation(error) {
+  return error.number === 2627 || error.number === 2601;
+}
 
 // GET /account
-exports.profile = async (req, res) =>{ 
-    try {
-      const customer = await Customer.findById(req.session.user.customerId) || await Customer.findByAccountId(req.session.user.accountId);
-      if (!customer) {
-        return res.status(404).send('Không tìm thấy thông tin khách hàng');
-      }
-      res.render('customer/profile', { title: 'Hồ sơ khách hàng', customer }); 
-    }
-    catch (error) {
-      console.error(error);
-      res.status(500).send('Không kết nối được cơ sở dữ liệu');
-    }
-  };
-
-
-
+exports.profile = async (req, res) => {
+  const profile = await Customer.findByAccountId(req.session.user.accountId);
+  if (!profile) return res.status(404).render('errors/404', { title: 'Không tìm thấy hồ sơ' });
+  return res.render('customer/account', {
+    title: 'Hồ sơ của tôi',
+    profile,
+    values: profile,
+    errors: [],
+  });
+};
 
 // POST /account
 exports.updateProfile = async (req, res) => {
-  // kiểm tra dữ liệu đầu vào (nameCustomer, email, phone, TierId) hợp lệ
-      const nameCustomer = (req.body.nameCustomer||'').trim();
-      const phone = (req.body.phone||'').trim();
-      const email = (req.body.email||'').trim();
-      
-      const erorMessages = [];
-      if (!nameCustomer || !email || !phone ) {
-        return res.status(400).send('Thiếu thông tin bắt buộc');
-      }
-      if (!/^\S+@\S+\.\S+$/.test(email)) {
-        erorMessages.push('Email không hợp lệ');
-      } 
-      if( !/^\d{10,11}$/.test(phone)) {
-        erorMessages.push('Số điện thoại không hợp lệ');
-      }
-      if (erorMessages.length > 0) {
-        return res.status(400).send(erorMessages.join(', '));
-      }
-      // kiểm tra đã có khách hàng này tồn tại chưa (theo email hoặc phone)
-      
-      const customer = await Customer.findById(req.session.user.customerId) || await Customer.findByAccountId(req.session.user.accountId);
-      if (!customer) {
-      return res.status(400).send('Khách hàng không tồn tại với email hoặc số điện thoại này');
-      // có thể làm là thêm mới khách hàng hoặc kiểm tra lại thông tin khách hàng hiện tại, nhưng ở đây chỉ kiểm tra tồn tại
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { values, errors } = profileValues(body);
+  if (errors.length) {
+    const profile = await Customer.findByAccountId(req.session.user.accountId);
+    if (!profile) return res.status(404).render('errors/404', { title: 'Không tìm thấy hồ sơ' });
+    return res.status(400).render('customer/account', {
+      title: 'Hồ sơ của tôi',
+      profile,
+      values,
+      errors,
+    });
+  }
 
-      } else {
-        // khách hàng tồn tại, có thể cập nhật thông tin
-        await Customer.update(customer.CustomerId, { FullName: nameCustomer, Email: email, Phone: phone  });
-      }
-      
-      // thông báo cập nhật thành công và chuyển hướng về trang hồ sơ
-      req.flash('success', 'Cập nhật hồ sơ thành công.');
-      return res.redirect('/account');
-      
-    };
+  try {
+    const updated = await Customer.updateProfile(req.session.user.accountId, {
+      ...values,
+      email: values.email || null,
+    });
+    if (!updated) return res.status(404).render('errors/404', { title: 'Không tìm thấy hồ sơ' });
+  } catch (error) {
+    if (!isUniqueViolation(error) && error.number !== 50003) throw error;
+    const profile = await Customer.findByAccountId(req.session.user.accountId);
+    if (!profile) return res.status(404).render('errors/404', { title: 'Không tìm thấy hồ sơ' });
+    return res.status(400).render('customer/account', {
+      title: 'Hồ sơ của tôi',
+      profile,
+      values,
+      errors: ['Email hoặc số điện thoại đã được sử dụng bởi tài khoản khác.'],
+    });
+  }
 
-
+  req.session.user.fullName = values.fullName;
+  req.flash('success', 'Đã cập nhật hồ sơ.');
+  return res.redirect('/account');
+};
 
 // GET /account/addresses
 exports.addresses = async (req, res) => {
-  const addressesCustomer = await Customer.findAddressesByCustomerId(req.session.user.customerId) || await Customer.findAddressesByCustomerId(req.session.user.accountId);
-  if (!addressesCustomer) {
-    return res.status(404).send('Hiện tại chưa có địa chỉ nào được lưu trong hệ thống');
-  } 
-  res.render('customer/addresses', { title: 'Địa chỉ giao hàng', addresses: addressesCustomer });
-
+  const addresses = await Customer.addresses(req.session.user.customerId);
+  return res.render('customer/addresses', { title: 'Sổ địa chỉ', addresses });
 };
-  
+
 // POST /account/addresses
 exports.addAddress = async (req, res) => {
-  const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
-  if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
-  }
-  const ReceiverName = customer.FullName;
-  const ReceiverPhone = customer.Phone;
-  const addressLine = (req.body.addressLine || '').trim();
-  const ward = (req.body.ward || '').trim();
-  const district = (req.body.district || '').trim();
-  const province = (req.body.province || '').trim();
-  const isDefault = req.body.isDefault;
-  if(!addressLine || !ward || !district || !province || isDefault === undefined){
-    return res.status(400).send('Thiếu thông tin bắt buộc');
-  }
-  if(await Customer.addAddress( customer.CustomerId, {
-    receiverName: customer.FullName,
-    receiverPhone: customer.Phone,
-    addressLine: addressLine,
-    ward: ward, district: district,
-    province: province,
-    isDefault: isDefault })){
-    req.flash('success', 'Thêm địa chỉ thành công.');
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { values, errors } = addressValues(body);
+  if (errors.length) {
+    req.flash('danger', errors.join(' '));
     return res.redirect('/account/addresses');
-  } else {
-    return res.status(500).send('Có lỗi xảy ra khi thêm địa chỉ');
   }
 
-};
-
-//POST /account/addresses/updateAddress
-exports.updateAddress = async (req, res) => {
-  const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
-  if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
-  }
-  const ReceiverName = customer.FullName;
-  const ReceiverPhone = customer.Phone;
-  const addressId = req.body.addressId; // lấy địa chỉ đang muốn cập nhật từ form
-  const addressLine = (req.body.addressLine || '').trim();
-  const ward = (req.body.ward || '').trim();
-  const district = (req.body.district || '').trim();
-  const province = (req.body.province || '').trim();
-  const isDefault = req.body.isDefault;
-  if(!addressId || !addressLine || !ward || !district || !province || !isDefault){
-    return res.status(400).send('Thiếu thông tin bắt buộc');
-  }
-  if(await Customer.updateAddress(customer.CustomerId, addressId, { 
-      receiverName: customer.FullName,
-      receiverPhone: customer.Phone,
-      addressLine: addressLine,
-      ward: ward,
-      district: district,
-      province: province,
-      isDefault: isDefault })){
-    req.flash('success', 'Cập nhật địa chỉ thành công.');
+  try {
+    const addressId = await Customer.addAddress(req.session.user.customerId, values);
+    if (!addressId) {
+      req.flash('danger', 'Không tìm thấy hồ sơ khách hàng.');
+      return res.redirect('/account/addresses');
+    }
+  } catch (error) {
+    if (error.code === 'ADDRESS_LIMIT_REACHED') {
+      req.flash('danger', error.message);
+      return res.redirect('/account/addresses');
+    }
+    if (!isUniqueViolation(error)) throw error;
+    req.flash('danger', 'Không thể đặt địa chỉ mặc định do có thay đổi đồng thời. Vui lòng thử lại.');
     return res.redirect('/account/addresses');
-  } else {
-    return res.status(500).send('Có lỗi xảy ra khi cập nhật địa chỉ');
   }
+  req.flash('success', 'Đã thêm địa chỉ giao hàng.');
+  return res.redirect('/account/addresses');
 };
 
 // POST /account/addresses/:id/delete
 exports.deleteAddress = async (req, res) => {
-  const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
-  if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
-  }
-  const addressId = req.params.id;
-  if (!addressId) {
-    return res.status(400).send('Thiếu thông tin địa chỉ cần xoá');
-  }
-
-  if(await Customer.deleteAddress(customer.CustomerId, addressId)) {
-    req.flash('success', 'Xoá địa chỉ thành công.');
+  const addressId = parseAddressId(req.params.id);
+  if (addressId == null) {
+    req.flash('danger', 'Địa chỉ không hợp lệ.');
     return res.redirect('/account/addresses');
-  } else {
-    return res.status(500).send('Có lỗi xảy ra khi xoá địa chỉ');
   }
 
+  const deleted = await Customer.deleteAddress(req.session.user.customerId, addressId);
+  if (!deleted) req.flash('warning', 'Địa chỉ không tồn tại hoặc không thuộc tài khoản của bạn.');
+  else req.flash('success', 'Đã xoá địa chỉ giao hàng.');
+  return res.redirect('/account/addresses');
 };
 
 // POST /account/addresses/:id/default
 exports.setDefault = async (req, res) => {
-  const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
-  if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
-  }
-  const addressId = parseInt(req.params.id,10); // id đang muốn đặt làm mặc định
-  if (!addressId) {
-    return res.status(400).send('Thiếu thông tin địa chỉ cần đặt mặc định');
-  }
-  // nếu đã có thì setdefault, nếu chưa có thì báo lỗi
-  if(await Customer.setDefault(customer.CustomerId, addressId)) {
-    req.flash('success', 'Đặt địa chỉ mặc định thành công.');
+  const addressId = parseAddressId(req.params.id);
+  if (addressId == null) {
+    req.flash('danger', 'Địa chỉ không hợp lệ.');
     return res.redirect('/account/addresses');
-  } else {
-    return res.status(500).send('Có lỗi xảy ra khi đặt địa chỉ mặc định');
   }
+
+  const updated = await Customer.setDefaultAddress(req.session.user.customerId, addressId);
+  if (!updated) req.flash('warning', 'Địa chỉ không tồn tại hoặc không thuộc tài khoản của bạn.');
+  else req.flash('success', 'Đã đặt địa chỉ giao hàng mặc định.');
+  return res.redirect('/account/addresses');
 };
 

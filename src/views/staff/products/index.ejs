@@ -1,0 +1,141 @@
+<%
+  const queryString = (overrides) => {
+    const params = Object.assign({}, filters, overrides);
+    return Object.keys(params)
+      .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== '')
+      .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+      .join('&');
+  };
+%>
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <p class="text-muted mb-0">Quản lý thông tin bán hàng. Giá vốn và tồn kho được cập nhật qua quy trình nhập kho.</p>
+    <p class="small text-muted mb-0 tabular-nums"><%= pg.total %> sản phẩm</p>
+  </div>
+  <% if (currentUser.permissions.includes('product.create')) { %>
+    <a href="/staff/products/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm sản phẩm</a>
+  <% } %>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4">
+        <label class="form-label" for="product-q">Tìm theo SKU hoặc tên</label>
+        <input id="product-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="product-category">Danh mục</label>
+        <select id="product-category" name="categoryId" class="form-select">
+          <option value="">Tất cả</option>
+          <% categories.forEach(function (category) { %>
+            <option value="<%= category.CategoryId %>" <%= String(filters.categoryId || '') === String(category.CategoryId) ? 'selected' : '' %>>
+              <%= category.ParentCategoryName ? `${category.ParentCategoryName} / ` : '' %><%= category.CategoryName %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="product-brand">Thương hiệu</label>
+        <select id="product-brand" name="brandId" class="form-select">
+          <option value="">Tất cả</option>
+          <% brands.forEach(function (brand) { %>
+            <option value="<%= brand.BrandId %>" <%= String(filters.brandId || '') === String(brand.BrandId) ? 'selected' : '' %>><%= brand.BrandName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="product-status">Trạng thái</label>
+        <select id="product-status" name="status" class="form-select">
+          <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>Tất cả</option>
+          <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Đang bán</option>
+          <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Ngừng bán</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="product-sort">Sắp xếp</label>
+        <select id="product-sort" name="sort" class="form-select">
+          <option value="newest" <%= filters.sort === 'newest' ? 'selected' : '' %>>Mới nhất</option>
+          <option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Cũ nhất</option>
+          <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Tên A-Z</option>
+          <option value="price_asc" <%= filters.sort === 'price_asc' ? 'selected' : '' %>>Giá tăng dần</option>
+          <option value="price_desc" <%= filters.sort === 'price_desc' ? 'selected' : '' %>>Giá giảm dần</option>
+          <option value="stock_asc" <%= filters.sort === 'stock_asc' ? 'selected' : '' %>>Tồn khả dụng thấp</option>
+          <option value="stock_desc" <%= filters.sort === 'stock_desc' ? 'selected' : '' %>>Tồn khả dụng cao</option>
+        </select>
+      </div>
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Lọc danh sách</button>
+        <a class="btn btn-outline-secondary" href="/staff/products">Xoá bộ lọc</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead>
+      <tr>
+        <th>SKU / Sản phẩm</th>
+        <th>Danh mục / Thương hiệu</th>
+        <th class="text-end">Giá bán</th>
+        <th class="text-end">Tồn thực</th>
+        <th class="text-end">Giữ chỗ</th>
+        <th class="text-end">Khả dụng</th>
+        <th>Trạng thái</th>
+        <th class="text-end">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% products.forEach(function (product) { %>
+        <tr>
+          <td>
+            <span class="part-no d-inline-block mb-1"><%= product.Sku %></span>
+            <div class="fw-semibold"><%= product.ProductName %></div>
+          </td>
+          <td><div><%= product.CategoryName %></div><div class="small text-muted"><%= product.BrandName %></div></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(product.SalePrice) %></td>
+          <td class="text-end tabular-nums"><%= product.QtyOnHand %></td>
+          <td class="text-end tabular-nums"><%= product.QtyReserved %></td>
+          <td class="text-end tabular-nums"><%= product.QtyAvailable %></td>
+          <td>
+            <span class="badge text-bg-<%= product.IsActive ? 'success' : 'secondary' %>"><%= product.IsActive ? 'Đang bán' : 'Ngừng bán' %></span>
+            <% if (product.IsSerialTracked) { %><div class="small text-muted mt-1">Quản lý Serial</div><% } %>
+          </td>
+          <td class="text-end text-nowrap">
+            <% if (currentUser.permissions.includes('product.update')) { %>
+              <a class="btn btn-sm btn-outline-primary" href="/staff/products/<%= product.ProductId %>/edit">Sửa</a>
+            <% } %>
+            <% if (product.IsActive && currentUser.permissions.includes('product.delete')) { %>
+              <form class="d-inline" method="post" action="/staff/products/<%= product.ProductId %>/delete" onsubmit="return confirm('Ngừng bán hoặc xoá sản phẩm này? Nếu sản phẩm đã có giao dịch/tồn kho, hệ thống sẽ giữ lại dữ liệu và chỉ ngừng bán.')">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Ngừng bán / Xoá</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!products.length) { %>
+        <tr><td colspan="8" class="text-center text-muted py-4">Không có sản phẩm phù hợp.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (pg.pages > 1) { %>
+  <nav class="mt-3" aria-label="Phân trang sản phẩm quản lý">
+    <ul class="pagination justify-content-center">
+      <li class="page-item <%= pg.page <= 1 ? 'disabled' : '' %>">
+        <a class="page-link" href="?<%= queryString({ page: pg.page - 1 }) %>" aria-label="Trang trước">&laquo;</a>
+      </li>
+      <% for (let page = 1; page <= pg.pages; page += 1) { %>
+        <li class="page-item <%= page === pg.page ? 'active' : '' %>">
+          <a class="page-link tabular-nums" href="?<%= queryString({ page }) %>"><%= page %></a>
+        </li>
+      <% } %>
+      <li class="page-item <%= pg.page >= pg.pages ? 'disabled' : '' %>">
+        <a class="page-link" href="?<%= queryString({ page: pg.page + 1 }) %>" aria-label="Trang sau">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+<% } %>

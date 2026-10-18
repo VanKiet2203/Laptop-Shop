@@ -10,11 +10,56 @@ exports.list = ({ q } = {}) => db.query(
 
 exports.findById = (id) => db.queryOne('SELECT * FROM dbo.Brands WHERE BrandId = @id', { id });
 
-exports.create = ({ brandName, country }) => db.query(
-  'INSERT INTO dbo.Brands (BrandName, Country) VALUES (@brandName, @country)', { brandName, country: country || null });
+exports.create = async ({ brandName, country }, transaction = null) => {
+  const query = transaction ? transaction.query : db.query;
+  const rows = await query(
+    `INSERT INTO dbo.Brands (BrandName, Country)
+     VALUES (@brandName, @country);
+     SELECT CAST(SCOPE_IDENTITY() AS INT) AS BrandId`,
+    { brandName, country: country || null });
+  return rows[0] ? rows[0].BrandId : null;
+};
 
-exports.update = (id, { brandName, country, isActive }) => db.query(
-  'UPDATE dbo.Brands SET BrandName = @brandName, Country = @country, IsActive = @isActive WHERE BrandId = @id',
-  { id, brandName, country: country || null, isActive: isActive ? 1 : 0 });
+async function updateInTransaction(transaction, id, { brandName, country, isActive }) {
+  // Product create/update takes the same lock before validating a brand reference.
+  const brands = await transaction.query(
+    `SELECT BrandId, IsActive
+     FROM dbo.Brands WITH (UPDLOCK, HOLDLOCK)
+     WHERE BrandId = @id`,
+    { id });
+  const brand = brands[0];
+  if (!brand) return { notFound: true };
 
-exports.remove = (id) => db.query('DELETE FROM dbo.Brands WHERE BrandId = @id', { id });
+  if (brand.IsActive && !isActive) {
+    const products = await transaction.query(
+      `SELECT COUNT(*) AS ActiveProductCount
+       FROM dbo.Products
+       WHERE BrandId = @id AND IsActive = 1`,
+      { id });
+    if (products[0] && products[0].ActiveProductCount > 0) {
+      return { hasActiveProducts: true };
+    }
+  }
+
+  await transaction.query(
+    `UPDATE dbo.Brands
+     SET BrandName = @brandName, Country = @country, IsActive = @isActive
+     WHERE BrandId = @id`,
+    { id, brandName, country: country || null, isActive: isActive ? 1 : 0 });
+  return { updated: true };
+}
+
+exports.update = (id, data, transaction = null) => (
+  transaction
+    ? updateInTransaction(transaction, id, data)
+    : db.transaction((tx) => updateInTransaction(tx, id, data))
+);
+
+exports.remove = async (id, transaction = null) => {
+  const query = transaction ? transaction.query : db.query;
+  const rows = await query(
+    `DELETE FROM dbo.Brands WHERE BrandId = @id;
+     SELECT @@ROWCOUNT AS affected`,
+    { id });
+  return rows[0] ? rows[0].affected > 0 : false;
+};

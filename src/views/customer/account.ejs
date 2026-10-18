@@ -1,0 +1,60 @@
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h1 class="h4 mb-1">Hồ sơ của tôi</h1>
+        <p class="text-muted mb-0">Cập nhật thông tin liên hệ và xem quyền lợi thành viên.</p>
+      </div>
+      <a href="/account/addresses" class="btn btn-outline-primary"><i class="bi bi-geo-alt"></i> Sổ địa chỉ</a>
+    </div>
+
+    <% if (errors.length) { %>
+      <div class="alert alert-danger" role="alert">
+        <ul class="mb-0 ps-3"><% errors.forEach(function (error) { %><li><%= error %></li><% }) %></ul>
+      </div>
+    <% } %>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="small text-muted">Tên đăng nhập</div>
+            <div class="fw-semibold"><%= profile.Username %></div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Hạng thành viên</div>
+            <div class="fw-semibold"><%= profile.TierName %></div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Điểm tích luỹ</div>
+            <div class="fw-semibold"><%= profile.LoyaltyPoints %> điểm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" action="/account" class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="account-full-name">Họ và tên</label>
+            <input id="account-full-name" name="fullName" class="form-control" maxlength="100" required value="<%= values.FullName || values.fullName || '' %>">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="account-phone">Số điện thoại</label>
+            <input id="account-phone" name="phone" type="tel" class="form-control" maxlength="15" pattern="0[0-9]{9,10}" required value="<%= values.Phone || values.phone || '' %>">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="account-email">Email <span class="text-muted">(không bắt buộc)</span></label>
+            <input id="account-email" name="email" type="email" class="form-control" maxlength="150" value="<%= values.Email || values.email || '' %>">
+            <div class="form-text">Email đăng nhập và email liên hệ sẽ được cập nhật đồng thời.</div>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit">Lưu thay đổi</button>
+            <a href="/account/addresses" class="btn btn-outline-secondary">Quản lý địa chỉ giao hàng</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
