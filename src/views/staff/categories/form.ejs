@@ -1,0 +1,46 @@
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="<%= action %>" class="row g-3">
+      <div class="col-12 col-lg-8">
+        <label class="form-label" for="category-name">Tên danh mục <span class="text-danger">*</span></label>
+        <input id="category-name" name="categoryName" class="form-control" maxlength="100" required value="<%= category.CategoryName || '' %>">
+      </div>
+      <div class="col-12 col-lg-4">
+        <label class="form-label" for="category-parent">Danh mục cha</label>
+        <select id="category-parent" name="parentId" class="form-select">
+          <option value="">Danh mục gốc</option>
+          <% categories.forEach(function (option) { %>
+            <option value="<%= option.CategoryId %>" <%= String(category.ParentId || '') === String(option.CategoryId) ? 'selected' : '' %>>
+              <%= '- '.repeat(Math.min(option.Level, 8)) %><%= option.CategoryName %>
+            </option>
+          <% }) %>
+        </select>
+        <div class="form-text">Cây danh mục giới hạn tối đa 100 cấp.</div>
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="category-sort">Thứ tự hiển thị</label>
+        <input id="category-sort" type="number" name="sortOrder" class="form-control" min="0" max="2147483647" step="1" value="<%= category.SortOrder == null ? 0 : category.SortOrder %>">
+      </div>
+      <% if (category.CategoryId) { %>
+        <div class="col-12">
+          <div class="form-check">
+            <input id="category-active" type="checkbox" class="form-check-input" name="isActive" value="1" <%= category.IsActive ? 'checked' : '' %>>
+            <label class="form-check-label" for="category-active">Đang sử dụng</label>
+          </div>
+          <div class="form-text">Không thể ngừng danh mục khi nhánh còn sản phẩm đang bán hoặc danh mục con đang hoạt động.</div>
+        </div>
+      <% } %>
+      <% if (category.Slug) { %>
+        <div class="col-12">
+          <span class="text-muted">Đường dẫn hiện tại:</span> <span class="part-no"><%= category.Slug %></span>
+        </div>
+      <% } else { %>
+        <div class="col-12 form-text">Đường dẫn được tạo tự động từ tên danh mục.</div>
+      <% } %>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">Lưu danh mục</button>
+        <a href="/staff/categories" class="btn btn-outline-secondary">Quay lại</a>
+      </div>
+    </form>
+  </div>
+</div>
