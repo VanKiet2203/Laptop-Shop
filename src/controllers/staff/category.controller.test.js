@@ -225,7 +225,7 @@ test('active descendants prevent category deactivation before mutation', async (
 
 test('SQL depth guard failures are converted to an actionable flash message', async () => {
   Category.create = async () => {
-    throw Object.assign(new Error('Depth exceeded'), { number: 50004 });
+    throw Object.assign(new Error('Depth exceeded'), { number: 50006 });
   };
   const { req, res, flashes } = request({
     categoryName: 'Race depth',

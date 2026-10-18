@@ -176,6 +176,32 @@ test('update preserves serial tracking when the form omits its field', async () 
   assert.equal(res.redirected, '/staff/products');
 });
 
+test('unticking the serial checkbox (value "0" sent alongside "1") turns tracking off', async () => {
+  const { req, res } = request({
+    ...validProduct,
+    isSerialTracked: ['0', '1'],
+    isActive: '1',
+  }, { id: '10' });
+
+  await controller.update(req, res);
+
+  const updateEvent = events.find(([event]) => event === 'update');
+  assert.equal(updateEvent[2].isSerialTracked, true);
+});
+
+test('unticking the serial checkbox (only hidden "0" sent) turns tracking off', async () => {
+  const { req, res } = request({
+    ...validProduct,
+    isSerialTracked: '0',
+    isActive: '1',
+  }, { id: '10' });
+
+  await controller.update(req, res);
+
+  const updateEvent = events.find(([event]) => event === 'update');
+  assert.equal(updateEvent[2].isSerialTracked, false);
+});
+
 test('invalid product ID is rejected without model or transaction calls', async () => {
   const { req, res, flashes } = request({}, { id: '1.5' });
 

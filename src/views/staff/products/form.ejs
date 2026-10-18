@@ -72,6 +72,7 @@
             </div>
             <div class="form-text">Không thể đổi thiết lập Serial vì sản phẩm đã có tồn kho hoặc lịch sử nhập/bán.</div>
           <% } else { %>
+            <input type="hidden" name="isSerialTracked" value="0">
             <div class="form-check">
               <input id="product-serial" type="checkbox" class="form-check-input" name="isSerialTracked" value="1" <%= product.IsSerialTracked ? 'checked' : '' %>>
               <label class="form-check-label" for="product-serial">Quản lý theo Serial</label>

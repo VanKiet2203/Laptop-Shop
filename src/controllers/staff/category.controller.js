@@ -37,41 +37,8 @@ function flattenTree(categories, excludedIds = new Set()) {
   return flattened;
 }
 
-function descendantIds(categories, rootId) {
-  const childrenByParent = new Map();
-  for (const category of categories) {
-    const key = String(category.ParentId);
-    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
-    childrenByParent.get(key).push(category.CategoryId);
-  }
-
-  const found = new Set([Number(rootId)]);
-  const pending = [Number(rootId)];
-  while (pending.length) {
-    const parentId = pending.pop();
-    for (const childId of childrenByParent.get(String(parentId)) || []) {
-      if (found.has(childId)) continue;
-      found.add(childId);
-      pending.push(childId);
-    }
-  }
-  return found;
-}
-
-function hasActiveAncestorChain(categories, categoryId) {
-  const byId = new Map(categories.map((category) => [category.CategoryId, category]));
-  const visited = new Set();
-  let current = byId.get(Number(categoryId));
-  if (!current) return false;
-  while (current) {
-    if (!current.IsActive || visited.has(current.CategoryId)) return false;
-    visited.add(current.CategoryId);
-    if (current.ParentId == null) return true;
-    current = byId.get(current.ParentId);
-    if (!current) return false;
-  }
-  return false;
-}
+const descendantIds = Category.descendantIds;
+const hasActiveAncestorChain = Category.hasActiveAncestorChain;
 
 function fitsCategoryDepth(categories, categoryId, parentId) {
   const parentDepth = parentId == null ? 0 : Category.depthOf(categories, parentId);
@@ -173,7 +140,7 @@ exports.create = async (req, res) => {
       req.flash('danger', 'Danh mục cha không còn hợp lệ, đã ngừng sử dụng hoặc nằm dưới nhánh đã ngừng.');
       return res.redirect('/staff/categories/new');
     }
-    if (err.code === 'CATEGORY_DEPTH_LIMIT' || err.number === 50004) {
+    if (err.code === 'CATEGORY_DEPTH_LIMIT' || err.number === 50006) {
       req.flash('danger', `Không thể tạo danh mục: độ sâu tối đa là ${Category.MAX_DEPTH} cấp.`);
       return res.redirect('/staff/categories/new');
     }
@@ -269,7 +236,7 @@ exports.update = async (req, res) => {
       req.flash('danger', 'Danh mục cha không còn hợp lệ hoặc thao tác sẽ tạo cấu trúc không hợp lệ.');
       return res.redirect(`/staff/categories/${id}/edit`);
     }
-    if (err.code === 'CATEGORY_DEPTH_LIMIT' || err.number === 50004) {
+    if (err.code === 'CATEGORY_DEPTH_LIMIT' || err.number === 50006) {
       req.flash('danger', `Không thể di chuyển nhánh: độ sâu tối đa là ${Category.MAX_DEPTH} cấp.`);
       return res.redirect(`/staff/categories/${id}/edit`);
     }

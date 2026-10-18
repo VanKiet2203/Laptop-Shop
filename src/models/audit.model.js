@@ -33,6 +33,7 @@ exports.logInTransaction = async (transaction, req, action, entityName = null, e
   } catch (error) {
     throw Object.assign(new Error('Không thể ghi nhật ký thao tác; giao dịch đã bị hủy.'), {
       code: 'AUDIT_WRITE_FAILED',
+      number: 50099,
       cause: error,
     });
   }

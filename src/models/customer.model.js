@@ -3,8 +3,10 @@
 // Bảng / đối tượng DB liên quan: Customers, CustomerAddresses, MembershipTiers, Accounts
 const db = require('../config/db');
 
-exports.findAccountByUsernameOrEmail = (value) => db.queryOne(
-  'SELECT AccountId FROM dbo.Accounts WHERE Username = @value OR Email = @value', { value });
+exports.findAccountByUsernameOrEmail = async (value) => (
+  (await db.queryOne('SELECT AccountId FROM dbo.Accounts WHERE Username = @value', { value }))
+  || db.queryOne('SELECT AccountId FROM dbo.Accounts WHERE Email = @value', { value })
+);
 
 exports.findCustomerByPhone = (phone) => db.queryOne(
   'SELECT CustomerId FROM dbo.Customers WHERE Phone = @phone', { phone });
@@ -55,7 +57,7 @@ exports.createWithAccount = (data, transaction = null) => (
 
 exports.findByAccountId = (accountId) => db.queryOne(
   `SELECT c.CustomerId, c.FullName, c.Phone, c.Email, c.LoyaltyPoints,
-          c.CompanyName, c.TaxCode, t.TierName, t.DiscountPercent, a.Username, a.Email
+          c.CompanyName, c.TaxCode, t.TierName, t.DiscountPercent, a.Username, a.Email AS AccountEmail
    FROM dbo.Customers c
    JOIN dbo.Accounts a ON a.AccountId = c.AccountId
    JOIN dbo.MembershipTiers t ON t.TierId = c.TierId

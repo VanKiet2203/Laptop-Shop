@@ -83,6 +83,8 @@ function subtreeHeight(categories, rootId) {
 exports.MAX_DEPTH = MAX_CATEGORY_DEPTH;
 exports.depthOf = depthOf;
 exports.subtreeHeight = subtreeHeight;
+exports.descendantIds = descendantIds;
+exports.hasActiveAncestorChain = hasActiveAncestorChain;
 
 async function lockCategories(transaction) {
   // Hold the tree stable until commit so no concurrent category mutation can invalidate validation.
@@ -118,8 +120,8 @@ exports.uniqueSlug = async (base) => {
   return `${base}-${suffix}`;
 };
 
-exports.hasActiveSubtreeReferences = async (id) => {
-  const row = await db.queryOne(
+async function subtreeActiveReferenceCounts(queryable, id) {
+  const rows = await queryable.query(
     `;WITH CategorySubtree AS (
        SELECT CategoryId FROM dbo.Categories WHERE CategoryId = @id
        UNION ALL
@@ -138,6 +140,11 @@ exports.hasActiveSubtreeReferences = async (id) => {
         WHERE child.CategoryId <> @id AND child.IsActive = 1) AS ActiveChildCount
      OPTION (MAXRECURSION 100)`,
     { id });
+  return rows[0];
+}
+
+exports.hasActiveSubtreeReferences = async (id) => {
+  const row = await subtreeActiveReferenceCounts(db, id);
   return row.ActiveProductCount > 0 || row.ActiveChildCount > 0;
 };
 
@@ -195,26 +202,7 @@ async function updateWithTransaction(transaction, id, { parentId, categoryName, 
   }
 
   if (existing.IsActive && !isActive) {
-    const references = await transaction.query(
-      `;WITH CategorySubtree AS (
-         SELECT CategoryId FROM dbo.Categories WHERE CategoryId = @id
-         UNION ALL
-         SELECT child.CategoryId
-         FROM dbo.Categories child
-         JOIN CategorySubtree parent ON parent.CategoryId = child.ParentId
-       )
-       SELECT
-         (SELECT COUNT(*)
-          FROM dbo.Products p
-          JOIN CategorySubtree subtree ON subtree.CategoryId = p.CategoryId
-          WHERE p.IsActive = 1) AS ActiveProductCount,
-         (SELECT COUNT(*)
-          FROM dbo.Categories child
-          JOIN CategorySubtree subtree ON subtree.CategoryId = child.CategoryId
-          WHERE child.CategoryId <> @id AND child.IsActive = 1) AS ActiveChildCount
-       OPTION (MAXRECURSION 100)`,
-      { id });
-    const referencesInSubtree = references[0];
+    const referencesInSubtree = await subtreeActiveReferenceCounts(transaction, id);
     if (referencesInSubtree && (
       referencesInSubtree.ActiveProductCount > 0
       || referencesInSubtree.ActiveChildCount > 0

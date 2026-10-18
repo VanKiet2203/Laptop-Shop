@@ -125,7 +125,7 @@ function parseForm(body, attributes, currentProduct = null) {
       warrantyMonths,
       isSerialTracked: currentProduct && body.isSerialTracked === undefined
         ? Boolean(currentProduct.IsSerialTracked)
-        : body.isSerialTracked === '1',
+        : [].concat(body.isSerialTracked).includes('1'),
       isActive: currentProduct ? body.isActive === '1' : true,
       imageUrls: images.imageUrls,
       attributeValues: parsedAttributes.attributeValues,

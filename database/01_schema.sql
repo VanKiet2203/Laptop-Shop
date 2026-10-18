@@ -590,7 +590,7 @@ BEGIN
     OPTION (MAXRECURSION 101);
 
     IF EXISTS (SELECT 1 FROM #CategoryDepthCheck)
-        THROW 50004, N'Cây danh mục không được vượt quá 100 cấp.', 1;
+        THROW 50006, N'Cây danh mục không được vượt quá 100 cấp.', 1;
 
     DROP TABLE #CategoryDepthCheck;
 END
