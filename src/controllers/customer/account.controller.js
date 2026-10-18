@@ -127,6 +127,10 @@ exports.addAddress = async (req, res) => {
       return res.redirect('/account/addresses');
     }
   } catch (error) {
+    if (error.code === 'ADDRESS_LIMIT_REACHED') {
+      req.flash('danger', error.message);
+      return res.redirect('/account/addresses');
+    }
     if (!isUniqueViolation(error)) throw error;
     req.flash('danger', 'Không thể đặt địa chỉ mặc định do có thay đổi đồng thời. Vui lòng thử lại.');
     return res.redirect('/account/addresses');
@@ -162,3 +166,4 @@ exports.setDefault = async (req, res) => {
   else req.flash('success', 'Đã đặt địa chỉ giao hàng mặc định.');
   return res.redirect('/account/addresses');
 };
+

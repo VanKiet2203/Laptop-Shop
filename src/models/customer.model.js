@@ -89,6 +89,8 @@ exports.addresses = (customerId) => db.query(
    ORDER BY IsDefault DESC, AddressId`,
   { customerId });
 
+const MAX_ADDRESSES_PER_CUSTOMER = 10;
+
 exports.addAddress = (customerId, address) => db.transaction(async (transaction) => {
   const customers = await transaction.query(
     'SELECT CustomerId FROM dbo.Customers WITH (UPDLOCK, HOLDLOCK) WHERE CustomerId = @customerId',
@@ -99,6 +101,9 @@ exports.addAddress = (customerId, address) => db.transaction(async (transaction)
     `SELECT AddressId FROM dbo.CustomerAddresses WITH (UPDLOCK, HOLDLOCK)
      WHERE CustomerId = @customerId`,
     { customerId });
+  if (addresses.length >= MAX_ADDRESSES_PER_CUSTOMER) {
+    throw Object.assign(new Error('Mỗi khách hàng chỉ được lưu tối đa 10 địa chỉ.'), { code: 'ADDRESS_LIMIT_REACHED' });
+  }
   const isDefault = address.isDefault || addresses.length === 0;
   if (isDefault) {
     await transaction.query(

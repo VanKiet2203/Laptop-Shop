@@ -1,56 +1,61 @@
 // MODULE 3 - KHÁCH MUA HÀNG
 // Chủ sở hữu: Thành viên 3 - Khách mua hàng
 // Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+const CustomerOrder  = require('../../models/customerOrder.model');
 
 // GET /orders
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Đơn hàng của tôi",
-    "route": "GET /orders",
-    "tasks": [
-      "Danh sách Orders của khách, lọc theo trạng thái"
-    ],
-    "db": "Orders",
-    "rubric": "Lịch sử mua hàng",
-    "controller": "src/controllers/customer/order.controller.js",
-    "view": "src/views/customer/..."
-  });
+  //lấy customerId từ session (đã login) và status từ query string (nếu có)
+  const customerId = req.session.user.customerId;
+  if (!customerId) {
+    return res.status(401).send('Chưa đăng nhập hoặc không phải khách hàng');
+  }
+  const status = req.query.status || null; // trạng thái chọn , nếu không có thì lấy tất cả
+
+  // gọi model để lấy danh sách Orders của khách hàng, lọc theo trạng thái (nếu có)
+  const orders = await CustomerOrder.listByCustomer(customerId, status);
+  // trả về view hiển thị danh sách Orders
+  res.render('customer/orders', { title: 'Danh sách Orders của khách, lọc theo trạng thái"', orders, status });
+ 
 };
 
 // GET /orders/:id
 exports.show = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Chi tiết đơn",
-    "route": "GET /orders/:id",
-    "tasks": [
-      "Chi tiết + lịch sử trạng thái (AuditLogs, EntityName='Order') + serial & bảo hành nếu đã duyệt; chỉ xem đơn của chính mình - bảng OrderStatusHistory đã bỏ"
-    ],
-    "db": "Orders, OrderDetails, AuditLogs, Warranties",
-    "rubric": "",
-    "controller": "src/controllers/customer/order.controller.js",
-    "view": "src/views/customer/..."
-  });
+  const customerId = req.session.user.customerId;
+  const orderId = parseInt(req.params.id, 10);
+
+  // gọi model để lấy thông tin chi tiết của đơn hàng
+  const orderDetails = await CustomerOrder.findOwned(orderId,customerId);
+
+  // kiểm tra xem đơn hàng có thuộc về khách hàng hiện tại không
+  if (!orderDetails) {
+    return res.status(403).send('Không tìm thấy đơn hàng hoặc hoặc bạn không có quyền xem');
+  }
+  res.render('customer/orderDetails', { title: 'Khách - Chi tiết đơn', orderDetails });
+
 };
 
 // POST /orders/:id/cancel
 exports.cancel = async (req, res) => {
-  todo(res, {
-    "module": "M3",
-    "owner": "Thành viên 3 - Khách mua hàng",
-    "title": "Khách - Huỷ đơn chờ duyệt",
-    "route": "POST /orders/:id/cancel",
-    "tasks": [
-      "Chỉ khi Pending; db.exec(\"sp_CancelOrder\", { OrderId, Reason, AccountId })"
-    ],
-    "db": "sp_CancelOrder",
-    "rubric": "",
-    "controller": "src/controllers/customer/order.controller.js",
-    "view": "src/views/customer/..."
-  });
+  // lấy id đơn hàng đang chọn và phải là pedding
+  const orderId = parseInt(req.params.id,10);
+  const accountId = req.session.user.accountId;
+  const reason = req.body.reason || 'Khách hàng huỷ đơn';
+  const customerId = req.session.user.customerId;
+  // kiểm tra xem đơn hàng có thuộc về khách hàng hiện tại không và đang ở trạng thái Pending
+  try{
+      await CustomerOrder.cancelPending(orderId, accountId, reason);
+      req.flash('success', 'Huỷ đơn hàng thành công.');
+      return res.redirect('/orders');
+  } catch (error) {
+    if (error.number === 50064) {
+      req.flash('danger', error.message);
+      return res.redirect('/orders');
+    } else {
+      console.error(error);
+      throw error; 
+    }
+  }
+  
 };
+  
