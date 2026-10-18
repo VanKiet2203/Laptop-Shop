@@ -179,7 +179,7 @@ BEGIN
     DECLARE @CartId INT, @ItemCount INT, @Affected INT;
     DECLARE @Subtotal DECIMAL(18,0), @Discount DECIMAL(18,0) = 0, @Ship DECIMAL(18,0);
     DECLARE @PromoId INT = NULL, @PType VARCHAR(10), @PVal DECIMAL(18,2), @PMax DECIMAL(18,0);
-    DECLARE @RName NVARCHAR(100), @RPhone VARCHAR(15), @Addr NVARCHAR(400);
+    DECLARE @RName NVARCHAR(100), @RPhone VARCHAR(15), @Addr NVARCHAR(600);
     DECLARE @Seq INT, @SeqStr VARCHAR(10), @OrderNo VARCHAR(20);
 
     -- Khoá giỏ cho đến khi transaction đặt hàng kết thúc.

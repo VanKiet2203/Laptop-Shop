@@ -61,13 +61,11 @@ exports.update = (customerId, data) => db.query(
 ).then((rows) => Boolean(rows[0] && rows[0].Success));
 
 ///lấy tất cả địa chỉ của khách hàng theo customerId, sắp xếp theo mặc định ở đầu , AddressId tăng dần
-exports.findAddressesByCustomerId = (customerId, addressId) => db.query(
-  `sELECT * FROM dbo.CustomerAddresses
-   WHERE CustomerId = @customerId 
-   ORDER BY IsDefault DESC, AddressId ASC
-   `,
-  { customerId, addressId }
-
+exports.findAddressesByCustomerId = (customerId) => db.query(
+  `SELECT * FROM dbo.CustomerAddresses
+   WHERE CustomerId = @customerId
+   ORDER BY IsDefault DESC, AddressId ASC`,
+  { customerId }
 );
 
 exports.addAddress = (customerId, address) =>

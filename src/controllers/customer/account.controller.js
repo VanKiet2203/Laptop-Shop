@@ -41,17 +41,18 @@ exports.updateProfile = async (req, res) => {
       if (erorMessages.length > 0) {
         return res.status(400).send(erorMessages.join(', '));
       }
-      // kiểm tra đã có khách hàng này tồn tại chưa (theo email hoặc phone)
-      
       const customer = await Customer.findById(req.session.user.customerId) || await Customer.findByAccountId(req.session.user.accountId);
       if (!customer) {
-      return res.status(400).send('Khách hàng không tồn tại với email hoặc số điện thoại này');
-      // có thể làm là thêm mới khách hàng hoặc kiểm tra lại thông tin khách hàng hiện tại, nhưng ở đây chỉ kiểm tra tồn tại
-
-      } else {
-        // khách hàng tồn tại, có thể cập nhật thông tin
-        await Customer.update(customer.CustomerId, { FullName: nameCustomer, Email: email, Phone: phone  });
+        return res.status(404).send('Không tìm thấy thông tin khách hàng');
       }
+
+      // kiểm tra số điện thoại không bị trùng với khách hàng khác (UQ_Customers_Phone)
+      const phoneOwner = await Customer.findCustomerByPhone(phone);
+      if (phoneOwner && phoneOwner.CustomerId !== customer.CustomerId) {
+        return res.status(400).send('Số điện thoại đã được sử dụng bởi tài khoản khác.');
+      }
+
+      await Customer.update(customer.CustomerId, { FullName: nameCustomer, Email: email, Phone: phone });
       
       // thông báo cập nhật thành công và chuyển hướng về trang hồ sơ
       req.flash('success', 'Cập nhật hồ sơ thành công.');
@@ -63,12 +64,8 @@ exports.updateProfile = async (req, res) => {
 
 // GET /account/addresses
 exports.addresses = async (req, res) => {
-  const addressesCustomer = await Customer.findAddressesByCustomerId(req.session.user.customerId) || await Customer.findAddressesByCustomerId(req.session.user.accountId);
-  if (!addressesCustomer) {
-    return res.status(404).send('Hiện tại chưa có địa chỉ nào được lưu trong hệ thống');
-  } 
+  const addressesCustomer = await Customer.findAddressesByCustomerId(req.session.user.customerId);
   res.render('customer/addresses', { title: 'Địa chỉ giao hàng', addresses: addressesCustomer });
-
 };
   
 // POST /account/addresses
@@ -83,8 +80,8 @@ exports.addAddress = async (req, res) => {
   const ward = (req.body.ward || '').trim();
   const district = (req.body.district || '').trim();
   const province = (req.body.province || '').trim();
-  const isDefault = req.body.isDefault;
-  if(!addressLine || !ward || !district || !province || isDefault === undefined){
+  const isDefault = req.body.isDefault === '1';
+  if(!addressLine || !ward || !district || !province){
     return res.status(400).send('Thiếu thông tin bắt buộc');
   }
   if(await Customer.addAddress( customer.CustomerId, {
@@ -115,8 +112,8 @@ exports.updateAddress = async (req, res) => {
   const ward = (req.body.ward || '').trim();
   const district = (req.body.district || '').trim();
   const province = (req.body.province || '').trim();
-  const isDefault = req.body.isDefault;
-  if(!addressId || !addressLine || !ward || !district || !province || !isDefault){
+  const isDefault = req.body.isDefault === '1';
+  if(!addressId || !addressLine || !ward || !district || !province){
     return res.status(400).send('Thiếu thông tin bắt buộc');
   }
   if(await Customer.updateAddress(customer.CustomerId, addressId, { 

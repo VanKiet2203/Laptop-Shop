@@ -23,6 +23,9 @@ exports.index = async (req, res) => {
 exports.show = async (req, res) => {
   const customerId = req.session.user.customerId;
   const orderId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(404).send('Không tìm thấy đơn hàng hoặc hoặc bạn không có quyền xem');
+  }
 
   // gọi model để lấy thông tin chi tiết của đơn hàng
   const orderDetails = await CustomerOrder.findOwned(orderId,customerId);
@@ -42,6 +45,9 @@ exports.cancel = async (req, res) => {
   const accountId = req.session.user.accountId;
   const reason = req.body.reason || 'Khách hàng huỷ đơn';
   const customerId = req.session.user.customerId;
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(404).send('Không tìm thấy đơn hàng.');
+  }
   // kiểm tra xem đơn hàng có thuộc về khách hàng hiện tại không và đang ở trạng thái Pending
   try{
       await CustomerOrder.cancelPending(orderId, accountId, reason);

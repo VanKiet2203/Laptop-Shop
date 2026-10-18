@@ -19,13 +19,14 @@ exports.listByCustomer = (customerId, status) => db.query(
 exports.findOwned = async (orderId, customerId) => {
   // BƯỚC 1: Lấy "Vỏ" (Thông tin chung của đơn hàng)
   const order = await db.queryOne(
-    `SELECT OrderId, OrderNo, CreatedAt, Status,
-            ReceiverName, ReceiverPhone, ShippingAddress,
-            PaymentMethod, PaymentStatus,
-            Subtotal, DiscountAmount, ShippingFee, VatAmount, TotalAmount,
-            Note, CancelReason
-     FROM dbo.Orders
-     WHERE OrderId = @orderId AND CustomerId = @customerId`,
+    `SELECT o.OrderId, o.OrderNo, o.CreatedAt, o.Status,
+            o.ReceiverName, o.ReceiverPhone, o.ShippingAddress,
+            o.PaymentMethod, o.PaymentStatus,
+            o.Subtotal, o.DiscountAmount, o.ShippingFee, o.VatAmount, o.TotalAmount,
+            o.Note, o.CancelReason, p.Code AS PromoCode
+     FROM dbo.Orders o
+     LEFT JOIN dbo.Promotions p ON p.PromotionId = o.PromotionId
+     WHERE o.OrderId = @orderId AND o.CustomerId = @customerId`,
     { orderId, customerId }
   );
 

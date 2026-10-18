@@ -21,6 +21,7 @@ exports.show = async (req, res) => {
       return res.render('customer/checkout', { title: 'Khách - Thanh toán', checkoutData });
     }
   } catch (error) {
+    console.error(error);
     return res.status(500).send('Lỗi khi lấy thông tin thanh toán');
   }
 
