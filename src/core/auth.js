@@ -25,11 +25,11 @@ const requireLogin = wrap(async (req, res, next) => {
   if (!state || !state.IsActive) {
     return req.session.destroy(() => goToLogin(req, res));
   }
-  if (state.RoleCode !== req.session.user.role) {
-    // Vai trò đã đổi: nạp lại quyền mới nhất thay vì dùng permissions cũ trong session.
-    req.session.user.role = state.RoleCode;
-    req.session.user.permissions = await Account.getPermissions(state.RoleId);
-  }
+  // Luôn nạp lại quyền mới nhất từ DB, kể cả khi vai trò không đổi: quyền của
+  // vai trò đó có thể vừa bị admin chỉnh sửa, và phiên đang đăng nhập phải
+  // phản ánh ngay, không chờ đăng nhập lại.
+  req.session.user.role = state.RoleCode;
+  req.session.user.permissions = await Account.getPermissions(state.RoleId);
   return next();
 });
 

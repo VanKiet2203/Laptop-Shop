@@ -3,8 +3,13 @@
 // Bảng / đối tượng DB liên quan: Customers, CustomerAddresses, MembershipTiers, Accounts
 const db = require('../config/db');
 
-exports.findAccountByUsernameOrEmail = (value) => db.queryOne(
-  'SELECT AccountId FROM dbo.Accounts WHERE Username = @value OR Email = @value', { value });
+// Tách riêng theo từng cột (không OR Username/Email trong cùng 1 điều kiện) để tránh nhập nhằng
+// khi Username của người này trùng Email của người khác - dùng cho kiểm tra trùng khi đăng ký.
+exports.findAccountByUsername = (username) => db.queryOne(
+  'SELECT AccountId FROM dbo.Accounts WHERE Username = @username', { username });
+
+exports.findAccountByEmail = (email) => db.queryOne(
+  'SELECT AccountId FROM dbo.Accounts WHERE Email = @email', { email });
 
 exports.findCustomerByPhone = (phone) => db.queryOne(
   'SELECT CustomerId FROM dbo.Customers WHERE Phone = @phone', { phone });

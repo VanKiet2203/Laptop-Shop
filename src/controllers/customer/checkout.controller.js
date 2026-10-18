@@ -30,13 +30,21 @@ exports.show = async (req, res) => {
 
 // POST /checkout/promo
 exports.checkPromo = async (req, res) => {
-  const { promoCode, subtotal } = req.body;
-  if (!subtotal) {
-    return res.status(400).json({ success: false, message: 'Không có tổng tiền hàng' });
-  }
+  const { promoCode } = req.body;
   try {
+    // Tự tính subtotal từ giỏ hàng thật trong DB, không dùng giá trị client gửi lên
+    // (client có thể sửa subtotal để preview sai lệch mức giảm giá/VAT/phí ship).
+    const customer = await Customer.findByAccountId(req.session.user.accountId);
+    if (!customer) {
+      return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập lại.' });
+    }
+    const checkoutData = await Checkout.getCheckoutData(customer.CustomerId);
+    const subtotal = checkoutData.subtotal;
+    if (!subtotal) {
+      return res.status(400).json({ success: false, message: 'Không có tổng tiền hàng' });
+    }
     // Gọi đúng tên previewPromo trong Model
-    const promoData = await Checkout.previewPromo(promoCode, Number(subtotal));
+    const promoData = await Checkout.previewPromo(promoCode, subtotal);
     return res.json({ success: true, ...promoData });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

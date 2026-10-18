@@ -31,21 +31,27 @@ exports.count = async (customerId) => {
   return r ? r.n : 0;
 };
 
-/** Thêm sản phẩm vào giỏ - cộng dồn nếu đã có, giới hạn tối đa 99 (CK_CI_Qty) */
+/**
+ * Thêm sản phẩm vào giỏ - cộng dồn nếu đã có, giới hạn tối đa 99 (CK_CI_Qty).
+ * Dùng MERGE (1 câu lệnh atomic) thay vì SELECT rồi UPDATE/INSERT riêng, để
+ * tránh lost-update khi 2 request "thêm vào giỏ" cùng sản phẩm chạy đồng thời
+ * (double-click, mở 2 tab) ghi đè số lượng của nhau.
+ */
 exports.add = async (customerId, productId, qty) => {
   const product = await db.queryOne('SELECT IsActive FROM dbo.Products WHERE ProductId = @productId', { productId });
   if (!product || !product.IsActive) {
     throw Object.assign(new Error('Sản phẩm không tồn tại hoặc đã ngừng bán.'), { number: 50090 });
   }
   const cartId = await getOrCreateCartId(customerId);
-  const existing = await db.queryOne(
-    'SELECT Quantity FROM dbo.CartItems WHERE CartId = @cartId AND ProductId = @productId', { cartId, productId });
-  const newQty = Math.min(99, (existing ? existing.Quantity : 0) + qty);
-  if (existing) {
-    await db.query('UPDATE dbo.CartItems SET Quantity = @newQty WHERE CartId = @cartId AND ProductId = @productId', { cartId, productId, newQty });
-  } else {
-    await db.query('INSERT INTO dbo.CartItems (CartId, ProductId, Quantity) VALUES (@cartId, @productId, @newQty)', { cartId, productId, newQty });
-  }
+  await db.query(
+    `MERGE dbo.CartItems WITH (HOLDLOCK) AS target
+     USING (SELECT @cartId AS CartId, @productId AS ProductId, @qty AS Qty) AS src
+       ON target.CartId = src.CartId AND target.ProductId = src.ProductId
+     WHEN MATCHED THEN
+       UPDATE SET Quantity = CASE WHEN target.Quantity + src.Qty > 99 THEN 99 ELSE target.Quantity + src.Qty END
+     WHEN NOT MATCHED THEN
+       INSERT (CartId, ProductId, Quantity) VALUES (src.CartId, src.ProductId, CASE WHEN src.Qty > 99 THEN 99 ELSE src.Qty END);`,
+    { cartId, productId, qty });
 };
 
 /** Sửa số lượng - về <= 0 thì coi như bỏ khỏi giỏ */

@@ -30,26 +30,30 @@ exports.updateProfile = async (req, res) => {
       
       const erorMessages = [];
       if (!nameCustomer || !email || !phone ) {
-        return res.status(400).send('Thiếu thông tin bắt buộc');
+        req.flash('error', 'Thiếu thông tin bắt buộc');
+        return res.redirect('/account');
       }
       if (!/^\S+@\S+\.\S+$/.test(email)) {
         erorMessages.push('Email không hợp lệ');
-      } 
+      }
       if( !/^\d{10,11}$/.test(phone)) {
         erorMessages.push('Số điện thoại không hợp lệ');
       }
       if (erorMessages.length > 0) {
-        return res.status(400).send(erorMessages.join(', '));
+        req.flash('error', erorMessages.join(', '));
+        return res.redirect('/account');
       }
       const customer = await Customer.findById(req.session.user.customerId) || await Customer.findByAccountId(req.session.user.accountId);
       if (!customer) {
-        return res.status(404).send('Không tìm thấy thông tin khách hàng');
+        req.flash('error', 'Không tìm thấy thông tin khách hàng');
+        return res.redirect('/account');
       }
 
       // kiểm tra số điện thoại không bị trùng với khách hàng khác (UQ_Customers_Phone)
       const phoneOwner = await Customer.findCustomerByPhone(phone);
       if (phoneOwner && phoneOwner.CustomerId !== customer.CustomerId) {
-        return res.status(400).send('Số điện thoại đã được sử dụng bởi tài khoản khác.');
+        req.flash('error', 'Số điện thoại đã được sử dụng bởi tài khoản khác.');
+        return res.redirect('/account');
       }
 
       await Customer.update(customer.CustomerId, { FullName: nameCustomer, Email: email, Phone: phone });
@@ -72,7 +76,8 @@ exports.addresses = async (req, res) => {
 exports.addAddress = async (req, res) => {
   const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
   if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
+    req.flash('error', 'Không tìm thấy thông tin khách hàng trên hệ thống');
+    return res.redirect('/account/addresses');
   }
   const ReceiverName = customer.FullName;
   const ReceiverPhone = customer.Phone;
@@ -82,7 +87,8 @@ exports.addAddress = async (req, res) => {
   const province = (req.body.province || '').trim();
   const isDefault = req.body.isDefault === '1';
   if(!addressLine || !ward || !district || !province){
-    return res.status(400).send('Thiếu thông tin bắt buộc');
+    req.flash('error', 'Thiếu thông tin bắt buộc');
+    return res.redirect('/account/addresses');
   }
   if(await Customer.addAddress( customer.CustomerId, {
     receiverName: customer.FullName,
@@ -94,7 +100,8 @@ exports.addAddress = async (req, res) => {
     req.flash('success', 'Thêm địa chỉ thành công.');
     return res.redirect('/account/addresses');
   } else {
-    return res.status(500).send('Có lỗi xảy ra khi thêm địa chỉ');
+    req.flash('error', 'Có lỗi xảy ra khi thêm địa chỉ');
+    return res.redirect('/account/addresses');
   }
 
 };
@@ -103,7 +110,8 @@ exports.addAddress = async (req, res) => {
 exports.updateAddress = async (req, res) => {
   const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
   if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
+    req.flash('error', 'Không tìm thấy thông tin khách hàng trên hệ thống');
+    return res.redirect('/account/addresses');
   }
   const ReceiverName = customer.FullName;
   const ReceiverPhone = customer.Phone;
@@ -114,9 +122,10 @@ exports.updateAddress = async (req, res) => {
   const province = (req.body.province || '').trim();
   const isDefault = req.body.isDefault === '1';
   if(!addressId || !addressLine || !ward || !district || !province){
-    return res.status(400).send('Thiếu thông tin bắt buộc');
+    req.flash('error', 'Thiếu thông tin bắt buộc');
+    return res.redirect('/account/addresses');
   }
-  if(await Customer.updateAddress(customer.CustomerId, addressId, { 
+  if(await Customer.updateAddress(customer.CustomerId, addressId, {
       receiverName: customer.FullName,
       receiverPhone: customer.Phone,
       addressLine: addressLine,
@@ -127,7 +136,8 @@ exports.updateAddress = async (req, res) => {
     req.flash('success', 'Cập nhật địa chỉ thành công.');
     return res.redirect('/account/addresses');
   } else {
-    return res.status(500).send('Có lỗi xảy ra khi cập nhật địa chỉ');
+    req.flash('error', 'Có lỗi xảy ra khi cập nhật địa chỉ');
+    return res.redirect('/account/addresses');
   }
 };
 
@@ -135,18 +145,21 @@ exports.updateAddress = async (req, res) => {
 exports.deleteAddress = async (req, res) => {
   const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
   if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
+    req.flash('error', 'Không tìm thấy thông tin khách hàng trên hệ thống');
+    return res.redirect('/account/addresses');
   }
   const addressId = req.params.id;
   if (!addressId) {
-    return res.status(400).send('Thiếu thông tin địa chỉ cần xoá');
+    req.flash('error', 'Thiếu thông tin địa chỉ cần xoá');
+    return res.redirect('/account/addresses');
   }
 
   if(await Customer.deleteAddress(customer.CustomerId, addressId)) {
     req.flash('success', 'Xoá địa chỉ thành công.');
     return res.redirect('/account/addresses');
   } else {
-    return res.status(500).send('Có lỗi xảy ra khi xoá địa chỉ');
+    req.flash('error', 'Có lỗi xảy ra khi xoá địa chỉ');
+    return res.redirect('/account/addresses');
   }
 
 };
@@ -155,18 +168,21 @@ exports.deleteAddress = async (req, res) => {
 exports.setDefault = async (req, res) => {
   const customer = await Customer.findById(req.session.user.customerId)|| await Customer.findByAccountId(req.session.user.accountId);
   if (!customer) {
-    return res.status(404).send('Không tìm thấy thông tin khách hàng trên hệ thống');
+    req.flash('error', 'Không tìm thấy thông tin khách hàng trên hệ thống');
+    return res.redirect('/account/addresses');
   }
   const addressId = parseInt(req.params.id,10); // id đang muốn đặt làm mặc định
   if (!addressId) {
-    return res.status(400).send('Thiếu thông tin địa chỉ cần đặt mặc định');
+    req.flash('error', 'Thiếu thông tin địa chỉ cần đặt mặc định');
+    return res.redirect('/account/addresses');
   }
   // nếu đã có thì setdefault, nếu chưa có thì báo lỗi
   if(await Customer.setDefault(customer.CustomerId, addressId)) {
     req.flash('success', 'Đặt địa chỉ mặc định thành công.');
     return res.redirect('/account/addresses');
   } else {
-    return res.status(500).send('Có lỗi xảy ra khi đặt địa chỉ mặc định');
+    req.flash('error', 'Có lỗi xảy ra khi đặt địa chỉ mặc định');
+    return res.redirect('/account/addresses');
   }
 };
 

@@ -30,8 +30,8 @@ exports.register = async (req, res) => {
   if (password !== confirmPassword) errors.push('Mật khẩu nhập lại không khớp.');
 
   if (!errors.length) {
-    if (await Customer.findAccountByUsernameOrEmail(username)) errors.push('Tên đăng nhập đã được sử dụng.');
-    if (email && await Customer.findAccountByUsernameOrEmail(email)) errors.push('Email đã được sử dụng.');
+    if (await Customer.findAccountByUsername(username)) errors.push('Tên đăng nhập đã được sử dụng.');
+    if (email && await Customer.findAccountByEmail(email)) errors.push('Email đã được sử dụng.');
     if (await Customer.findCustomerByPhone(phone)) errors.push('Số điện thoại đã được sử dụng.');
   }
 
