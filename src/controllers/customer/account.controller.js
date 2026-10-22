@@ -119,6 +119,10 @@ exports.addAddress = async (req, res) => {
     req.flash('danger', errors.join(' '));
     return res.redirect('/account/addresses');
   }
+  if (await isDuplicateAddress(req.session.user.customerId, values)) {
+    req.flash('danger', 'Địa chỉ này đã tồn tại trong sổ địa chỉ của bạn.');
+    return res.redirect('/account/addresses');
+  }
 
   try {
     const addressId = await Customer.addAddress(req.session.user.customerId, values);
@@ -167,3 +171,20 @@ exports.setDefault = async (req, res) => {
   return res.redirect('/account/addresses');
 };
 
+
+async function isDuplicateAddress(customerId, value) {
+  const normalized = {
+    ReceiverName: textField(value.receiverName),
+    ReceiverPhone: textField(value.receiverPhone),
+    AddressLine: textField(value.addressLine),
+    Ward: textField(value.ward),
+    District: textField(value.district),
+    Province: textField(value.province),
+  };
+
+  const addresses = await Customer.addresses(customerId);
+  return addresses.some((address) =>
+    ['ReceiverName', 'ReceiverPhone', 'AddressLine', 'Ward', 'District', 'Province']
+      .every((field) => textField(address[field]) === normalized[field])
+  );
+}

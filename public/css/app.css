@@ -75,10 +75,38 @@
 .badge.rounded-pill { border-radius: 50rem; }
 
 .alert {
-  border: 0;
   border-radius: var(--ls-radius-sm);
-  box-shadow: var(--ls-shadow-sm);
+  box-shadow: var(--ls-shadow-md);
   animation: ls-fade-up .3s var(--ls-ease) both;
+  font-weight: 500;
+}
+
+.alert-danger {
+  color: #842029;
+  background-color: #f8d7da;
+  border: 1px solid #f1aeb5;
+  border-left: 6px solid #dc3545;
+}
+
+.alert-success {
+  color: #0f5132;
+  background-color: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  border-left: 6px solid #198754;
+}
+
+.alert-warning {
+  color: #664d03;
+  background-color: #fff3cd;
+  border: 1px solid #ffda6a;
+  border-left: 6px solid #ffc107;
+}
+
+.alert-info {
+  color: #055160;
+  background-color: #cff4fc;
+  border: 1px solid #9eeaf9;
+  border-left: 6px solid #0dcaf0;
 }
 
 main.container, .content main {
