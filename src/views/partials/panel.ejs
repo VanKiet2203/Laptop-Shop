@@ -17,6 +17,7 @@
         <span class="avatar" aria-hidden="true"><%= currentUser ? String(currentUser.fullName || '?').trim().charAt(0).toUpperCase() : '?' %></span>
         <span class="text-truncate"><%= currentUser ? currentUser.fullName : '' %></span>
       </div>
+      <a class="btn btn-sm btn-outline-light mb-1" href="/auth/password"><%- ico('lock') %> Đổi mật khẩu</a>
       <a class="btn btn-sm btn-outline-light mb-1" href="/" target="_blank" rel="noopener"><%- ico('store') %> Xem cửa hàng</a>
       <form action="/auth/logout" method="post"><button class="btn btn-sm btn-light w-100"><%- ico('logout') %> Đăng xuất</button></form>
     </aside>

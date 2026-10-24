@@ -1,4 +1,4 @@
-// Gửi email (xác nhận đơn hàng, gửi lại mã đơn). Cấu hình SMTP trong .env:
+// Gửi email (xác nhận đơn hàng, gửi lại mã đơn, link đặt lại mật khẩu, thông báo đổi mật khẩu). Cấu hình SMTP trong .env:
 //   SMTP_HOST, SMTP_PORT (587/465), SMTP_SECURE (true nếu 465), SMTP_USER, SMTP_PASS, MAIL_FROM, APP_URL
 // Chưa cấu hình SMTP (môi trường phát triển/đồ án): email KHÔNG gửi đi thật mà được lưu thành file HTML trong thư mục
 // outbox/ ở gốc dự án (và in một dòng ra console) để vẫn xem và kiểm tra được nội dung.

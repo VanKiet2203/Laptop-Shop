@@ -1,0 +1,34 @@
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5 col-xl-4">
+    <div class="auth-card">
+      <% if (invalid) { %>
+        <div class="text-center">
+          <span class="auth-ico"><%- ico('alert') %></span>
+          <h1 class="h4 mb-2">Link không còn hiệu lực</h1>
+          <p class="text-muted small">Link đặt lại mật khẩu đã được dùng, đã hết hạn hoặc không đúng. Hãy yêu cầu một link mới.</p>
+          <a class="btn btn-primary w-100" href="/auth/forgot">Gửi lại link</a>
+          <p class="text-center small mt-3 mb-0"><a href="/auth/login">&larr; Quay lại đăng nhập</a></p>
+        </div>
+      <% } else { %>
+        <div class="text-center mb-4">
+          <span class="auth-ico"><%- ico('key') %></span>
+          <h1 class="h4 mb-1">Đặt mật khẩu mới</h1>
+          <p class="text-muted small mb-0">Tài khoản <strong><%= username %></strong></p>
+        </div>
+        <% if (errors.length) { %><div class="alert alert-danger" role="alert"><ul class="mb-0 ps-3"><% errors.forEach(function (e) { %><li><%= e %></li><% }) %></ul></div><% } %>
+        <form method="post" action="/auth/reset/<%= token %>">
+          <div class="mb-3">
+            <label class="form-label" for="rs-pass">Mật khẩu mới</label>
+            <div class="field-icon"><%- ico('lock') %><input id="rs-pass" name="password" type="password" class="form-control" required minlength="6" maxlength="72" autocomplete="new-password" autofocus></div>
+            <div class="form-text">Tối thiểu 6 ký tự.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="rs-confirm">Nhập lại mật khẩu mới</label>
+            <div class="field-icon"><%- ico('lock') %><input id="rs-confirm" name="confirmPassword" type="password" class="form-control" required minlength="6" maxlength="72" autocomplete="new-password"></div>
+          </div>
+          <button class="btn btn-primary w-100 py-2">Lưu mật khẩu mới <%- ico('check') %></button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>

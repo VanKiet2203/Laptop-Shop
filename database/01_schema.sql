@@ -70,6 +70,7 @@ CREATE TABLE dbo.Accounts (
     RoleId          INT           NOT NULL,       -- Vai trò
     IsActive        BIT           NOT NULL CONSTRAINT DF_Accounts_Active DEFAULT 1, -- 1 = hoạt động, 0 = khoá
     LastLoginAt     DATETIME2(0)  NULL,           -- Lần đăng nhập gần nhất
+    PasswordChangedAt DATETIME2(3) NULL,          -- Lần đổi mật khẩu gần nhất (đổi mật khẩu thì các phiên đăng nhập cũ bị đăng xuất)
     CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_Accounts_Created DEFAULT SYSDATETIME(), -- Ngày tạo
     CONSTRAINT PK_Accounts PRIMARY KEY (AccountId),
     CONSTRAINT UQ_Accounts_Username UNIQUE (Username),
@@ -159,6 +160,21 @@ CREATE TABLE dbo.AuditLogs (
     CONSTRAINT FK_Audit_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId) ON DELETE SET NULL
 );
 CREATE INDEX IX_Audit_CreatedAt ON dbo.AuditLogs(CreatedAt DESC);
+
+-- [Table] PasswordResets: Mã đặt lại mật khẩu gửi qua email (chỉ lưu bản băm SHA-256, dùng 1 lần, hết hạn nhanh)
+CREATE TABLE dbo.PasswordResets (
+    ResetId         INT IDENTITY(1,1) NOT NULL,   -- Mã yêu cầu
+    AccountId       INT           NOT NULL,       -- Tài khoản cần đặt lại mật khẩu
+    TokenHash       CHAR(64)      NOT NULL,       -- SHA-256 (hex) của mã trong link email; không lưu mã gốc
+    ExpiresAt       DATETIME2(0)  NOT NULL,       -- Hết hạn lúc
+    UsedAt          DATETIME2(0)  NULL,           -- Đã dùng / bị thay thế lúc (NULL = còn hiệu lực nếu chưa hết hạn)
+    RequestIp       VARCHAR(45)   NULL,           -- IP gửi yêu cầu (giới hạn tần suất)
+    CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_PwReset_Created DEFAULT SYSDATETIME(), -- Thời điểm yêu cầu
+    CONSTRAINT PK_PasswordResets PRIMARY KEY (ResetId),
+    CONSTRAINT UQ_PwReset_Token UNIQUE (TokenHash),
+    CONSTRAINT FK_PwReset_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId) ON DELETE CASCADE
+);
+CREATE INDEX IX_PwReset_Account ON dbo.PasswordResets(AccountId, CreatedAt DESC);
 GO
 
 /* =====================================================================

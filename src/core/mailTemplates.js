@@ -99,4 +99,25 @@ function orderCodesReminder(orders, baseUrl) {
   return { subject: `Mã đơn hàng của bạn - ${site.name}`, html, text };
 }
 
-module.exports = { orderConfirmation, orderCodesReminder, esc };
+/** Email "quên mật khẩu": link đặt lại mật khẩu, dùng 1 lần và hết hạn sau `minutes` phút. */
+function passwordReset({ name, link, minutes }) {
+  const html = layout('Đặt lại mật khẩu', `<h1 style="margin:0 0 8px;font-size:20px">Đặt lại mật khẩu</h1>
+<p style="margin:0 0 16px;color:#475569">Xin chào <strong>${esc(name)}</strong>, chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn tại ${esc(site.name)}.</p>
+<p style="margin:0 0 18px">${button(link, 'Đặt mật khẩu mới')}</p>
+<p style="margin:0 0 6px;font-size:13px;color:#64748b">Link chỉ dùng được <strong>một lần</strong> và hết hạn sau <strong>${esc(minutes)} phút</strong>. Nếu nút không bấm được, hãy dán địa chỉ sau vào trình duyệt:</p>
+<p style="margin:0 0 16px;font-size:12px;word-break:break-all;color:#4338ca">${esc(link)}</p>
+<p style="margin:0;font-size:13px;color:#64748b">Nếu bạn không yêu cầu, hãy bỏ qua email này - mật khẩu hiện tại vẫn giữ nguyên và không ai đăng nhập được nếu không có link này.</p>`);
+  const text = `Xin chào ${name},\nĐặt lại mật khẩu ${site.name}: ${link}\nLink dùng 1 lần, hết hạn sau ${minutes} phút. Nếu không phải bạn yêu cầu, hãy bỏ qua email này.`;
+  return { subject: `Đặt lại mật khẩu - ${site.name}`, html, text };
+}
+
+/** Email thông báo sau khi mật khẩu đã được đổi (để chủ tài khoản phát hiện nếu không phải mình làm). */
+function passwordChanged({ name, when, how }) {
+  const html = layout('Mật khẩu đã được thay đổi', `<h1 style="margin:0 0 8px;font-size:20px">Mật khẩu đã được thay đổi</h1>
+<p style="margin:0 0 14px;color:#475569">Xin chào <strong>${esc(name)}</strong>, mật khẩu tài khoản của bạn tại ${esc(site.name)} vừa được ${esc(how)} lúc <strong>${esc(fmtDateTime(when))}</strong>.</p>
+<p style="margin:0;font-size:13px;color:#64748b">Nếu không phải bạn thực hiện, hãy dùng chức năng "Quên mật khẩu" để đặt lại ngay và liên hệ ${esc(site.email)} hoặc hotline ${esc(site.hotline)}.</p>`);
+  const text = `Xin chào ${name}, mật khẩu tài khoản ${site.name} của bạn vừa được ${how} lúc ${fmtDateTime(when)}. Nếu không phải bạn, hãy đặt lại mật khẩu ngay và liên hệ ${site.email}.`;
+  return { subject: `Mật khẩu của bạn đã được thay đổi - ${site.name}`, html, text };
+}
+
+module.exports = { orderConfirmation, orderCodesReminder, passwordReset, passwordChanged, esc };

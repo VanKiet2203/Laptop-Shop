@@ -5,6 +5,8 @@ const Account = require('../../models/account.model');
 const audit = require('../../models/audit.model');
 const db = require('../../config/db');
 const { parseId } = require('../../core/helpers');
+const mailer = require('../../core/mailer');
+const { passwordChanged } = require('../../core/mailTemplates');
 
 const NOT_FOUND = { layout: 'layouts/admin', title: 'Không tìm thấy' };
 const text = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -176,6 +178,8 @@ exports.resetPassword = async (req, res) => {
   const password = tempPassword();
   await Account.setPassword(user.AccountId, await bcrypt.hash(password, 10));
   await audit.log(req, 'RESET_PASSWORD', 'Account', user.AccountId, `Đặt lại mật khẩu tài khoản ${user.Username}`);
+  // Chỉ báo cho chủ tài khoản biết mật khẩu đã bị đổi (KHÔNG gửi mật khẩu tạm qua email)
+  if (user.Email) await mailer.sendMail({ to: user.Email, ...passwordChanged({ name: user.FullName, when: new Date(), how: 'đặt lại bởi quản trị viên' }) });
   req.flash('warning', `Mật khẩu tạm của ${user.Username}: ${password} — hãy gửi cho người dùng và yêu cầu đổi lại. Mật khẩu chỉ hiện một lần.`);
   return res.redirect('/admin/users');
 };

@@ -3,7 +3,7 @@ const db = require('../config/db');
 
 const LOGIN_SELECT = `SELECT a.AccountId, a.Username, a.PasswordHash, a.IsActive, r.RoleId, r.RoleCode,
           COALESCE(e.FullName, c.FullName, a.Username) AS FullName,
-          c.CustomerId, e.EmployeeId, c.AvatarUrl
+          c.CustomerId, e.EmployeeId, c.AvatarUrl, a.PasswordChangedAt
    FROM dbo.Accounts a
    JOIN dbo.Roles r ON r.RoleId = a.RoleId
    LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
@@ -29,6 +29,17 @@ exports.getPermissions = async (roleId, transaction = null) => {
     { roleId })).map((r) => r.PermCode);
 };
 
+/**
+ * "Phiên bản mật khẩu" của tài khoản (mili-giây của lần đổi mật khẩu gần nhất, 0 nếu chưa từng đổi).
+ * Lưu trong session lúc đăng nhập; đổi mật khẩu thì giá trị thay đổi và mọi phiên cũ bị đăng xuất ở request kế tiếp.
+ */
+exports.pwVersion = (changedAt) => (changedAt ? new Date(changedAt).getTime() : 0);
+
+exports.getPwVersion = async (accountId) => {
+  const row = await db.queryOne('SELECT PasswordChangedAt FROM dbo.Accounts WHERE AccountId = @accountId', { accountId });
+  return row ? exports.pwVersion(row.PasswordChangedAt) : 0;
+};
+
 exports.touchLastLogin = (accountId) =>
   db.query('UPDATE dbo.Accounts SET LastLoginAt = SYSDATETIME() WHERE AccountId = @accountId', { accountId });
 
@@ -37,7 +48,7 @@ exports.touchLastLogin = (accountId) =>
  */
 exports.getAuthState = async (accountId) => {
   const rows = await db.query(
-    `SELECT a.IsActive, r.RoleId, r.RoleCode, p.PermCode
+    `SELECT a.IsActive, a.PasswordChangedAt, r.RoleId, r.RoleCode, p.PermCode
      FROM dbo.Accounts a
      JOIN dbo.Roles r ON r.RoleId = a.RoleId
      LEFT JOIN dbo.RolePermissions rp ON rp.RoleId = r.RoleId
@@ -51,6 +62,7 @@ exports.getAuthState = async (accountId) => {
     IsActive: rows[0].IsActive,
     RoleId: rows[0].RoleId,
     RoleCode: rows[0].RoleCode,
+    pwv: exports.pwVersion(rows[0].PasswordChangedAt),
     permissions: [],
   };
   for (const row of rows) {
@@ -58,6 +70,61 @@ exports.getAuthState = async (accountId) => {
   }
   return state;
 };
+
+/* ---------- Quên / đổi mật khẩu ---------- */
+const PROFILE_NAME = 'COALESCE(e.FullName, c.FullName, a.Username)';
+const PROFILE_JOIN = `FROM dbo.Accounts a
+   LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
+   LEFT JOIN dbo.Customers c ON c.AccountId = a.AccountId`;
+
+/** Tài khoản đang hoạt động có email này (để gửi link đặt lại mật khẩu). */
+exports.findActiveByEmail = (email) => db.queryOne(
+  `SELECT a.AccountId, a.Username, a.Email, ${PROFILE_NAME} AS FullName ${PROFILE_JOIN} WHERE a.Email = @email AND a.IsActive = 1`, { email });
+
+/** Thông tin để kiểm tra mật khẩu cũ / gửi thông báo sau khi đổi mật khẩu. */
+exports.findAuthInfo = (accountId) => db.queryOne(
+  `SELECT a.AccountId, a.Username, a.Email, a.PasswordHash, ${PROFILE_NAME} AS FullName ${PROFILE_JOIN} WHERE a.AccountId = @accountId`, { accountId });
+
+/** Số yêu cầu đặt lại mật khẩu gần đây của tài khoản và của IP (chống spam email). */
+exports.countRecentResets = async (accountId, ip, minutes) => db.queryOne(
+  `SELECT (SELECT COUNT(*) FROM dbo.PasswordResets WHERE AccountId = @accountId AND CreatedAt >= DATEADD(MINUTE, -@minutes, SYSDATETIME())) AS byAccount,
+          (SELECT COUNT(*) FROM dbo.PasswordResets WHERE @ip IS NOT NULL AND RequestIp = @ip AND CreatedAt >= DATEADD(MINUTE, -@minutes, SYSDATETIME())) AS byIp`,
+  { accountId, ip: ip || null, minutes });
+
+/** Tạo yêu cầu mới; các yêu cầu cũ chưa dùng của tài khoản bị vô hiệu (chỉ link mới nhất có tác dụng). */
+exports.createPasswordReset = (accountId, tokenHash, minutes, ip) => db.transaction(async (tx) => {
+  await tx.query('UPDATE dbo.PasswordResets SET UsedAt = SYSDATETIME() WHERE AccountId = @accountId AND UsedAt IS NULL', { accountId });
+  await tx.query(
+    `INSERT INTO dbo.PasswordResets (AccountId, TokenHash, ExpiresAt, RequestIp)
+     VALUES (@accountId, @tokenHash, DATEADD(MINUTE, @minutes, SYSDATETIME()), @ip)`,
+    { accountId, tokenHash, minutes, ip: ip || null });
+});
+
+const VALID_RESET = `FROM dbo.PasswordResets r
+   JOIN dbo.Accounts a ON a.AccountId = r.AccountId AND a.IsActive = 1
+   LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
+   LEFT JOIN dbo.Customers c ON c.AccountId = a.AccountId
+   WHERE r.TokenHash = @tokenHash AND r.UsedAt IS NULL AND r.ExpiresAt > SYSDATETIME()`;
+
+/** Link còn hiệu lực (chưa dùng, chưa hết hạn, tài khoản còn hoạt động)? Trả về tài khoản hoặc null. */
+exports.findValidReset = (tokenHash) => db.queryOne(
+  `SELECT r.ResetId, a.AccountId, a.Username, a.Email, ${PROFILE_NAME} AS FullName ${VALID_RESET}`, { tokenHash });
+
+/** Đặt mật khẩu mới bằng link: đánh dấu đã dùng + đổi mật khẩu trong CÙNG transaction (link chỉ dùng được 1 lần). */
+exports.completeReset = (tokenHash, passwordHash) => db.transaction(async (tx) => {
+  const rows = await tx.query(
+    `SELECT r.ResetId, a.AccountId, a.Username, a.Email, ${PROFILE_NAME} AS FullName
+     FROM dbo.PasswordResets r WITH (UPDLOCK, ROWLOCK)
+     JOIN dbo.Accounts a ON a.AccountId = r.AccountId AND a.IsActive = 1
+     LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
+     LEFT JOIN dbo.Customers c ON c.AccountId = a.AccountId
+     WHERE r.TokenHash = @tokenHash AND r.UsedAt IS NULL AND r.ExpiresAt > SYSDATETIME()`, { tokenHash });
+  const acc = rows[0];
+  if (!acc) return null;
+  await tx.query('UPDATE dbo.PasswordResets SET UsedAt = SYSDATETIME() WHERE AccountId = @accountId AND UsedAt IS NULL', { accountId: acc.AccountId });
+  await tx.query('UPDATE dbo.Accounts SET PasswordHash = @passwordHash, PasswordChangedAt = SYSDATETIME() WHERE AccountId = @accountId', { accountId: acc.AccountId, passwordHash });
+  return acc;
+});
 
 /* ---------- Quản trị người dùng (Admin > Tài khoản) ---------- */
 const { paginate } = require('../core/helpers');
@@ -162,7 +229,7 @@ exports.setActive = (accountId, isActive, query = db.query) => query(
   'UPDATE dbo.Accounts SET IsActive = @isActive WHERE AccountId = @accountId', { accountId, isActive: isActive ? 1 : 0 });
 
 exports.setPassword = (accountId, passwordHash) => db.query(
-  'UPDATE dbo.Accounts SET PasswordHash = @passwordHash WHERE AccountId = @accountId', { accountId, passwordHash });
+  'UPDATE dbo.Accounts SET PasswordHash = @passwordHash, PasswordChangedAt = SYSDATETIME() WHERE AccountId = @accountId', { accountId, passwordHash });
 
 /** Xoá hẳn tài khoản chưa phát sinh dữ liệu. Có ràng buộc FK (lỗi 547) thì ném lỗi để controller chuyển sang khoá tài khoản. */
 exports.removeUser = async (accountId, transaction) => {

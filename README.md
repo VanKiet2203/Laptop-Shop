@@ -18,6 +18,7 @@ Yêu cầu: **Node.js ≥ 18**, **SQL Server 2017+** (bật đăng nhập SQL - 
 ### Tuỳ chọn: đăng nhập Google & email xác nhận đơn
 
 - **Đăng nhập Google**: điền `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` trong `.env` (xem hướng dẫn ngay trong `.env.example`). Chưa điền thì nút Google báo chưa cấu hình, các cách đăng nhập khác vẫn dùng bình thường.
+- **Quên mật khẩu / đổi mật khẩu**: `/auth/forgot` gửi link đặt lại (dùng 1 lần, hết hạn 60 phút, lưu bản băm trong bảng `PasswordResets`), `/auth/password` cho mọi vai trò đổi mật khẩu khi đã đăng nhập; đổi mật khẩu (tự đổi, qua link email hoặc do admin đặt lại) thì **mọi phiên đăng nhập khác của tài khoản đó bị đăng xuất** (cột `Accounts.PasswordChangedAt` + `pwv` trong session, kiểm tra ở `requireLogin`); cả hai gửi email thông báo nên cần `SMTP_*` (không có thì email nằm trong `outbox/`, mở file ra lấy link). Ai khác chạy lại 3 file SQL vì có thêm bảng này.
 - **Email xác nhận đơn + gửi lại mã đơn**: điền `SMTP_*` trong `.env`. Chưa điền thì email được lưu thành file HTML trong thư mục `outbox/` (để demo/kiểm tra nội dung).
 
 ## 2. Tài khoản mẫu (mật khẩu chung `123456`)

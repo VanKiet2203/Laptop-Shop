@@ -18,6 +18,7 @@ exports.startSession = async (req, acc) => {
     employeeId: acc.EmployeeId || null,
     customerId: acc.CustomerId || null,
     avatarUrl: acc.AvatarUrl || null,
+    pwv: Account.pwVersion(acc.PasswordChangedAt), // đổi mật khẩu ở nơi khác thì phiên này bị đăng xuất (xem requireLogin)
     permissions: await Account.getPermissions(acc.RoleId),
   };
   await Account.touchLastLogin(acc.AccountId);

@@ -58,8 +58,8 @@ function request(sessionUser = {
   };
 }
 
-function authState({ IsActive = true, RoleId = 2, RoleCode = 'SALES', permissions = [] } = {}) {
-  return { IsActive, RoleId, RoleCode, permissions };
+function authState({ IsActive = true, RoleId = 2, RoleCode = 'SALES', permissions = [], pwv = 0 } = {}) {
+  return { IsActive, RoleId, RoleCode, permissions, pwv };
 }
 
 test('requireLogin refreshes grants and revocations when role is unchanged', async () => {
@@ -168,6 +168,7 @@ test('getAuthState returns one current role and a normalized permission list', a
     IsActive: true,
     RoleId: 2,
     RoleCode: 'SALES',
+    pwv: 0,
     permissions: ['product.create', 'product.view'],
   });
   assert.equal(calls.length, 1);
@@ -190,6 +191,7 @@ test('getAuthState returns an empty permissions list for a valid role with no gr
     IsActive: true,
     RoleId: 9,
     RoleCode: 'LIMITED',
+    pwv: 0,
     permissions: [],
   });
 });
@@ -210,4 +212,25 @@ test('database errors propagate through requireLogin error middleware', async ()
 
   assert.equal(capturedError, databaseError);
   assert.equal(res.redirected, undefined);
+});
+
+test('a session started before the password last changed is logged out (other devices after a password change)', async () => {
+  Account.getAuthState = async () => authState({ pwv: 2000, permissions: ['product.view'] });
+  const { req, res, flashes } = request({ accountId: 7, role: 'SALES', permissions: [], pwv: 1000 });
+  await requireLogin(req, res, () => assert.fail('next must not run for a stale session'));
+  assert.ok(req.regeneratedFrom);
+  assert.equal(req.session.user, undefined);
+  assert.equal(res.redirected, '/auth/login');
+  assert.match(flashes[0][1], /Mật khẩu/);
+});
+
+test('a session whose password version matches keeps working; older sessions without a version adopt the current one', async () => {
+  Account.getAuthState = async () => authState({ pwv: 2000, permissions: ['product.view'] });
+  for (const pwv of [2000, undefined]) {
+    const { req, res } = request({ accountId: 7, role: 'SALES', permissions: [], pwv });
+    let ran = false;
+    await requireLogin(req, res, () => { ran = true; });
+    assert.equal(ran, true, `pwv=${pwv}`);
+    assert.equal(req.session.user.pwv, 2000);
+  }
 });

@@ -21,14 +21,20 @@ const requireLogin = wrap(async (req, res, next) => {
   if (!req.session.user) return goToLogin(req, res);
 
   const state = await Account.getAuthState(req.session.user.accountId);
-  if (!state || !state.IsActive) {
-    // Tài khoản vừa bị khoá/xoá: đổi sang phiên mới (không còn đăng nhập) rồi mới ghi returnTo + thông báo,
+  // Phiên cũ hơn lần đổi mật khẩu gần nhất (đổi ở thiết bị khác / admin đặt lại / quên mật khẩu) cũng bị đăng xuất.
+  // Phiên tạo trước khi có cơ chế này (pwv chưa có) thì nhận phiên bản hiện tại để không đá oan người đang dùng.
+  const user = req.session.user;
+  if (state && state.IsActive && user.pwv === undefined) user.pwv = state.pwv;
+  const staleSecret = state && state.IsActive && state.pwv !== user.pwv;
+  if (!state || !state.IsActive || staleSecret) {
+    // Tài khoản vừa bị khoá/xoá hoặc mật khẩu vừa đổi: đổi sang phiên mới (không còn đăng nhập) rồi mới ghi returnTo + thông báo,
     // vì sau session.destroy() thì req.session không còn để ghi.
     const returnTo = req.originalUrl;
+    const message = staleSecret ? 'Mật khẩu tài khoản vừa được thay đổi. Vui lòng đăng nhập lại.' : 'Tài khoản đã bị khoá hoặc không còn tồn tại. Vui lòng đăng nhập lại.';
     return req.session.regenerate((err) => {
       if (err) return res.redirect('/auth/login');
       req.session.returnTo = returnTo;
-      req.flash('warning', 'Tài khoản đã bị khoá hoặc không còn tồn tại. Vui lòng đăng nhập lại.');
+      req.flash('warning', message);
       return res.redirect('/auth/login');
     });
   }

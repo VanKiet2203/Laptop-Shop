@@ -14,6 +14,7 @@ erDiagram
     MembershipTiers ||--o{ Customers : "TierId"
     Customers ||--o{ CustomerAddresses : "CustomerId"
     Accounts |o--o{ AuditLogs : "AccountId"
+    Accounts ||--o{ PasswordResets : "AccountId"
     Categories |o--o{ Categories : "ParentId"
     Categories ||--o{ Products : "CategoryId"
     Brands ||--o{ Products : "BrandId"
@@ -129,6 +130,7 @@ Tài khoản đăng nhập dùng chung (nhân viên, admin, khách hàng)
 | `RoleId` | INT | Không | FK → Roles |  | Vai trò |
 | `IsActive` | BIT | Không |  | 1 | 1 = hoạt động, 0 = khoá |
 | `LastLoginAt` | DATETIME2(0) | Có |  |  | Lần đăng nhập gần nhất |
+| `PasswordChangedAt` | DATETIME2(0) | Có |  |  | Lần đổi mật khẩu gần nhất (đổi mật khẩu thì các phiên đăng nhập cũ bị đăng xuất) |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Ngày tạo |
 
 **Unique:** (Username)
@@ -217,6 +219,20 @@ Nhật ký thao tác hệ thống (ai làm gì, lúc nào)
 | `Detail` | NVARCHAR(1000) | Có |  |  | Chi tiết |
 | `IpAddress` | VARCHAR(45) | Có |  |  | Địa chỉ IP |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Thời điểm |
+
+### PasswordResets
+
+Mã đặt lại mật khẩu gửi qua email (chỉ lưu bản băm SHA-256, dùng 1 lần, hết hạn nhanh)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `ResetId` | INT (IDENTITY) | Không | PK |  | Mã yêu cầu |
+| `AccountId` | INT | Không | FK → Accounts |  | Tài khoản cần đặt lại mật khẩu |
+| `TokenHash` | CHAR(64) | Không | UQ |  | SHA-256 (hex) của mã trong link email; không lưu mã gốc |
+| `ExpiresAt` | DATETIME2(0) | Không |  |  | Hết hạn lúc |
+| `UsedAt` | DATETIME2(0) | Có |  |  | Đã dùng / bị thay thế lúc (NULL = còn hiệu lực nếu chưa hết hạn) |
+| `RequestIp` | VARCHAR(45) | Có |  |  | IP gửi yêu cầu (giới hạn tần suất) |
+| `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Thời điểm yêu cầu |
 
 ### Categories
 

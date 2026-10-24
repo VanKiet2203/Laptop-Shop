@@ -121,6 +121,7 @@ Toàn bộ route của 3 khu vực này đã được triển khai (25/10/2026);
 - **Bảo vệ tài khoản/quyền** (`admin/user.controller`, `role.controller`): không tự khoá/xoá/đổi vai trò chính mình; không khoá/xoá/hạ quyền admin hoạt động cuối cùng; tài khoản hệ thống NV000 không đụng được; ADMIN luôn giữ `user.manage` + `role.manage`; xoá user đã phát sinh dữ liệu (lỗi FK 547) thì chuyển sang khoá.
 - **Phiếu nhập kho**: Nháp → Chốt (`sp_PostGoodsReceipt`) hoặc Huỷ (chỉ khi Nháp); Serial nhập kèm phiếu, số Serial phải đúng bằng số lượng; trùng Serial (lỗi 2627) báo thân thiện kèm giá trị trùng.
 - **Địa giới hành chính** lấy từ API (`core/geo.js`, cache 24h, có dự phòng) - không hard-code danh sách phường/xã.
+- **Mọi chỗ đổi mật khẩu** phải đi qua `Account.setPassword` / `completeReset` (đã ghi `PasswordChangedAt`) - session cũ tự hết hiệu lực nhờ `pwv`; nếu sau khi đổi mà phiên hiện tại cần giữ đăng nhập thì cập nhật `req.session.user.pwv = await Account.getPwVersion(id)`. Link/mã đặt lại mật khẩu chỉ lưu bản băm, dùng 1 lần, luôn trả cùng một thông báo dù email có tồn tại hay không.
 - `requireLogin` khi tài khoản bị khoá phải dùng `session.regenerate` (KHÔNG `destroy` rồi ghi `req.session` - sẽ làm sập server; đã từng gặp). Test giả lập session phải giống express-session thật.
 
 ## Placeholder routes (`todo(...)`)
