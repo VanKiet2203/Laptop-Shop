@@ -3,7 +3,7 @@ const db = require('../config/db');
 
 const LOGIN_SELECT = `SELECT a.AccountId, a.Username, a.PasswordHash, a.IsActive, r.RoleId, r.RoleCode,
           COALESCE(e.FullName, c.FullName, a.Username) AS FullName,
-          c.CustomerId, e.EmployeeId
+          c.CustomerId, e.EmployeeId, c.AvatarUrl
    FROM dbo.Accounts a
    JOIN dbo.Roles r ON r.RoleId = a.RoleId
    LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
@@ -18,6 +18,9 @@ const LOGIN_SELECT = `SELECT a.AccountId, a.Username, a.PasswordHash, a.IsActive
 exports.findForLogin = async (username) =>
   (await db.queryOne(`${LOGIN_SELECT} WHERE a.Username = @username`, { username }))
   || db.queryOne(`${LOGIN_SELECT} WHERE a.Email = @username`, { username });
+
+/** Tìm tài khoản theo Email (dùng cho đăng nhập Google: đối chiếu email đã xác minh). */
+exports.findByEmail = (email) => db.queryOne(`${LOGIN_SELECT} WHERE a.Email = @email`, { email });
 
 exports.getPermissions = async (roleId, transaction = null) => {
   const query = transaction ? transaction.query : db.query;
@@ -56,5 +59,115 @@ exports.getAuthState = async (accountId) => {
   return state;
 };
 
-  
-// TODO (M1): list(), findById(), create(), update(), setActive(), resetPassword(), remove()  cho trang Admin > Người dùng
+/* ---------- Quản trị người dùng (Admin > Tài khoản) ---------- */
+const { paginate } = require('../core/helpers');
+
+const USER_PAGE_SIZE = 15;
+const STAFF_ROLES = ['ADMIN', 'SALES', 'WAREHOUSE'];
+exports.STAFF_ROLES = STAFF_ROLES;
+exports.SYSTEM_EMPLOYEE_CODE = 'NV000'; // tài khoản hệ thống tự duyệt đơn - không được sửa/khoá/xoá
+
+exports.normalizeUserFilters = (q = {}) => ({
+  q: typeof q.q === 'string' ? q.q.trim().slice(0, 100) : '',
+  role: /^[A-Z_]{1,30}$/.test(q.role || '') ? q.role : '',
+  status: ['active', 'locked'].includes(q.status) ? q.status : '',
+});
+
+exports.searchUsers = async (filters, page) => {
+  const f = exports.normalizeUserFilters(filters);
+  const from = `FROM dbo.Accounts a
+     JOIN dbo.Roles r ON r.RoleId = a.RoleId
+     LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
+     LEFT JOIN dbo.Customers c ON c.AccountId = a.AccountId
+     WHERE (@q = '' OR a.Username LIKE '%' + @q + '%' OR a.Email LIKE '%' + @q + '%'
+            OR e.FullName LIKE '%' + @q + '%' OR c.FullName LIKE '%' + @q + '%' OR e.EmployeeCode LIKE '%' + @q + '%')
+       AND (@role = '' OR r.RoleCode = @role)
+       AND (@status = '' OR (@status = 'active' AND a.IsActive = 1) OR (@status = 'locked' AND a.IsActive = 0))`;
+  const total = (await db.queryOne(`SELECT COUNT(*) AS n ${from}`, f)).n;
+  const pg = paginate(page, USER_PAGE_SIZE, total);
+  const rows = await db.query(
+    `SELECT a.AccountId, a.Username, a.Email, a.IsActive, a.LastLoginAt, a.CreatedAt, r.RoleCode, r.RoleName,
+            COALESCE(e.FullName, c.FullName, a.Username) AS FullName, e.EmployeeCode, COALESCE(e.Phone, c.Phone) AS Phone
+     ${from}
+     ORDER BY a.AccountId DESC
+     OFFSET @offset ROWS FETCH NEXT @size ROWS ONLY`,
+    { ...f, offset: pg.offset, size: pg.pageSize });
+  return { rows, pg, filters: f };
+};
+
+exports.userCounts = () => db.queryOne(
+  `SELECT COUNT(*) AS total, SUM(CASE WHEN IsActive = 1 THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN IsActive = 0 THEN 1 ELSE 0 END) AS locked FROM dbo.Accounts`);
+
+exports.roleOptions = () => db.query('SELECT RoleId, RoleCode, RoleName FROM dbo.Roles ORDER BY RoleId');
+
+exports.findUserById = (accountId) => db.queryOne(
+  `SELECT a.AccountId, a.Username, a.Email, a.IsActive, a.LastLoginAt, a.CreatedAt, a.RoleId, r.RoleCode, r.RoleName,
+          e.EmployeeId, e.EmployeeCode, e.Gender, e.BirthDate, e.Address, e.HireDate,
+          c.CustomerId, COALESCE(e.FullName, c.FullName, a.Username) AS FullName, COALESCE(e.Phone, c.Phone) AS Phone
+   FROM dbo.Accounts a JOIN dbo.Roles r ON r.RoleId = a.RoleId
+   LEFT JOIN dbo.Employees e ON e.AccountId = a.AccountId
+   LEFT JOIN dbo.Customers c ON c.AccountId = a.AccountId
+   WHERE a.AccountId = @accountId`, { accountId });
+
+/** Số admin đang hoạt động, không tính tài khoản `exceptAccountId` (để chặn việc khoá/hạ quyền/xoá admin cuối cùng) */
+exports.countOtherActiveAdmins = async (exceptAccountId, query = db.query) => (await query(
+  `SELECT COUNT(*) AS n FROM dbo.Accounts a JOIN dbo.Roles r ON r.RoleId = a.RoleId
+   WHERE r.RoleCode = 'ADMIN' AND a.IsActive = 1 AND a.AccountId <> @exceptAccountId`, { exceptAccountId }))[0].n;
+
+exports.usernameOrEmailTaken = async (username, email, exceptAccountId = 0) => (await db.queryOne(
+  `SELECT TOP 1 CASE WHEN Username = @username THEN 'username' ELSE 'email' END AS field
+   FROM dbo.Accounts WHERE AccountId <> @exceptAccountId AND (Username = @username OR (@email IS NOT NULL AND Email = @email)
+        OR Email = @username OR (@email IS NOT NULL AND Username = @email))`,
+  { username, email: email || null, exceptAccountId }));
+
+/** Tạo tài khoản + hồ sơ (nhân viên hoặc khách) trong transaction. Trả về { accountId, employeeCode } */
+exports.createUser = async (d, transaction) => {
+  const ids = await transaction.query(
+    `DECLARE @ids TABLE (AccountId INT);
+     INSERT INTO dbo.Accounts (Username, Email, PasswordHash, RoleId, IsActive)
+     OUTPUT INSERTED.AccountId INTO @ids
+     VALUES (@username, @email, @passwordHash, @roleId, 1);
+     SELECT AccountId FROM @ids`,
+    { username: d.username, email: d.email || null, passwordHash: d.passwordHash, roleId: d.roleId });
+  const accountId = ids[0].AccountId;
+  let employeeCode = null;
+  if (STAFF_ROLES.includes(d.roleCode)) {
+    const code = await transaction.query(
+      `SELECT 'NV' + RIGHT('000' + CAST(ISNULL(MAX(TRY_CAST(SUBSTRING(EmployeeCode, 3, 10) AS INT)), 0) + 1 AS VARCHAR(10)), 3) AS Code
+       FROM dbo.Employees WITH (UPDLOCK, HOLDLOCK) WHERE EmployeeCode LIKE 'NV[0-9]%'`);
+    employeeCode = code[0].Code;
+    await transaction.query(
+      `INSERT INTO dbo.Employees (AccountId, EmployeeCode, FullName, Phone) VALUES (@accountId, @code, @fullName, @phone)`,
+      { accountId, code: employeeCode, fullName: d.fullName, phone: d.phone || null });
+  } else {
+    await transaction.query(
+      `INSERT INTO dbo.Customers (AccountId, FullName, Phone, Email) VALUES (@accountId, @fullName, @phone, @email)`,
+      { accountId, fullName: d.fullName, phone: d.phone || null, email: d.email || null });
+  }
+  return { accountId, employeeCode };
+};
+
+/** Cập nhật email, họ tên, SĐT và (chỉ giữa các vai trò nhân viên) vai trò */
+exports.updateUser = async (accountId, d, transaction) => {
+  await transaction.query(
+    `UPDATE dbo.Accounts SET Email = @email, RoleId = COALESCE(@roleId, RoleId) WHERE AccountId = @accountId`,
+    { accountId, email: d.email || null, roleId: d.roleId || null });
+  await transaction.query('UPDATE dbo.Employees SET FullName = @fullName, Phone = @phone WHERE AccountId = @accountId',
+    { accountId, fullName: d.fullName, phone: d.phone || null });
+  await transaction.query('UPDATE dbo.Customers SET FullName = @fullName, Phone = @phone, Email = @email WHERE AccountId = @accountId',
+    { accountId, fullName: d.fullName, phone: d.phone || null, email: d.email || null });
+};
+
+exports.setActive = (accountId, isActive, query = db.query) => query(
+  'UPDATE dbo.Accounts SET IsActive = @isActive WHERE AccountId = @accountId', { accountId, isActive: isActive ? 1 : 0 });
+
+exports.setPassword = (accountId, passwordHash) => db.query(
+  'UPDATE dbo.Accounts SET PasswordHash = @passwordHash WHERE AccountId = @accountId', { accountId, passwordHash });
+
+/** Xoá hẳn tài khoản chưa phát sinh dữ liệu. Có ràng buộc FK (lỗi 547) thì ném lỗi để controller chuyển sang khoá tài khoản. */
+exports.removeUser = async (accountId, transaction) => {
+  await transaction.query('DELETE FROM dbo.Employees WHERE AccountId = @accountId', { accountId });
+  await transaction.query('DELETE FROM dbo.Customers WHERE AccountId = @accountId', { accountId });
+  const r = await transaction.query('DELETE FROM dbo.Accounts WHERE AccountId = @accountId; SELECT @@ROWCOUNT AS affected', { accountId });
+  return r[0].affected > 0;
+};

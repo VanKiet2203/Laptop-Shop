@@ -6,6 +6,7 @@ const { paginate } = require('../../core/helpers');
 const PAGE_SIZE = 12;
 const MAX_FILTER_VALUE = Number.MAX_SAFE_INTEGER;
 const MAX_QUERY_LENGTH = 100;
+const MAX_BRANDS = 10;
 const SORT_OPTIONS = new Set(['newest', 'price_asc', 'price_desc', 'name']);
 
 /** "0-1000000" -> { minPrice: 0, maxPrice: 1000000 }; vế rỗng = không giới hạn phía đó */
@@ -39,6 +40,20 @@ function parseOptionalId(value) {
   return { value: id };
 }
 
+/** brandId có thể lặp lại (?brandId=1&brandId=3) để chọn nhiều hãng. Giá trị sai bị bỏ qua. */
+function parseBrandIds(value) {
+  if (value === undefined || value === '') return { values: [] };
+  const list = Array.isArray(value) ? value : [value];
+  const values = [];
+  let error = list.length > MAX_BRANDS;
+  for (const item of list.slice(0, MAX_BRANDS)) {
+    const parsed = parseOptionalId(item);
+    if (parsed.error) error = true;
+    else if (parsed.value !== undefined && !values.includes(parsed.value)) values.push(parsed.value);
+  }
+  return { values, error };
+}
+
 function parsePage(value) {
   if (value === undefined || value === '') return { value: 1 };
   if (typeof value !== 'string' || value.length > 10 || !/^\d+$/.test(value)) return { error: true };
@@ -46,6 +61,8 @@ function parsePage(value) {
   if (!Number.isSafeInteger(page) || page < 1 || page > 2147483647) return { error: true };
   return { value: page };
 }
+
+const isFetch = (req) => typeof req.get === 'function' && req.get('X-Requested-With') === 'fetch';
 
 async function listPage(req, res, extraWhere = {}, extra = {}) {
   const query = req.query || {};
@@ -68,8 +85,8 @@ async function listPage(req, res, extraWhere = {}, extra = {}) {
     : parseOptionalId(query.categoryId);
   if (category.error) warnings.push(true);
 
-  const brand = parseOptionalId(query.brandId);
-  if (brand.error) warnings.push(true);
+  const brands = parseBrandIds(query.brandId);
+  if (brands.error) warnings.push(true);
 
   const sort = query.sort === undefined || query.sort === '' ? 'newest' : query.sort;
   if (typeof sort !== 'string' || !SORT_OPTIONS.has(sort)) warnings.push(true);
@@ -77,31 +94,43 @@ async function listPage(req, res, extraWhere = {}, extra = {}) {
   const requestedPage = parsePage(query.page);
   if (requestedPage.error) warnings.push(true);
 
-  if (warnings.length) req.flash('warning', 'Một số điều kiện tìm kiếm không hợp lệ đã được bỏ qua.');
+  if (warnings.length && !isFetch(req)) req.flash('warning', 'Một số điều kiện tìm kiếm không hợp lệ đã được bỏ qua.');
+
+  const categoryId = category.error ? undefined : category.value;
+
+  // Bộ lọc theo ngữ cảnh: chỉ gợi ý hãng / mức giá thực sự có trong danh mục (và từ khoá) đang xem.
+  const facets = await Product.facets({ categoryId, q });
+  const allowedBrands = new Set(facets.brands.map((b) => b.BrandId));
+  const brandIds = brands.values.filter((id) => allowedBrands.has(id));
 
   const filters = {
     q,
     minPrice: price.error ? undefined : price.minPrice,
     maxPrice: price.error ? undefined : price.maxPrice,
-    categoryId: category.error ? undefined : category.value,
-    brandId: brand.error ? undefined : brand.value,
+    categoryId,
+    brandIds,
     sort: typeof sort === 'string' && SORT_OPTIONS.has(sort) ? sort : 'newest',
   };
-  const [result, categories, brands] = await Promise.all([
-    Product.search({ ...filters, page: requestedPage.error ? 1 : requestedPage.value, pageSize: PAGE_SIZE }),
-    Product.rootCategories(),
-    Product.allBrands(),
-  ]);
+  const result = await Product.search({
+    ...filters,
+    page: requestedPage.error ? 1 : requestedPage.value,
+    pageSize: PAGE_SIZE,
+  });
   const pg = paginate(result.page || (requestedPage.error ? 1 : requestedPage.value), PAGE_SIZE, result.total);
-  res.render('store/products', {
+  const priceRange = (filters.minPrice !== undefined || filters.maxPrice !== undefined)
+    ? `${filters.minPrice === undefined ? '' : filters.minPrice}-${filters.maxPrice === undefined ? '' : filters.maxPrice}`
+    : '';
+  const data = {
     title: 'Sản phẩm',
     products: result.rows,
-    categories,
-    brands,
+    facets,
     pg,
-    filters,
+    filters: { ...filters, priceRange },
     ...extra,
-  });
+  };
+  // Lọc tức thì: fetch chỉ cần phần danh sách + bộ lọc (không kèm layout) để thay vào trang
+  if (isFetch(req)) return res.render('store/_catalog', { ...data, layout: false });
+  return res.render('store/products', data);
 }
 
 // GET /products
@@ -112,6 +141,14 @@ exports.byCategory = async (req, res) => {
   const category = await Product.categoryBySlug(req.params.slug);
   if (!category) return res.status(404).render('errors/404', { title: 'Không tìm thấy danh mục' });
   await listPage(req, res, { categoryId: category.CategoryId }, { title: category.CategoryName, activeCategory: category });
+};
+
+// GET /api/suggest?q=...  (gợi ý khi đang gõ ô tìm kiếm, chưa cần Enter)
+exports.suggest = async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, MAX_QUERY_LENGTH) : '';
+  const result = await Product.suggest(q);
+  res.set('Cache-Control', 'private, max-age=20');
+  res.json(result);
 };
 
 // GET /products/:slug

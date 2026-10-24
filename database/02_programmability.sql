@@ -161,53 +161,83 @@ BEGIN
 END
 GO
 
-/* ---------- STORED PROCEDURE: ĐẶT HÀNG TỪ GIỎ ---------- */
--- Tạo đơn Pending từ giỏ hàng của khách, GIỮ CHỖ tồn kho (QtyReserved), áp voucher, xoá giỏ.
-CREATE PROCEDURE dbo.sp_PlaceOrderFromCart
-    @CustomerId    INT,
-    @AddressId     INT,
-    @PaymentMethod VARCHAR(15),
-    @PromoCode     VARCHAR(30)   = NULL,
-    @Note          NVARCHAR(500) = NULL,
-    @OrderId       INT           OUTPUT
+/* ---------- STORED PROCEDURE: ĐẶT HÀNG ---------- */
+-- Dùng chung cho khách ĐÃ đăng nhập (đọc giỏ trong DB) và khách CHƯA đăng nhập (giỏ lưu trong session, gửi lên dạng JSON).
+-- Thông tin người nhận (tên / SĐT / địa chỉ) chỉ bắt buộc ở bước chốt đơn này, không bắt buộc lúc tạo tài khoản.
+-- Tạo đơn, GIỮ CHỖ tồn kho (QtyReserved), áp voucher, xoá giỏ.
+-- Quy tắc xác nhận: đơn chỉ có ĐÚNG 1 sản phẩm (tổng số lượng = 1) và còn serial -> hệ thống tự xác nhận ngay
+-- (Approved, trừ tồn thật, phát hành hoá đơn). Đơn từ 2 sản phẩm trở lên giữ trạng thái Pending ("Đang kiểm tra hàng")
+-- để nhân viên kiểm tra tồn kho rồi mới duyệt.
+CREATE PROCEDURE dbo.sp_PlaceOrder
+    @ReceiverName    NVARCHAR(100),
+    @ReceiverPhone   VARCHAR(15),
+    @ShippingAddress NVARCHAR(600),
+    @PaymentMethod   VARCHAR(15),
+    @CustomerId      INT           = NULL,   -- NULL = khách vãng lai (chưa đăng nhập)
+    @PromoCode       VARCHAR(30)   = NULL,
+    @Note            NVARCHAR(500) = NULL,
+    @ItemsJson       NVARCHAR(MAX) = NULL,   -- [{"productId":1,"qty":2}] cho khách vãng lai; NULL = dùng giỏ trong DB của @CustomerId
+    @AutoApprove     BIT           = 1,
+    @ReceiverEmail   VARCHAR(150)  = NULL,   -- email nhận mã đơn / thông báo (khách vãng lai bắt buộc nhập ở tầng ứng dụng)
+    @OrderId         INT           OUTPUT,
+    @OrderStatus     VARCHAR(10)   = NULL OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRAN;
 
-    DECLARE @CartId INT, @ItemCount INT, @Affected INT;
+    DECLARE @CartId INT = NULL, @ItemCount INT, @Affected INT, @TotalQty INT;
     DECLARE @Subtotal DECIMAL(18,0), @Discount DECIMAL(18,0) = 0, @Ship DECIMAL(18,0);
     DECLARE @PromoId INT = NULL, @PType VARCHAR(10), @PVal DECIMAL(18,2), @PMax DECIMAL(18,0);
-    DECLARE @RName NVARCHAR(100), @RPhone VARCHAR(15), @Addr NVARCHAR(600);
-    DECLARE @Seq INT, @SeqStr VARCHAR(10), @OrderNo VARCHAR(20);
+    DECLARE @Seq INT, @SeqStr VARCHAR(10), @OrderNo VARCHAR(20), @AuditAccountId INT = NULL;
 
-    -- Khoá giỏ cho đến khi transaction đặt hàng kết thúc.
-    SELECT @CartId = CartId
-    FROM dbo.Carts WITH (UPDLOCK, HOLDLOCK)
-    WHERE CustomerId = @CustomerId;
-    IF @CartId IS NULL THROW 50020, N'Giỏ hàng trống.', 1;
+    SET @ReceiverName    = LTRIM(RTRIM(ISNULL(@ReceiverName, N'')));
+    SET @ReceiverPhone   = LTRIM(RTRIM(ISNULL(@ReceiverPhone, '')));
+    SET @ShippingAddress = LTRIM(RTRIM(ISNULL(@ShippingAddress, N'')));
+    IF LEN(@ReceiverName) = 0 OR LEN(@ReceiverPhone) = 0 OR LEN(@ShippingAddress) = 0
+        THROW 50025, N'Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.', 1;
+    IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment')
+        THROW 50026, N'Phương thức thanh toán không hợp lệ.', 1;
 
-    -- Khoá và SAO CHỤP toàn bộ dòng giỏ hàng (+ giá/tồn sản phẩm liên quan) NGAY TỪ ĐẦU giao dịch,
-    -- rồi dùng DUY NHẤT bảng tạm #Cart này cho toàn bộ phần còn lại (giữ tồn, tính tiền, tạo chi tiết đơn).
-    -- Tránh tình trạng đọc CartItems nhiều lần ở các thời điểm khác nhau có thể thấy nội dung khác nhau
-    -- (ví dụ khách sửa giỏ ở tab khác trong lúc đặt hàng).
-    SELECT ci.ProductId, ci.Quantity, p.SalePrice, p.CostPrice, p.WarrantyMonths, p.IsActive
-    INTO #Cart
-    FROM dbo.CartItems ci
-    JOIN dbo.Products p WITH (UPDLOCK, HOLDLOCK) ON p.ProductId = ci.ProductId
-    WHERE ci.CartId = @CartId;
+    -- SAO CHỤP toàn bộ dòng hàng (+ giá/tồn sản phẩm liên quan, có khoá) NGAY TỪ ĐẦU giao dịch vào #Cart,
+    -- rồi dùng DUY NHẤT bảng tạm này cho phần còn lại (giữ tồn, tính tiền, tạo chi tiết đơn) để các lần đọc không lệch nhau.
+    CREATE TABLE #Cart (ProductId INT NOT NULL PRIMARY KEY, Quantity INT NOT NULL, SalePrice DECIMAL(18,0) NOT NULL,
+                        CostPrice DECIMAL(18,0) NOT NULL, WarrantyMonths INT NOT NULL, IsActive BIT NOT NULL);
 
-    SELECT @ItemCount = COUNT(*) FROM #Cart;
+    IF @ItemsJson IS NOT NULL
+    BEGIN
+        IF ISJSON(@ItemsJson) = 0 THROW 50020, N'Giỏ hàng trống.', 1;
+        DECLARE @Req TABLE (ProductId INT PRIMARY KEY, Quantity INT NOT NULL);
+        INSERT INTO @Req (ProductId, Quantity)
+        SELECT j.ProductId, CASE WHEN SUM(j.Quantity) > 99 THEN 99 ELSE SUM(j.Quantity) END
+        FROM OPENJSON(@ItemsJson) WITH (ProductId INT '$.productId', Quantity INT '$.qty') j
+        WHERE j.ProductId IS NOT NULL AND j.Quantity > 0
+        GROUP BY j.ProductId;
+        INSERT INTO #Cart (ProductId, Quantity, SalePrice, CostPrice, WarrantyMonths, IsActive)
+        SELECT r.ProductId, r.Quantity, p.SalePrice, p.CostPrice, p.WarrantyMonths, p.IsActive
+        FROM @Req r JOIN dbo.Products p WITH (UPDLOCK, HOLDLOCK) ON p.ProductId = r.ProductId;
+        IF (SELECT COUNT(*) FROM @Req) <> (SELECT COUNT(*) FROM #Cart)
+            THROW 50023, N'Giỏ hàng có sản phẩm không còn tồn tại.', 1;
+    END
+    ELSE
+    BEGIN
+        IF @CustomerId IS NULL THROW 50020, N'Giỏ hàng trống.', 1;
+        -- Khoá giỏ cho đến khi transaction đặt hàng kết thúc.
+        SELECT @CartId = CartId FROM dbo.Carts WITH (UPDLOCK, HOLDLOCK) WHERE CustomerId = @CustomerId;
+        IF @CartId IS NULL THROW 50020, N'Giỏ hàng trống.', 1;
+        INSERT INTO #Cart (ProductId, Quantity, SalePrice, CostPrice, WarrantyMonths, IsActive)
+        SELECT ci.ProductId, ci.Quantity, p.SalePrice, p.CostPrice, p.WarrantyMonths, p.IsActive
+        FROM dbo.CartItems ci
+        JOIN dbo.Products p WITH (UPDLOCK, HOLDLOCK) ON p.ProductId = ci.ProductId
+        WHERE ci.CartId = @CartId;
+    END
+
+    SELECT @ItemCount = COUNT(*), @TotalQty = ISNULL(SUM(Quantity), 0) FROM #Cart;
     IF @ItemCount = 0 THROW 50020, N'Giỏ hàng trống.', 1;
 
     IF EXISTS (SELECT 1 FROM #Cart WHERE IsActive = 0)
         THROW 50023, N'Giỏ hàng có sản phẩm đã ngừng bán.', 1;
-
-    SELECT @RName = ReceiverName, @RPhone = ReceiverPhone,
-           @Addr = CONCAT_WS(N', ', AddressLine, Ward, District, Province)
-    FROM dbo.CustomerAddresses WHERE AddressId = @AddressId AND CustomerId = @CustomerId;
-    IF @RName IS NULL THROW 50024, N'Địa chỉ giao hàng không hợp lệ.', 1;
 
     -- Giữ chỗ tồn kho: chỉ cập nhật được nếu tồn có thể bán >= số lượng đặt
     UPDATE p SET p.QtyReserved = p.QtyReserved + t.Quantity, p.UpdatedAt = SYSDATETIME()
@@ -238,37 +268,94 @@ BEGIN
 
     SET @Ship = CASE WHEN @Subtotal >= 5000000 THEN 0 ELSE 30000 END;   -- miễn phí ship từ 5 triệu
 
+    -- Khách chưa đăng nhập: gắn vào hồ sơ khách vãng lai theo SĐT (chưa có thì tạo mới) để vẫn có hoá đơn / bảo hành / điểm thưởng.
+    IF @CustomerId IS NULL
+    BEGIN
+        SELECT @CustomerId = CustomerId FROM dbo.Customers WITH (UPDLOCK, HOLDLOCK)
+        WHERE Phone = @ReceiverPhone AND AccountId IS NULL;
+        IF @CustomerId IS NULL
+        BEGIN
+            INSERT INTO dbo.Customers (AccountId, FullName, Phone)
+            VALUES (NULL, @ReceiverName,
+                    CASE WHEN EXISTS (SELECT 1 FROM dbo.Customers WHERE Phone = @ReceiverPhone) THEN NULL ELSE @ReceiverPhone END);
+            SET @CustomerId = CAST(SCOPE_IDENTITY() AS INT);
+        END
+    END
+    ELSE
+        SELECT @AuditAccountId = AccountId FROM dbo.Customers WHERE CustomerId = @CustomerId;
+
     SELECT @Seq = NEXT VALUE FOR dbo.sq_OrderNo;
     SET @SeqStr = CAST(@Seq AS VARCHAR(10));
     -- Đệm 0 tới tối thiểu 5 ký tự, KHÔNG BAO GIỜ cắt bớt số (tránh trùng mã khi sequence vượt 99999 trong cùng kỳ yyMM).
     SET @OrderNo = 'DH' + FORMAT(SYSDATETIME(), 'yyMM') + '-' + RIGHT(REPLICATE('0', 5) + @SeqStr, CASE WHEN LEN(@SeqStr) > 5 THEN LEN(@SeqStr) ELSE 5 END);
 
-    INSERT INTO dbo.Orders (OrderNo, CustomerId, PromotionId, Status, PaymentMethod, PaymentStatus, ReceiverName, ReceiverPhone,
+    INSERT INTO dbo.Orders (OrderNo, CustomerId, PromotionId, Status, PaymentMethod, PaymentStatus, ReceiverName, ReceiverPhone, ReceiverEmail,
                             ShippingAddress, Subtotal, DiscountAmount, ShippingFee, Note)
-    VALUES (@OrderNo, @CustomerId, @PromoId, 'Pending', @PaymentMethod, 'Pending', @RName, @RPhone,
-            @Addr, @Subtotal, @Discount, @Ship, @Note);
+    VALUES (@OrderNo, @CustomerId, @PromoId, 'Pending', @PaymentMethod, 'Pending', @ReceiverName, @ReceiverPhone, NULLIF(LTRIM(RTRIM(@ReceiverEmail)), ''),
+            @ShippingAddress, @Subtotal, @Discount, @Ship, @Note);
     SET @OrderId = CAST(SCOPE_IDENTITY() AS INT);
 
     INSERT INTO dbo.OrderDetails (OrderId, ProductId, Quantity, UnitPrice, CostPrice, WarrantyMonths)
     SELECT @OrderId, ProductId, Quantity, SalePrice, CostPrice, WarrantyMonths FROM #Cart;
 
     INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
-    SELECT c.AccountId, 'CREATE', 'Order', CAST(@OrderId AS VARCHAR(50)), N'Khách đặt hàng'
-    FROM dbo.Customers c WHERE c.CustomerId = @CustomerId;
+    VALUES (@AuditAccountId, 'CREATE', 'Order', CAST(@OrderId AS VARCHAR(50)),
+            CASE WHEN @AuditAccountId IS NULL THEN N'Khách vãng lai đặt hàng' ELSE N'Khách đặt hàng' END);
 
-    DELETE FROM dbo.CartItems WHERE CartId = @CartId;
-    UPDATE dbo.Carts SET UpdatedAt = SYSDATETIME() WHERE CartId = @CartId;
+    IF @CartId IS NOT NULL
+    BEGIN
+        DELETE FROM dbo.CartItems WHERE CartId = @CartId;
+        UPDATE dbo.Carts SET UpdatedAt = SYSDATETIME() WHERE CartId = @CartId;
+    END
+
+    SET @OrderStatus = 'Pending';
+    -- Tự xác nhận đơn 1 sản phẩm: chỉ khi hệ thống còn đủ Serial "Trong kho" cho dòng hàng đó (nếu thiếu, để nhân viên kiểm tra).
+    IF @AutoApprove = 1 AND @TotalQty = 1
+       AND EXISTS (SELECT 1 FROM dbo.Employees WHERE EmployeeCode = 'NV000')
+       AND NOT EXISTS (
+            SELECT 1 FROM #Cart c JOIN dbo.Products p ON p.ProductId = c.ProductId
+            WHERE p.IsSerialTracked = 1
+              AND (SELECT COUNT(*) FROM dbo.ProductSerials s WHERE s.ProductId = c.ProductId AND s.Status = 'InStock') < c.Quantity)
+    BEGIN
+        EXEC dbo.sp_ApproveOrder @OrderId = @OrderId, @AccountId = NULL, @Auto = 1;
+        SET @OrderStatus = 'Approved';
+    END
 
     DROP TABLE #Cart;
     COMMIT TRAN;
 END
 GO
 
+-- Giữ tên cũ cho dữ liệu mẫu / mã cũ: đặt hàng từ giỏ trong DB + địa chỉ đã lưu, KHÔNG tự xác nhận (để seed tự điều khiển trạng thái).
+CREATE PROCEDURE dbo.sp_PlaceOrderFromCart
+    @CustomerId    INT,
+    @AddressId     INT,
+    @PaymentMethod VARCHAR(15),
+    @PromoCode     VARCHAR(30)   = NULL,
+    @Note          NVARCHAR(500) = NULL,
+    @OrderId       INT           OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @RName NVARCHAR(100), @RPhone VARCHAR(15), @Addr NVARCHAR(600);
+    SELECT @RName = ReceiverName, @RPhone = ReceiverPhone,
+           @Addr = CONCAT_WS(N', ', AddressLine, Ward, District, Province)
+    FROM dbo.CustomerAddresses WHERE AddressId = @AddressId AND CustomerId = @CustomerId;
+    IF @RName IS NULL THROW 50024, N'Địa chỉ giao hàng không hợp lệ.', 1;
+
+    EXEC dbo.sp_PlaceOrder @ReceiverName = @RName, @ReceiverPhone = @RPhone, @ShippingAddress = @Addr,
+                           @PaymentMethod = @PaymentMethod, @CustomerId = @CustomerId, @PromoCode = @PromoCode,
+                           @Note = @Note, @AutoApprove = 0, @OrderId = @OrderId OUTPUT;
+END
+GO
+
 /* ---------- STORED PROCEDURE: DUYỆT ĐƠN ---------- */
--- Pending -> Approved: trừ tồn thật, gán serial (FIFO), tạo bảo hành điện tử, ghi sổ kho, phát hành hoá đơn.
+-- Pending ("Đang kiểm tra hàng") -> Approved: trừ tồn thật, gán serial (FIFO), tạo bảo hành điện tử, ghi sổ kho, phát hành hoá đơn.
+-- @Auto = 1: hệ thống tự xác nhận (đơn 1 sản phẩm, gọi từ sp_PlaceOrder) -> dùng nhân viên hệ thống NV000, không cần @AccountId.
 CREATE PROCEDURE dbo.sp_ApproveOrder
     @OrderId   INT,
-    @AccountId INT
+    @AccountId INT = NULL,
+    @Auto      BIT = 0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -278,14 +365,22 @@ BEGIN
     DECLARE @Status VARCHAR(10), @EmployeeId INT, @Expected INT, @Assigned INT;
     DECLARE @Seq INT, @SeqStr VARCHAR(10), @InvoiceNo VARCHAR(20);
 
-    SELECT @EmployeeId = e.EmployeeId
-    FROM dbo.Employees e JOIN dbo.Accounts a ON a.AccountId = e.AccountId
-    WHERE e.AccountId = @AccountId AND a.IsActive = 1;
-    IF @EmployeeId IS NULL THROW 50030, N'Tài khoản không phải nhân viên hoặc đã bị khoá.', 1;
+    IF @Auto = 1
+    BEGIN
+        SELECT @EmployeeId = EmployeeId FROM dbo.Employees WHERE EmployeeCode = 'NV000';
+        IF @EmployeeId IS NULL THROW 50039, N'Chưa cấu hình nhân viên hệ thống (NV000) để tự xác nhận đơn.', 1;
+    END
+    ELSE
+    BEGIN
+        SELECT @EmployeeId = e.EmployeeId
+        FROM dbo.Employees e JOIN dbo.Accounts a ON a.AccountId = e.AccountId
+        WHERE e.AccountId = @AccountId AND a.IsActive = 1;
+        IF @EmployeeId IS NULL THROW 50030, N'Tài khoản không phải nhân viên hoặc đã bị khoá.', 1;
+    END
 
     SELECT @Status = Status FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE OrderId = @OrderId;
     IF @Status IS NULL THROW 50031, N'Đơn hàng không tồn tại.', 1;
-    IF @Status <> 'Pending' THROW 50032, N'Chỉ duyệt được đơn ở trạng thái Chờ duyệt.', 1;
+    IF @Status <> 'Pending' THROW 50032, N'Chỉ duyệt được đơn ở trạng thái Đang kiểm tra hàng.', 1;
 
     -- 1) Trừ tồn thực tế + bỏ giữ chỗ
     UPDATE p SET p.QtyOnHand = p.QtyOnHand - d.Quantity,
@@ -355,7 +450,9 @@ BEGIN
     WHERE OrderId = @OrderId;
 
     INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
-    VALUES (@AccountId, 'APPROVE', 'Order', CAST(@OrderId AS VARCHAR(50)), N'Nhân viên duyệt đơn (Pending -> Approved)');
+    VALUES (@AccountId, 'APPROVE', 'Order', CAST(@OrderId AS VARCHAR(50)),
+            CASE WHEN @Auto = 1 THEN N'Hệ thống tự xác nhận đơn 1 sản phẩm (Pending -> Approved)'
+                 ELSE N'Nhân viên duyệt đơn (Pending -> Approved)' END);
 
     COMMIT TRAN;
 END
@@ -388,15 +485,16 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Customers c WHERE c.CustomerId = @OrderCustomerId AND c.AccountId = @AccountId)
        AND NOT EXISTS (SELECT 1 FROM dbo.Employees e WHERE e.AccountId = @AccountId)
         THROW 50038, N'Không có quyền huỷ đơn hàng này.', 1;
-        -- Khách chỉ được huỷ đơn của mình khi đang chờ duyệt.
+    -- Khách tự huỷ được đơn của mình khi đang kiểm tra hàng (Pending), hoặc đã xác nhận (Approved) nhưng CHƯA thanh toán
+    -- (đơn 1 sản phẩm được hệ thống tự xác nhận ngay nên khách phải huỷ được). Đơn đã thanh toán / đã giao: liên hệ nhân viên.
     IF EXISTS (
         SELECT 1
         FROM dbo.Customers
         WHERE CustomerId = @OrderCustomerId
           AND AccountId = @AccountId
     )
-    AND @Status <> 'Pending'
-        THROW 50064, N'Khách chỉ được huỷ đơn đang chờ duyệt.', 1;
+    AND NOT (@Status = 'Pending' OR (@Status = 'Approved' AND @PayStatus <> 'Paid'))
+        THROW 50064, N'Đơn đã thanh toán hoặc đã hoàn tất, vui lòng liên hệ nhân viên để được hỗ trợ huỷ/hoàn tiền.', 1;
 
     IF @Status = 'Pending'
     BEGIN

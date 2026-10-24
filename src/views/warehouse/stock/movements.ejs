@@ -1,0 +1,33 @@
+<p class="text-muted">Mọi lần nhập kho (chốt phiếu nhập, khách huỷ đơn đã duyệt) và xuất kho (duyệt đơn) đều được ghi lại ở đây.</p>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-3"><label class="form-label" for="mv-q">Tên hoặc SKU</label><input id="mv-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="mv-type">Loại</label>
+        <select id="mv-type" name="type" class="form-select"><option value="">Nhập + xuất</option><option value="STOCK_IN" <%= filters.type === 'STOCK_IN' ? 'selected' : '' %>>Nhập kho</option><option value="STOCK_OUT" <%= filters.type === 'STOCK_OUT' ? 'selected' : '' %>>Xuất kho</option></select>
+      </div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="mv-from">Từ ngày</label><input id="mv-from" type="date" name="from" class="form-control" value="<%= filters.from %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="mv-to">Đến ngày</label><input id="mv-to" type="date" name="to" class="form-control" value="<%= filters.to %>"></div>
+      <div class="col-6 col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button><a class="btn btn-outline-secondary" href="/warehouse/stock/movements">Xoá lọc</a></div>
+    </form>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Thời điểm</th><th>Loại</th><th>Sản phẩm</th><th>Diễn giải</th><th>Người thực hiện</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (r) { var inn = r.Action === 'STOCK_IN'; %>
+        <tr>
+          <td class="small tabular-nums text-nowrap"><%= fmtDateTime(r.CreatedAt) %></td>
+          <td><span class="badge text-bg-<%= inn ? 'success' : 'warning' %>"><%= inn ? 'Nhập' : 'Xuất' %></span></td>
+          <td><span class="part-no d-inline-block mb-1"><%= r.Sku %></span><div><%= r.ProductName %></div></td>
+          <td><%= r.Detail %></td>
+          <td class="small"><%= r.Actor %></td>
+        </tr>
+      <% }) %>
+      <% if (!rows.length) { %><tr><td colspan="5" class="text-center text-muted py-4">Chưa có biến động kho phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

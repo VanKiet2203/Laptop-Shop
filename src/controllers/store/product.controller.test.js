@@ -10,7 +10,7 @@ const result = { rows: [{ ProductId: 1, ProductName: 'Laptop' }], total: 1, page
 test.beforeEach(() => {
   calls = [];
   for (const key of [
-    'search', 'rootCategories', 'allBrands', 'categoryBySlug', 'findBySlug',
+    'search', 'facets', 'suggest', 'rootCategories', 'allBrands', 'categoryBySlug', 'findBySlug',
     'attributesOf', 'imagesOf', 'compatibleComponentsOf',
   ]) {
     originals[key] = Product[key];
@@ -19,6 +19,17 @@ test.beforeEach(() => {
     calls.push(['search', filters]);
     return result;
   };
+  Product.facets = async (args) => {
+    calls.push(['facets', args]);
+    return {
+      brands: [{ BrandId: 3, BrandName: 'Acme', count: 4 }],
+      priceTiers: [{ label: 'Dưới 10 triệu', value: '0-9999999', count: 4 }],
+      categories: [{ CategoryId: 2, CategoryName: 'Laptop', Slug: 'laptop', count: 4 }],
+      children: [],
+      total: 4,
+    };
+  };
+  Product.suggest = async (q) => ({ products: [{ ProductName: q }], categories: [], brands: [] });
   Product.rootCategories = async () => [{ CategoryId: 2, CategoryName: 'Laptop', Slug: 'laptop' }];
   Product.allBrands = async () => [{ BrandId: 3, BrandName: 'Acme' }];
   Product.categoryBySlug = async () => ({
@@ -65,7 +76,7 @@ test('store search clamps query length and passes supported filters and paging t
   assert.equal(search.minPrice, 0);
   assert.equal(search.maxPrice, 25000000);
   assert.equal(search.categoryId, 2);
-  assert.equal(search.brandId, 3);
+  assert.deepEqual(search.brandIds, [3]);
   assert.equal(search.sort, 'price_asc');
   assert.equal(search.page, 3);
   assert.equal(search.pageSize, 12);
@@ -90,7 +101,7 @@ test('malformed filters, page, and unsupported sort are ignored with a warning',
   assert.equal(search.minPrice, undefined);
   assert.equal(search.maxPrice, undefined);
   assert.equal(search.categoryId, undefined);
-  assert.equal(search.brandId, undefined);
+  assert.deepEqual(search.brandIds, []);
   assert.equal(search.sort, 'newest');
   assert.equal(search.page, 1);
   assert.equal(flashes[0][0], 'warning');

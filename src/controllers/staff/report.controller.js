@@ -1,40 +1,15 @@
-// MODULE 4 - NV BÁN HÀNG: ĐƠN, HOÁ ĐƠN, BÁO CÁO
-// Chủ sở hữu: Thành viên 4 - Đơn hàng, hoá đơn, báo cáo
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+// MODULE 4 - NV BÁN HÀNG: thống kê doanh thu và sản phẩm bán chạy / lợi nhuận
+const Report = require('../../models/report.model');
 
-// GET /staff/reports
+// GET /staff/reports?from=&to=&group=day|month
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Thống kê doanh thu",
-    "route": "GET /staff/reports",
-    "tasks": [
-      "Doanh thu theo ngày/tháng/năm (bộ lọc from/to + group), biểu đồ (Chart.js CDN), tổng đơn, giảm giá, VAT",
-      "Gợi ý dùng view vw_SalesDaily, GROUP BY YEAR/MONTH"
-    ],
-    "db": "vw_SalesDaily",
-    "rubric": "A4 xem thống kê, báo cáo bán hàng",
-    "controller": "src/controllers/staff/report.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const range = Report.normalizeRange(req.query);
+  const data = await Report.revenue(range);
+  res.render('staff/reports/revenue', { title: 'Thống kê doanh thu', range, data });
 };
 
-// GET /staff/reports/products
+// GET /staff/reports/products?sort=&category=&limit=
 exports.products = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Sản phẩm bán chạy & lợi nhuận",
-    "route": "GET /staff/reports/products",
-    "tasks": [
-      "vw_ProductSales: SL bán, doanh số, lợi nhuận gộp; sản phẩm tồn đọng"
-    ],
-    "db": "vw_ProductSales",
-    "rubric": "",
-    "controller": "src/controllers/staff/report.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const result = await Report.topProducts(req.query);
+  res.render('staff/reports/products', { title: 'Sản phẩm bán chạy & lợi nhuận', ...result });
 };

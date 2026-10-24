@@ -183,3 +183,11 @@ Rules while adding this:
   is a real wayfinding cue (instant "which area am I in" signal) — polish it
   with better shadows/spacing/motion, don't flatten it into one global
   palette.
+
+## Khu quản trị: thành phần dùng chung (25/10/2026)
+
+Mọi trang admin/staff/warehouse dùng cùng bộ khung, đừng viết lại: `dash-hero` (đổi gradient theo `.panel-*`), `kpi` + `kpi-slate|teal|rust|amber|ok|danger` (`kpi-value is-money` cho số tiền dài), `bars`/`bar-col` (biểu đồ cột, nhãn trục dùng `fmtAxis()`, mô tả bằng `aria-label`), `hbars`, `timeline`, `empty-state`, `partials/pager` (phân trang, nhận `{ pg, query }`). Thanh lọc luôn là `.card > form.row.g-3` với nút "Lọc" + "Xoá lọc"; tab trạng thái dùng `nav nav-pills` kèm số đếm. Bảng dùng `.table-responsive`, tiêu đề cột không xuống dòng. Trang in (hoá đơn, phiếu nhập) render `layout:false` + `partials/head` + CSS `@media print`. Nhãn trạng thái lấy từ map trong `core/helpers.js` (`ORDER_STATUS`, `PAYMENT_STATUS`, `SERIAL_STATUS`, `RECEIPT_STATUS`) - thêm giá trị enum mới thì thêm vào map cùng lúc.
+
+## Cập nhật 25/10/2026
+
+Cửa hàng (body.store) giờ có CSS riêng `public/css/store.css` và icon riêng (xem skill `laptopshop-icons`); phần "Visual polish" ở trên vẫn đúng cho khu admin/staff/kho. Không còn dùng `bi bi-*` ở view mới. Trang cửa hàng mới: mega menu theo danh mục (hãng + mức giá), poster khuyến mãi, bộ lọc tức thì, giỏ hàng/thanh toán cho khách vãng lai, trang cảm ơn kèm hướng dẫn thanh toán (COD/QR/trả góp) và email xác nhận.

@@ -1,106 +1,65 @@
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+<%
+  var statusFilter = typeof status !== 'undefined' && status ? status : '';
+  var tabs = [
+    { v: '', label: 'Tất cả', icon: 'receipt' },
+    { v: 'Pending', label: 'Đang kiểm tra hàng', icon: 'clock' },
+    { v: 'Approved', label: 'Đã xác nhận', icon: 'checkcircle' },
+    { v: 'Completed', label: 'Đã giao', icon: 'box' },
+    { v: 'Cancelled', label: 'Đã huỷ', icon: 'x' }
+  ];
+%>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
   <div>
-    <h1 class="h4 mb-1"><i class="bi bi-bag-check text-primary me-2"></i>Đơn hàng của tôi</h1>
-    <p class="text-muted small mb-0">Quản lý và theo dõi tiến độ các đơn hàng bạn đã đặt</p>
+    <h1 class="page-title mb-1"><span class="page-title-ico"><%- ico('receipt') %></span> Đơn hàng của tôi</h1>
+    <p class="text-muted small mb-0">Theo dõi tiến độ các đơn bạn đã đặt</p>
   </div>
-  <a href="/products" class="btn btn-outline-primary btn-sm">
-    <i class="bi bi-cart-plus me-1"></i>Tiếp tục mua hàng
-  </a>
+  <a href="/products" class="btn btn-outline-primary btn-sm"><%- ico('cartplus') %> Tiếp tục mua hàng</a>
 </div>
 
-<!-- Tabs lọc theo trạng thái -->
-<% const statusFilter = typeof currentStatus !== 'undefined' ? currentStatus : (typeof status !== 'undefined' ? status : ''); %>
-<div class="card mb-4 border-0 shadow-sm">
-  <div class="card-body p-2">
-    <ul class="nav nav-pills nav-fill small">
-      <li class="nav-item">
-        <a class="nav-link <%= !statusFilter ? 'active fw-bold' : 'text-dark' %>" href="/orders">
-          Tất cả đơn
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link <%= statusFilter === 'Pending' ? 'active fw-bold' : 'text-dark' %>" href="/orders?status=Pending">
-          <i class="bi bi-hourglass-split me-1 text-warning"></i>Chờ duyệt
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link <%= statusFilter === 'Approved' ? 'active fw-bold' : 'text-dark' %>" href="/orders?status=Approved">
-          <i class="bi bi-check-circle me-1 text-primary"></i>Đã duyệt
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link <%= statusFilter === 'Completed' ? 'active fw-bold' : 'text-dark' %>" href="/orders?status=Completed">
-          <i class="bi bi-box-seam me-1 text-success"></i>Hoàn tất
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link <%= statusFilter === 'Cancelled' ? 'active fw-bold' : 'text-dark' %>" href="/orders?status=Cancelled">
-          <i class="bi bi-x-circle me-1 text-danger"></i>Đã huỷ
-        </a>
-      </li>
-    </ul>
-  </div>
-</div>
+<nav class="tab-bar" aria-label="Lọc đơn theo trạng thái">
+  <% tabs.forEach(function (t) { %>
+    <a class="tab-link <%= statusFilter === t.v ? 'is-active' : '' %>" href="/orders<%= t.v ? '?status=' + t.v : '' %>" <%= statusFilter === t.v ? 'aria-current=page' : '' %>><%- ico(t.icon, 'ico-sm') %> <%= t.label %></a>
+  <% }) %>
+</nav>
 
-<!-- Danh sách đơn hàng -->
 <% if (!orders || !orders.length) { %>
-  <div class="card p-5 text-center text-muted">
-    <i class="bi bi-receipt fs-1 d-block mb-3 text-secondary"></i>
-    <h2 class="h6 mb-2">Chưa có đơn hàng nào<%= statusFilter ? ' ở trạng thái này' : '' %>.</h2>
-    <p class="small mb-4">Các đơn hàng bạn đặt sẽ xuất hiện tại đây để bạn tiện theo dõi bảo hành & giao vận.</p>
-    <div>
-      <a href="/products" class="btn btn-primary px-4">Khám phá sản phẩm ngay</a>
-    </div>
+  <div class="empty-card">
+    <%- ico('receipt') %>
+    <h2 class="h5">Chưa có đơn hàng<%= statusFilter ? ' ở trạng thái này' : '' %></h2>
+    <p class="text-muted mb-3">Các đơn bạn đặt sẽ xuất hiện ở đây để tiện theo dõi bảo hành và giao nhận.</p>
+    <a href="/products" class="btn btn-primary">Khám phá sản phẩm</a>
   </div>
 <% } else { %>
-  <div class="d-flex flex-column gap-3">
-    <% orders.forEach(function(o) { %>
-      <% const stInfo = (typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[o.Status]) ? ORDER_STATUS[o.Status] : { label: o.Status, cls: 'secondary' }; %>
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom">
-          <div class="d-flex align-items-center gap-2">
-            <span class="fw-bold text-dark part-no">#<%= o.OrderNo %></span>
-            <span class="text-muted small">&bull;</span>
-            <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i><%= fmtDateTime(o.CreatedAt) %></span>
+  <div class="order-cards">
+    <% orders.forEach(function (o) {
+         var st = ORDER_STATUS[o.Status] || { label: o.Status, cls: 'secondary' };
+         var pay = PAYMENT_STATUS[o.PaymentStatus] || { label: o.PaymentStatus, cls: 'secondary' };
+         var canCancel = o.Status === 'Pending' || (o.Status === 'Approved' && o.PaymentStatus !== 'Paid'); %>
+      <article class="order-card">
+        <img class="order-thumb" src="<%= productImage(o.FirstImage, '') %>" data-fallback="<%= productImage(null, '') %>" alt="" referrerpolicy="no-referrer">
+        <div class="order-main">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <a class="part-no part-no-lg text-decoration-none" href="/orders/<%= o.OrderId %>"><%= o.OrderNo %></a>
+            <span class="status-pill status-<%= st.cls %>"><%= st.label %></span>
           </div>
-          <div>
-            <span class="badge text-bg-<%= stInfo.cls %> px-2 py-1">
-              <%= stInfo.label %>
-            </span>
-          </div>
-        </div>
-
-        <div class="card-body p-4">
-          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div>
-              <div class="small text-muted mb-1">
-                <i class="bi bi-box me-1"></i>Số lượng mặt hàng: <strong><%= o.TotalItems || 1 %></strong> sản phẩm
-              </div>
-              <div class="small text-muted">
-                <i class="bi bi-credit-card me-1"></i>Thanh toán: <span class="text-dark"><%= o.PaymentMethod %></span> (<%= o.PaymentStatus === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán' %>)
-              </div>
-            </div>
-
-            <div class="text-lg-end">
-              <div class="text-muted small">Tổng tiền thanh toán</div>
-              <div class="fs-5 fw-bold text-danger tabular-nums mb-2">
-                <%= fmtMoney(o.TotalAmount) %>
-              </div>
-              <div class="d-flex justify-content-lg-end gap-2">
-                <a href="/orders/<%= o.OrderId %>" class="btn btn-outline-primary btn-sm px-3">
-                  <i class="bi bi-eye me-1"></i>Xem chi tiết
-                </a>
-                <% if (o.Status === 'Pending') { %>
-                  <form method="post" action="/orders/<%= o.OrderId %>/cancel" onsubmit="return confirm('Bạn có chắc chắn muốn huỷ đơn hàng này không?')" class="d-inline">
-                    <button type="submit" class="btn btn-outline-danger btn-sm">Huỷ đơn</button>
-                  </form>
-                <% } %>
-              </div>
-            </div>
+          <div class="order-meta small text-muted">
+            <span><%- ico('clock', 'ico-sm') %> <%= fmtDateTime(o.CreatedAt) %></span>
+            <span><%- ico('box', 'ico-sm') %> <%= o.TotalQty %> sản phẩm</span>
+            <span><%- ico('card', 'ico-sm') %> <%= PAYMENT_METHOD[o.PaymentMethod] || o.PaymentMethod %> · <span class="status-text-<%= pay.cls %>"><%= pay.label %></span></span>
           </div>
         </div>
-      </div>
+        <div class="order-side">
+          <div class="order-total tabular-nums"><%= fmtMoney(o.TotalAmount) %></div>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="/orders/<%= o.OrderId %>" class="btn btn-outline-primary btn-sm">Chi tiết</a>
+            <% if (canCancel) { %>
+              <form method="post" action="/orders/<%= o.OrderId %>/cancel" data-confirm="Bạn có chắc muốn huỷ đơn <%= o.OrderNo %> không?">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Huỷ đơn</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      </article>
     <% }) %>
   </div>
 <% } %>
-

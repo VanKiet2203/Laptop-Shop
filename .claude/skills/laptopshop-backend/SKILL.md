@@ -112,9 +112,20 @@ pattern already used in `brand.controller.js` and inside the stored
 procedures — don't skip it because another part of the same request already
 logged something unrelated.
 
+## Quy ước các màn hình quản trị đã làm (staff / warehouse / admin)
+
+Toàn bộ route của 3 khu vực này đã được triển khai (25/10/2026); khi thêm màn hình mới hãy bắt chước chúng:
+- **Danh sách**: model có `normalizeFilters(query)` (whitelist trạng thái/sắp xếp, cắt độ dài, kiểm tra ngày bằng `parseDateStr`) + `search(filters, page)` trả `{ rows, pg, filters }` dùng `paginate()`; SQL dùng cờ `@x = '' OR ...`, `ORDER BY` lấy từ map cố định (không nối chuỗi từ client); view dùng `partials/pager`.
+- **Id trong URL/form**: luôn qua `parseId()` (core/helpers) → `null` thì 404 hoặc flash lỗi; không bao giờ `Number(req.params.id)` thẳng vào SQL.
+- **Chuyển trạng thái** (duyệt/huỷ/chốt phiếu...) gọi stored procedure; `isBusinessError(e)` → flash `e.message`, lỗi khác ném tiếp. Thủ tục SQL đã tự ghi AuditLogs nên controller KHÔNG ghi thêm; thao tác CRUD thường thì `audit.logInTransaction(tx, ...)` cùng transaction.
+- **Bảo vệ tài khoản/quyền** (`admin/user.controller`, `role.controller`): không tự khoá/xoá/đổi vai trò chính mình; không khoá/xoá/hạ quyền admin hoạt động cuối cùng; tài khoản hệ thống NV000 không đụng được; ADMIN luôn giữ `user.manage` + `role.manage`; xoá user đã phát sinh dữ liệu (lỗi FK 547) thì chuyển sang khoá.
+- **Phiếu nhập kho**: Nháp → Chốt (`sp_PostGoodsReceipt`) hoặc Huỷ (chỉ khi Nháp); Serial nhập kèm phiếu, số Serial phải đúng bằng số lượng; trùng Serial (lỗi 2627) báo thân thiện kèm giá trị trùng.
+- **Địa giới hành chính** lấy từ API (`core/geo.js`, cache 24h, có dự phòng) - không hard-code danh sách phường/xã.
+- `requireLogin` khi tài khoản bị khoá phải dùng `session.regenerate` (KHÔNG `destroy` rồi ghi `req.session` - sẽ làm sập server; đã từng gặp). Test giả lập session phải giống express-session thật.
+
 ## Placeholder routes (`todo(...)`)
 
-Most routes in this codebase currently render `todo(res, {...})`
+Hiện không còn route nào dùng `todo(...)`; mục này chỉ còn áp dụng nếu bạn dựng khung chức năng mới bằng
 (`src/core/todo.js`) — a scaffold describing the module owner, route, tasks,
 and `"db"` objects to use. When implementing one for real:
 1. Verify the `"db"` hint still matches the actual schema/procs — table names
@@ -132,3 +143,15 @@ and `"db"` objects to use. When implementing one for real:
 placeholder-only. `src/config/db.js` reads `DB_SERVER`/`DB_PORT`/`DB_INSTANCE`/
 `DB_NAME`/`DB_USER`/`DB_PASSWORD`/`DB_ENCRYPT`/`DB_TRUST_CERT` — don't
 hardcode connection details anywhere else.
+
+## Cập nhật 25/10/2026 - mua hàng không cần đăng nhập, Google, email
+
+- **Khách vãng lai**: giỏ lưu trong session (`core/guestCart.js`, chỉ lưu mã + số lượng; giá/tồn luôn đọc lại từ DB). Route giỏ/thanh toán dùng middleware `shopper` (cho khách chưa đăng nhập + khách đã đăng nhập; tài khoản nhân viên bị chuyển đi), KHÔNG dùng `requireRole('CUSTOMER')`. Đăng nhập/đăng ký/Google sẽ gộp giỏ session vào giỏ DB (`core/session.js startSession`, `Cart.mergeEntries`).
+- **Thông tin giao hàng chỉ bắt buộc ở bước chốt đơn** (họ tên, SĐT, tỉnh, địa chỉ; khách vãng lai còn phải có email). Đăng ký / Google không bắt buộc SĐT hay địa chỉ (`Customers.Phone` cho phép NULL).
+- Đặt hàng gọi `sp_PlaceOrder` (xem skill database). Controller KHÔNG tự tính tiền; quy tắc freeship/VAT trong `checkout.model.calculateTotals` phải khớp procedure.
+- **Email**: `core/mailer.js` (nodemailer; chưa cấu hình `SMTP_*` thì ghi file HTML vào `outbox/`), mẫu thư ở `core/mailTemplates.js` (mọi dữ liệu người dùng phải `esc()`). Email xác nhận chứa MÃ ĐƠN + link tra cứu; "Quên mã đơn" (`POST /orders/track/resend`) luôn trả cùng một thông báo và giới hạn 1 lần/phút để không bị dò. Lỗi gửi mail không được làm hỏng đơn hàng (sendMail không throw).
+- **Tra cứu đơn khách vãng lai**: bắt buộc cả mã đơn + SĐT (`CustomerOrder.findByNoAndPhone`).
+- **Google login**: `controllers/auth/google.controller.js` (OAuth code flow thuần fetch, có `state`, chỉ nhận email đã xác minh, KHÔNG liên kết vào tài khoản admin/nhân viên theo email). Cần `GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL` trong `.env`.
+- **Avatar**: `POST /account/avatar` nhận data URL JPEG đã thu nhỏ, kiểm tra magic bytes + dung lượng, lưu `public/uploads/avatars/` (đã gitignore).
+- Bộ lọc danh mục: `Product.facets()` chỉ gợi ý hãng/mức giá có thật trong danh mục (cache 30s); thay đổi sản phẩm nhìn thấy trễ tối đa 30s (gọi `Product.invalidateCatalogCache()` nếu cần ngay).
+- Test controller: mock hàm của model/`mailer` bằng cách gán lại thuộc tính module (đừng destructure khi require trong controller, nếu không test không mock được - google controller dùng `sessionCore.startSession` vì lý do này).

@@ -1,0 +1,52 @@
+<%
+  var STATE = { active: { label: 'Còn hạn', cls: 'success' }, expiring: { label: 'Sắp hết hạn', cls: 'warning' }, expired: { label: 'Hết hạn', cls: 'danger' }, voided: { label: 'Vô hiệu', cls: 'secondary' } };
+  function chip(key, label, n) {
+    return '<li class="nav-item"><a class="nav-link ' + (filters.state === key ? 'active' : '') + '" href="/staff/warranty' + (key ? '?state=' + key : '') + '">' + label +
+      (n !== undefined ? ' <span class="badge rounded-pill text-bg-light tabular-nums">' + n + '</span>' : '') + '</a></li>';
+  }
+%>
+<p class="text-muted">Bảo hành điện tử được tạo tự động cho từng Serial khi đơn hàng được duyệt, và bị vô hiệu nếu đơn bị huỷ.</p>
+<ul class="nav nav-pills mb-3 flex-wrap gap-1">
+  <%- chip('', 'Tất cả', summary.total) %>
+  <%- chip('active', 'Còn hạn', summary.active) %>
+  <%- chip('expiring', 'Sắp hết hạn (30 ngày)', summary.expiring) %>
+  <%- chip('expired', 'Hết hạn', summary.expired) %>
+  <%- chip('voided', 'Vô hiệu') %>
+</ul>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-7">
+        <label class="form-label" for="wr-q">Serial, IMEI, mã đơn, tên khách, số điện thoại hoặc tên sản phẩm</label>
+        <input id="wr-q" name="q" class="form-control" maxlength="60" value="<%= filters.q %>" autofocus>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="wr-state">Tình trạng</label>
+        <select id="wr-state" name="state" class="form-select"><option value="">Tất cả</option>
+          <% Object.keys(STATE).forEach(function (k) { %><option value="<%= k %>" <%= filters.state === k ? 'selected' : '' %>><%= STATE[k].label %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('shieldcheck') %> Tra cứu</button><a class="btn btn-outline-secondary" href="/staff/warranty">Xoá</a></div>
+    </form>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Serial</th><th>Sản phẩm</th><th>Khách hàng</th><th>Đơn hàng</th><th>Thời hạn</th><th>Tình trạng</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (w) { var st = STATE[w.State]; %>
+        <tr>
+          <td><span class="part-no"><%= w.SerialNumber %></span><% if (w.Imei) { %><div class="small text-muted">IMEI <%= w.Imei %></div><% } %></td>
+          <td><div class="fw-semibold"><%= w.ProductName %></div><div class="small text-muted"><%= w.Sku %></div></td>
+          <td><div><%= w.ReceiverName %></div><div class="small text-muted"><%= w.ReceiverPhone %></div></td>
+          <td><% if (currentUser.permissions.includes('order.view')) { %><a href="/staff/orders/<%= w.OrderId %>"><%= w.OrderNo %></a><% } else { %><%= w.OrderNo %><% } %></td>
+          <td class="small tabular-nums"><%= fmtDate(w.StartDate) %> → <%= fmtDate(w.EndDate) %>
+            <% if (w.State === 'active' || w.State === 'expiring') { %><div class="text-muted">còn <%= w.DaysLeft %> ngày</div><% } else if (w.State === 'expired') { %><div class="text-danger">quá hạn <%= -w.DaysLeft %> ngày</div><% } %></td>
+          <td><span class="badge text-bg-<%= st.cls %>"><%= st.label %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!rows.length) { %><tr><td colspan="6" class="text-center text-muted py-4">Không tìm thấy bảo hành phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/pager', { pg: pg, query: filters }) %>

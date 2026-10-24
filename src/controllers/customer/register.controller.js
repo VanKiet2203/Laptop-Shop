@@ -4,7 +4,9 @@ const bcrypt = require('bcryptjs');
 const Customer = require('../../models/customer.model');
 const Account = require('../../models/account.model');
 const audit = require('../../models/audit.model');
+const Cart = require('../../models/cart.model');
 const db = require('../../config/db');
+const guestCart = require('../../core/guestCart');
 const { homeFor } = require('../../core/auth');
 
 function textField(value) {
@@ -36,7 +38,8 @@ exports.register = async (req, res) => {
   else if (fullName.length > 100) errors.push('Họ tên không được vượt quá 100 ký tự.');
   if (email.length > 150) errors.push('Email không được vượt quá 150 ký tự.');
   else if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email không hợp lệ.');
-  if (!/^0\d{9,10}$/.test(phone)) errors.push('Số điện thoại không hợp lệ (bắt đầu bằng 0, 10-11 số).');
+  // SĐT không bắt buộc khi tạo tài khoản - chỉ bắt buộc ở bước chốt đơn hàng. Có nhập thì phải đúng định dạng.
+  if (phone && !/^0\d{9,10}$/.test(phone)) errors.push('Số điện thoại không hợp lệ (bắt đầu bằng 0, 10-11 số).');
   if (password.length < 6) errors.push('Mật khẩu phải có ít nhất 6 ký tự.');
   else if (Buffer.byteLength(password, 'utf8') > 72) errors.push('Mật khẩu không được vượt quá 72 byte.');
   if (password !== confirmPassword) errors.push('Mật khẩu nhập lại không khớp.');
@@ -44,7 +47,7 @@ exports.register = async (req, res) => {
   if (!errors.length) {
     if (await Customer.findAccountByUsername(username)) errors.push('Tên đăng nhập đã được sử dụng.');
     if (email && await Customer.findAccountByEmail(email)) errors.push('Email đã được sử dụng.');
-    if (await Customer.findCustomerByPhone(phone)) errors.push('Số điện thoại đã được sử dụng.');
+    if (phone && await Customer.findCustomerByPhone(phone)) errors.push('Số điện thoại đã được sử dụng.');
   }
 
   if (errors.length) {
@@ -74,11 +77,15 @@ exports.register = async (req, res) => {
     }
 
     const { accountId, customerId, permissions } = registration;
+    const guestEntries = guestCart.entries(req);
     req.session.user = {
-      accountId, username, fullName, role: 'CUSTOMER', employeeId: null, customerId,
+      accountId, username, fullName, role: 'CUSTOMER', employeeId: null, customerId, avatarUrl: null,
       permissions,
     };
-    req.session.cartCount = 0;
+    // Giỏ hàng chọn lúc chưa có tài khoản chuyển sang giỏ của tài khoản mới
+    if (guestEntries.length) await Cart.mergeEntries(customerId, guestEntries);
+    delete req.session.cart;
+    req.session.cartCount = guestEntries.length ? await Cart.count(customerId) : 0;
     req.flash('success', `Chào mừng ${fullName}! Tài khoản đã được tạo.`);
     res.redirect('/');
   } catch (e) {

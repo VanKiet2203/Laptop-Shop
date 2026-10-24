@@ -18,7 +18,7 @@ exports.findCustomerByPhone = (phone) => db.queryOne(
  * Transaction: tạo Accounts (role CUSTOMER) + Customers + Carts.
  * passwordHash phải được bcrypt.hash() sẵn ở controller (model chỉ chứa SQL, không chứa logic mã hoá).
  */
-async function createWithAccountInTransaction(t, { username, email, passwordHash, fullName, phone }) {
+async function createWithAccountInTransaction(t, { username, email, passwordHash, fullName, phone, avatarUrl }) {
   const roleRows = await t.query('SELECT RoleId FROM dbo.Roles WHERE RoleCode = @rc', { rc: 'CUSTOMER' });
   if (!roleRows[0]) {
     throw Object.assign(new Error('Không tìm thấy vai trò khách hàng.'), {
@@ -41,9 +41,9 @@ async function createWithAccountInTransaction(t, { username, email, passwordHash
   const accountId = accRows[0].AccountId;
 
   const custRows = await t.query(
-    `INSERT INTO dbo.Customers (AccountId, FullName, Phone, Email) OUTPUT INSERTED.CustomerId
-     VALUES (@accountId, @fullName, @phone, @email)`,
-    { accountId, fullName, phone, email: email || null });
+    `INSERT INTO dbo.Customers (AccountId, FullName, Phone, Email, AvatarUrl) OUTPUT INSERTED.CustomerId
+     VALUES (@accountId, @fullName, @phone, @email, @avatarUrl)`,
+    { accountId, fullName, phone: phone || null, email: email || null, avatarUrl: avatarUrl || null });
   if (!custRows[0]) throw new Error('Không nhận được mã khách hàng vừa tạo.');
   const customerId = custRows[0].CustomerId;
 
@@ -59,7 +59,7 @@ exports.createWithAccount = (data, transaction = null) => (
 );
 
 exports.findByAccountId = (accountId) => db.queryOne(
-  `SELECT c.CustomerId, c.FullName, c.Phone, c.Email, c.LoyaltyPoints,
+  `SELECT c.CustomerId, c.FullName, c.Phone, c.Email, c.AvatarUrl, c.LoyaltyPoints,
           c.CompanyName, c.TaxCode, t.TierName, t.DiscountPercent, a.Username, a.Email AS AccountEmail
    FROM dbo.Customers c
    JOIN dbo.Accounts a ON a.AccountId = c.AccountId
@@ -84,6 +84,29 @@ exports.updateProfile = (accountId, { fullName, phone, email }) => db.transactio
     { accountId, email });
   return true;
 });
+
+exports.setAvatar = (customerId, avatarUrl) => db.query(
+  'UPDATE dbo.Customers SET AvatarUrl = @avatarUrl WHERE CustomerId = @customerId',
+  { customerId, avatarUrl: avatarUrl || null });
+
+/** Khi chốt đơn lần đầu: nếu hồ sơ chưa có SĐT thì lưu SĐT vừa nhập (bỏ qua nếu SĐT đã thuộc khách khác). */
+exports.fillPhoneIfEmpty = async (customerId, phone) => {
+  try {
+    await db.query(
+      `UPDATE dbo.Customers SET Phone = @phone
+       WHERE CustomerId = @customerId AND Phone IS NULL
+         AND NOT EXISTS (SELECT 1 FROM dbo.Customers WHERE Phone = @phone)`,
+      { customerId, phone });
+  } catch (error) {
+    if (error.number !== 2627 && error.number !== 2601) throw error;
+  }
+};
+
+/** Một địa chỉ của khách (kiểm tra quyền sở hữu) - dùng khi chốt đơn bằng địa chỉ đã lưu. */
+exports.findAddress = (customerId, addressId) => db.queryOne(
+  `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province
+   FROM dbo.CustomerAddresses WHERE AddressId = @addressId AND CustomerId = @customerId`,
+  { customerId, addressId });
 
 exports.addresses = (customerId) => db.query(
   `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province, IsDefault

@@ -112,20 +112,22 @@ CREATE TABLE dbo.Customers (
     CustomerId      INT IDENTITY(1,1) NOT NULL,   -- Mã khách hàng
     AccountId       INT           NULL,           -- Tài khoản online (NULL = khách vãng lai)
     FullName        NVARCHAR(100) NOT NULL,       -- Họ tên
-    Phone           VARCHAR(15)   NOT NULL,       -- Số điện thoại (duy nhất)
+    Phone           VARCHAR(15)   NULL,           -- Số điện thoại (duy nhất nếu có; đăng ký/đăng nhập Google không bắt buộc, chỉ bắt buộc khi chốt đơn)
     Email           VARCHAR(150)  NULL,           -- Email
+    AvatarUrl       NVARCHAR(500) NULL,           -- Ảnh đại diện (đường dẫn /uploads/... hoặc ảnh Google)
     TierId          INT           NOT NULL CONSTRAINT DF_Cust_Tier DEFAULT 1, -- Hạng thân thiết
     LoyaltyPoints   INT           NOT NULL CONSTRAINT DF_Cust_Points DEFAULT 0, -- Điểm tích luỹ
     CompanyName     NVARCHAR(200) NULL,           -- Tên doanh nghiệp (xuất hoá đơn công ty)
     TaxCode         VARCHAR(20)   NULL,           -- Mã số thuế
     CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_Cust_Created DEFAULT SYSDATETIME(), -- Ngày tạo
     CONSTRAINT PK_Customers PRIMARY KEY (CustomerId),
-    CONSTRAINT UQ_Customers_Phone UNIQUE (Phone),
     CONSTRAINT FK_Customers_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId),
     CONSTRAINT FK_Customers_Tier FOREIGN KEY (TierId) REFERENCES dbo.MembershipTiers(TierId),
     CONSTRAINT CK_Customers_Points CHECK (LoyaltyPoints >= 0)
 );
 CREATE UNIQUE INDEX UX_Customers_Account ON dbo.Customers(AccountId) WHERE AccountId IS NOT NULL;
+-- Số điện thoại duy nhất khi có (nhiều khách chưa khai báo SĐT vẫn để NULL được)
+CREATE UNIQUE INDEX UX_Customers_Phone ON dbo.Customers(Phone) WHERE Phone IS NOT NULL;
 
 -- [Table] CustomerAddresses: Sổ địa chỉ giao hàng của khách
 CREATE TABLE dbo.CustomerAddresses (
@@ -418,6 +420,7 @@ CREATE TABLE dbo.Orders (
     PaidAt          DATETIME2(0)  NULL,           -- Thời điểm thanh toán
     ReceiverName    NVARCHAR(100) NOT NULL,       -- Người nhận (snapshot)
     ReceiverPhone   VARCHAR(15)   NOT NULL,       -- SĐT nhận (snapshot)
+    ReceiverEmail   VARCHAR(150)  NULL,           -- Email nhận thông báo/mã đơn (khách vãng lai bắt buộc nhập ở bước chốt đơn)
     ShippingAddress NVARCHAR(600) NOT NULL,       -- Địa chỉ giao (snapshot) /// ghép từ AddressLine + Ward + District + Province (tổng 500 ký tự)
     Subtotal        DECIMAL(18,0) NOT NULL,       -- Tổng tiền hàng
     DiscountAmount  DECIMAL(18,0) NOT NULL CONSTRAINT DF_Ord_Disc DEFAULT 0, -- Giảm giá
@@ -444,6 +447,7 @@ CREATE TABLE dbo.Orders (
     CONSTRAINT CK_Orders_Vat CHECK (VatRate >= 0 AND VatRate <= 100)
 );
 CREATE INDEX IX_Orders_Customer ON dbo.Orders(CustomerId, CreatedAt DESC);
+CREATE INDEX IX_Orders_ReceiverPhone ON dbo.Orders(ReceiverPhone) INCLUDE (ReceiverEmail, OrderNo);  -- tra cứu đơn của khách vãng lai (mã đơn + SĐT) và gửi lại mã đơn
 CREATE INDEX IX_Orders_StatusDate ON dbo.Orders(Status, CreatedAt DESC) INCLUDE (Subtotal, DiscountAmount, ShippingFee, VatRate);
 
 -- [Table] OrderDetails: Chi tiết đơn hàng

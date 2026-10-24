@@ -157,3 +157,14 @@ tables without triggers (`Carts`, `Customers`, ...) don't need this.
   file header comments long after the table itself is gone.
 - Every column needs a trailing `-- mô tả` comment (see the file header note
   in `01_schema.sql`) — the dictionary generator depends on it.
+
+## Cập nhật 25/10/2026 - luồng đặt hàng mới
+
+- `sp_PlaceOrder` thay `sp_PlaceOrderFromCart` cho ứng dụng (bản cũ giữ lại làm vỏ gọi `sp_PlaceOrder @AutoApprove = 0` cho dữ liệu mẫu). Nhận thông tin người nhận (tên/SĐT/địa chỉ/email) + nguồn hàng: giỏ DB của `@CustomerId` HOẶC `@ItemsJson` (khách vãng lai, `[{"productId":1,"qty":2}]`). Khách vãng lai: tạo/dùng lại `Customers` (AccountId NULL) theo SĐT trong cùng transaction (`UPDLOCK, HOLDLOCK` để 2 đơn song song không đua nhau).
+- **Quy tắc tự xác nhận**: tổng số lượng = 1 và còn đủ Serial `InStock` -> `sp_ApproveOrder @Auto = 1` (đứng tên nhân viên hệ thống `NV000`, tài khoản `system` có hash '!' không đăng nhập được). Từ 2 sản phẩm: giữ `Pending` (hiển thị "Đang kiểm tra hàng") chờ nhân viên duyệt. Không cho gọi auto-approve khi thiếu `NV000` (kiểm tra `EXISTS` trước, vì lỗi trong proc lồng sẽ làm hỏng cả đơn do `XACT_ABORT`).
+- `sp_CancelOrder`: khách tự huỷ được đơn `Pending`, hoặc `Approved` nhưng CHƯA `Paid` (đơn 1 sản phẩm bị tự xác nhận nên khách phải huỷ được). Đơn đã thanh toán/đã giao: nhân viên xử lý.
+- Tồn kho (đã kiểm chứng bằng script): đặt = `QtyReserved += qty`; duyệt = `QtyOnHand -= qty, QtyReserved -= qty` + gán Serial + hoá đơn + bảo hành; huỷ Pending = nhả `QtyReserved`; huỷ Approved = trả `QtyOnHand` + Serial về `InStock` + vô hiệu bảo hành/hoá đơn; luôn hoàn lại `UsedCount` của mã giảm giá.
+- Schema mới: `Customers.Phone` NULL được (chỉ mục lọc `UX_Customers_Phone`), `Customers.AvatarUrl`, `Orders.ReceiverEmail`, `IX_Orders_ReceiverPhone`.
+- Trong `CREATE PROCEDURE`, KHÔNG tạo cùng một bảng tạm bằng `SELECT ... INTO #T` ở 2 nhánh `IF/ELSE` (lỗi biên dịch "There is already an object named"): `CREATE TABLE #T` một lần rồi `INSERT` ở từng nhánh.
+- Áp thay đổi lên DB đang chạy mà không mất dữ liệu: dùng `CREATE OR ALTER PROCEDURE` + `ALTER TABLE` bọc `IF COL_LENGTH(...) IS NULL`; đồng thời sửa 3 file 01/02/03 cho bản cài mới. `sqlcmd` mới (go-sqlcmd) KHÔNG có cờ `-f` và đọc UTF-8 mặc định. `03_seed.sql` cuối file tạo lại user `laptopshop_app` (tránh lỗi "Login failed" sau khi DROP DATABASE).
+- Ảnh sản phẩm: URL ngoài có thể chết; ưu tiên ảnh đã tải về `public/images/products/` (seed có lệnh UPDATE ảnh cho 24 sản phẩm mẫu).

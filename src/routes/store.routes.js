@@ -13,7 +13,13 @@ router.get('/', wrap(store_home.index));
 const store_product = require('../controllers/store/product.controller');
 
 router.get('/products', wrap(store_product.index));
+router.get('/api/suggest', wrap(store_product.suggest));
+router.get('/api/geo/wards', wrap(require('../controllers/store/geo.controller').wards));
 router.get('/category/:slug', wrap(store_product.byCategory));
 router.get('/products/:slug', wrap(store_product.show));
+
+const store_info = require('../controllers/store/info.controller');
+
+router.get('/info/:slug', store_info.show);
 
 module.exports = router;

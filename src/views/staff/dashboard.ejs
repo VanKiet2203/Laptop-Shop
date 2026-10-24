@@ -1,0 +1,96 @@
+<%
+  var hour = new Date().getHours();
+  var greet = hour < 11 ? 'Chào buổi sáng' : (hour < 14 ? 'Chào buổi trưa' : (hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'));
+  var can = function (p) { return currentUser.permissions.includes(p); };
+  var maxRev = Math.max.apply(null, week.buckets.map(function (b) { return b.revenue; }).concat([1]));
+  var todo = counts.Pending + counts.RefundPending;
+%>
+<section class="dash-hero mb-4">
+  <div class="dash-hero-body">
+    <div class="dash-hero-eyebrow"><span class="live-dot" aria-hidden="true"></span> Bán hàng · <%= fmtDate(new Date()) %></div>
+    <h2 class="dash-hero-title"><%= greet %>, <%= currentUser ? currentUser.fullName : 'bạn' %></h2>
+    <p class="dash-hero-sub">
+      <% if (todo) { %>
+        <% if (counts.Pending) { %><strong class="tabular-nums"><%= counts.Pending %></strong> đơn đang chờ kiểm tra hàng<% } %><% if (counts.Pending && counts.RefundPending) { %>, <% } %><% if (counts.RefundPending) { %><strong class="tabular-nums"><%= counts.RefundPending %></strong> đơn chờ hoàn tiền<% } %>.
+      <% } else { %>Không có đơn nào đang chờ xử lý. Làm tốt lắm!<% } %>
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <% if (can('order.view')) { %><a href="/staff/orders?status=Pending" class="btn btn-light btn-sm"><%- ico('receipt') %> Đơn chờ duyệt</a><% } %>
+      <% if (can('warranty.view')) { %><a href="/staff/warranty" class="btn btn-outline-light btn-sm"><%- ico('shieldcheck') %> Tra cứu bảo hành</a><% } %>
+      <% if (can('report.view')) { %><a href="/staff/reports" class="btn btn-outline-light btn-sm"><%- ico('chart') %> Thống kê</a><% } %>
+    </div>
+  </div>
+  <svg class="dash-hero-art" viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 150l50-40 40 20 60-70 50 40 70-60" /><path d="M20 165h280" /><path d="M60 150v15M110 130v35M170 60v105M220 100v65M290 40v125" />
+    </g>
+  </svg>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="kpi <%= counts.Pending ? 'kpi-amber' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('clock') %></span><div class="kpi-label">Chờ kiểm tra hàng</div><div class="kpi-value tabular-nums" data-count="<%= counts.Pending %>"><%= counts.Pending %></div><div class="kpi-foot"><%= counts.Approved %> đơn đã xác nhận, chờ giao</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-teal"><span class="kpi-icon"><%- ico('chart') %></span><div class="kpi-label">Doanh thu hôm nay</div><div class="kpi-value is-money tabular-nums"><%= fmtMoneyShort(quick.todayRevenue) %></div><div class="kpi-foot"><%= quick.todayOrders %> đơn được duyệt</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('bag') %></span><div class="kpi-label">Doanh thu tháng này</div><div class="kpi-value is-money tabular-nums"><%= fmtMoneyShort(quick.monthRevenue) %></div><div class="kpi-foot"><%= quick.monthOrders %> đơn</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi <%= counts.RefundPending ? 'kpi-danger' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('refresh') %></span><div class="kpi-label">Chờ hoàn tiền</div><div class="kpi-value tabular-nums" data-count="<%= counts.RefundPending %>"><%= counts.RefundPending %></div><div class="kpi-foot"><a href="/staff/orders?payStatus=RefundPending">Xem các đơn cần hoàn tiền</a></div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Doanh thu 7 ngày qua</span><span class="small fw-normal text-muted tabular-nums"><%= fmtMoney(week.totals.revenue) %> · <%= week.totals.orders %> đơn</span></div>
+      <div class="card-body">
+        <% if (!week.totals.revenue) { %>
+          <div class="empty-state"><%- ico('chart') %><p class="mb-0">Chưa có đơn nào được duyệt trong 7 ngày qua.</p></div>
+        <% } else { %>
+          <div class="bars" role="img" aria-label="Biểu đồ cột doanh thu 7 ngày gần nhất, tổng <%= fmtMoney(week.totals.revenue) %>">
+            <div class="bars-grid" aria-hidden="true"><span><%= fmtAxis(maxRev) %></span><span><%= fmtAxis(maxRev / 2) %></span><span>0</span></div>
+            <div class="bars-plot">
+              <% week.buckets.forEach(function (b, i) { var h = b.revenue ? Math.max(4, Math.round(b.revenue * 100 / maxRev)) : 0; %>
+                <div class="bar-col <%= b.revenue === maxRev ? 'is-peak' : '' %>" tabindex="0" data-tip="<%= b.label %> · <%= fmtMoney(b.revenue) %> · <%= b.orders %> đơn">
+                  <span class="bar" style="height: <%= h %>%; animation-delay: <%= i * 40 %>ms"></span><span class="bar-x"><%= b.label %></span>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Đơn đang chờ kiểm tra hàng</span><% if (can('order.view')) { %><a href="/staff/orders?status=Pending" class="small fw-semibold text-decoration-none">Tất cả <%- ico('arrow', 'ico-sm') %></a><% } %></div>
+      <% if (!pending.length) { %>
+        <div class="card-body"><div class="empty-state"><%- ico('checkcircle') %><p class="mb-0">Không có đơn nào đang chờ.</p></div></div>
+      <% } else { %>
+        <ul class="list-group list-group-flush">
+          <% pending.forEach(function (o) { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+              <div class="text-truncate"><% if (can('order.view')) { %><a class="part-no text-decoration-none" href="/staff/orders/<%= o.OrderId %>"><%= o.OrderNo %></a><% } else { %><span class="part-no"><%= o.OrderNo %></span><% } %>
+                <div class="small text-muted text-truncate"><%= o.ReceiverName %> · <%= o.TotalQty %> sản phẩm · <%= fmtDateTime(o.CreatedAt) %></div></div>
+              <strong class="tabular-nums small"><%= fmtMoneyShort(o.TotalAmount) %></strong>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (can('stock.view')) { %>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center"><span>Hàng sắp hết (cần báo kho nhập thêm)</span><span class="small fw-normal text-muted">tồn khả dụng ≤ ngưỡng cảnh báo</span></div>
+  <% if (!lowStock.length) { %>
+    <div class="card-body"><div class="empty-state"><%- ico('checkcircle') %><p class="mb-0">Tồn kho đang ổn.</p></div></div>
+  <% } else { %>
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Sản phẩm</th><th>Nhóm</th><th class="text-end">Khả dụng</th><th class="text-end">Ngưỡng</th></tr></thead>
+      <tbody>
+        <% lowStock.forEach(function (p) { %>
+          <tr><td><span class="part-no d-inline-block mb-1"><%= p.Sku %></span><div><%= p.ProductName %></div></td><td class="small text-muted"><%= p.CategoryName %></td>
+            <td class="text-end tabular-nums fw-semibold <%= p.QtyAvailable <= 0 ? 'text-danger' : 'text-warning' %>"><%= p.QtyAvailable %></td><td class="text-end tabular-nums text-muted"><%= p.ReorderLevel %></td></tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+<% } %>

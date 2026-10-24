@@ -1,7 +1,8 @@
 <%
   var inStock = product.QtyAvailable > 0;
   var lowStock = inStock && product.QtyAvailable <= 5;
-  var mainImg = (images[0] && images[0].ImageUrl) || '/images/placeholder.svg';
+  var fallbackImg = productImage(null, product.CategorySlug);
+  var mainImg = productImage(images[0] && images[0].ImageUrl, product.CategorySlug);
   function attrIcon(name) {
     var n = String(name || '').toLowerCase();
     if (/ram|bộ nhớ/.test(n)) return 'ram';
@@ -24,13 +25,13 @@
       <div class="pd-stage">
         <span class="pd-corner pd-corner-tl" aria-hidden="true"></span><span class="pd-corner pd-corner-br" aria-hidden="true"></span>
         <% if (!inStock) { %><span class="pd-ribbon">Hết hàng</span><% } else if (lowStock) { %><span class="pd-ribbon pd-ribbon-warn">Sắp hết</span><% } %>
-        <img id="pd-main" src="<%= mainImg %>" alt="<%= product.ProductName %>">
+        <img id="pd-main" src="<%= mainImg %>" data-fallback="<%= fallbackImg %>" alt="<%= product.ProductName %>" referrerpolicy="no-referrer">
       </div>
       <% if (images.length > 1) { %>
       <div class="pd-thumbs" role="list">
         <% images.forEach(function (img, i) { %>
           <button type="button" class="pd-thumb <%= i === 0 ? 'is-active' : '' %>" role="listitem" data-src="<%= img.ImageUrl %>" aria-label="Xem ảnh <%= i + 1 %> của <%= images.length %>" aria-pressed="<%= i === 0 ? 'true' : 'false' %>">
-            <img src="<%= img.ImageUrl %>" alt="" loading="lazy">
+            <img src="<%= img.ImageUrl %>" data-fallback="<%= fallbackImg %>" alt="" loading="lazy" referrerpolicy="no-referrer">
           </button>
         <% }) %>
       </div>
@@ -64,8 +65,9 @@
         <li><span class="pd-trust-ico"><%- ico('box') %></span><div><strong><%= inStock ? 'Sẵn hàng trong kho' : 'Tạm hết hàng' %></strong><span><%= inStock ? 'Đặt là có thể xử lý ngay' : 'Vui lòng quay lại sau' %></span></div></li>
       </ul>
 
-      <% if (currentUser && currentUser.role === 'CUSTOMER') { %>
-        <form method="post" action="/cart/add" class="pd-buy">
+      <%# Khách chưa đăng nhập vẫn thêm giỏ & đặt hàng được; chỉ tài khoản nhân viên/admin không mua hàng %>
+      <% if (!currentUser || currentUser.role === 'CUSTOMER') { %>
+        <form method="post" action="/cart/add" class="pd-buy" data-add-form>
           <input type="hidden" name="productId" value="<%= product.ProductId %>">
           <div class="qty" data-qty>
             <button type="button" class="qty-btn" data-step="-1" aria-label="Giảm số lượng" <%= inStock ? '' : 'disabled' %>><%- ico('minus') %></button>
@@ -75,8 +77,7 @@
           </div>
           <button class="btn btn-primary btn-buy" <%= inStock ? '' : 'disabled' %>><%- ico('cartplus') %> Thêm vào giỏ</button>
         </form>
-      <% } else if (!currentUser) { %>
-        <a href="/auth/login" class="btn btn-primary btn-buy"><%- ico('cartplus') %> Đăng nhập để mua</a>
+        <p class="pd-guest-note"><%- ico('info', 'ico-sm') %><span>Không cần đăng nhập — bạn chỉ cần điền họ tên, số điện thoại và địa chỉ ở bước chốt đơn.</span></p>
       <% } %>
     </div>
   </div>
@@ -106,29 +107,8 @@
   <% compatibilityGroups.forEach(function (group) { %>
   <div class="mb-4">
     <h3 class="h6 mb-2 d-flex align-items-center gap-2"><span class="pd-chip"></span><%= group.categoryName %></h3>
-    <div class="row row-cols-2 row-cols-md-4 g-3">
-      <% group.products.forEach(function (component) { %>
-      <div class="col">
-        <div class="card h-100 product-card">
-          <img src="<%= component.PrimaryImage || '/images/placeholder.svg' %>"
-               class="card-img-top p-3"
-               alt="<%= component.ProductName %>"
-               loading="lazy">
-          <div class="card-body d-flex flex-column">
-            <div class="small text-muted"><%= component.BrandName %></div>
-            <a class="stretched-link text-decoration-none text-dark fw-semibold"
-               href="/products/<%= component.Slug %>"><%= component.ProductName %></a>
-            <div class="small text-muted part-no mt-1"><%= component.Sku %></div>
-            <div class="mt-auto pt-2">
-              <div class="text-danger fw-bold tabular-nums"><%= fmtMoney(component.SalePrice) %></div>
-              <div class="small <%= component.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>">
-                <%= component.QtyAvailable > 0 ? 'Còn ' + component.QtyAvailable + ' sản phẩm' : 'Hết hàng' %>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <% }) %>
+    <div class="pgrid pgrid-tight">
+      <% group.products.forEach(function (component) { %><%- include('../partials/product-card', { p: component }) %><% }) %>
     </div>
   </div>
   <% }) %>

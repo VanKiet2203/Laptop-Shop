@@ -1,0 +1,28 @@
+<%#
+  Thẻ sản phẩm dùng chung (trang chủ, danh sách, gợi ý). Truyền vào: { p: dòng sản phẩm, rank: số thứ hạng (tuỳ chọn) }
+  Ảnh: ảnh thật nếu có, lỗi/thiếu thì đổi sang ảnh minh hoạ theo danh mục (JS toàn cục xử lý sự kiện lỗi ảnh qua data-fallback).
+%>
+<%
+  var inStock = p.QtyAvailable > 0;
+  var fallback = productImage(null, p.CategorySlug);
+%>
+<article class="pcard <%= inStock ? '' : 'is-out' %>">
+  <a class="pcard-media" href="/products/<%= p.Slug %>" tabindex="-1" aria-hidden="true">
+    <img src="<%= productImage(p.PrimaryImage, p.CategorySlug) %>" data-fallback="<%= fallback %>" alt="" loading="lazy" referrerpolicy="no-referrer">
+    <% if (typeof rank !== 'undefined' && rank) { %><span class="pcard-rank">#<%= rank %></span><% } %>
+    <% if (!inStock) { %><span class="pcard-flag">Hết hàng</span>
+    <% } else if (p.QtyAvailable <= 3) { %><span class="pcard-flag is-warn">Chỉ còn <%= p.QtyAvailable %></span><% } %>
+  </a>
+  <div class="pcard-body">
+    <div class="pcard-brand"><%= p.BrandName %></div>
+    <a class="pcard-title" href="/products/<%= p.Slug %>"><%= p.ProductName %></a>
+    <div class="pcard-foot">
+      <div class="pcard-price tabular-nums"><%= fmtMoney(p.SalePrice) %></div>
+      <% if (inStock) { %>
+        <button type="button" class="pcard-add" data-add-to-cart="<%= p.ProductId %>" aria-label="Thêm <%= p.ProductName %> vào giỏ hàng">
+          <%- ico('cartplus') %>
+        </button>
+      <% } %>
+    </div>
+  </div>
+</article>

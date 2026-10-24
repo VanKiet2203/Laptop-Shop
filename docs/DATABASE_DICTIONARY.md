@@ -175,15 +175,16 @@ Khách hàng (có thể có tài khoản online hoặc khách vãng lai)
 | `CustomerId` | INT (IDENTITY) | Không | PK |  | Mã khách hàng |
 | `AccountId` | INT | Có | FK → Accounts |  | Tài khoản online (NULL = khách vãng lai) |
 | `FullName` | NVARCHAR(100) | Không |  |  | Họ tên |
-| `Phone` | VARCHAR(15) | Không |  |  | Số điện thoại (duy nhất) |
+| `Phone` | VARCHAR(15) | Có |  |  | Số điện thoại (duy nhất nếu có; đăng ký/đăng nhập Google không bắt buộc, chỉ bắt buộc khi chốt đơn) |
 | `Email` | VARCHAR(150) | Có |  |  | Email |
+| `AvatarUrl` | NVARCHAR(500) | Có |  |  | Ảnh đại diện (đường dẫn /uploads/... hoặc ảnh Google) |
 | `TierId` | INT | Không | FK → MembershipTiers | 1 | Hạng thân thiết |
 | `LoyaltyPoints` | INT | Không |  | 0 | Điểm tích luỹ |
 | `CompanyName` | NVARCHAR(200) | Có |  |  | Tên doanh nghiệp (xuất hoá đơn công ty) |
 | `TaxCode` | VARCHAR(20) | Có |  |  | Mã số thuế |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Ngày tạo |
 
-**Unique:** (Phone)  
+**Unique:** (Phone) khi khác NULL (chỉ mục lọc `UX_Customers_Phone`)  
 **Check:** `(LoyaltyPoints >= 0)`
 
 ### CustomerAddresses
@@ -459,6 +460,7 @@ Mã khuyến mãi / voucher
 | `PaidAt` | DATETIME2(0) | Có |  |  | Thời điểm thanh toán |
 | `ReceiverName` | NVARCHAR(100) | Không |  |  | Người nhận (snapshot) |
 | `ReceiverPhone` | VARCHAR(15) | Không |  |  | SĐT nhận (snapshot) |
+| `ReceiverEmail` | VARCHAR(150) | Có |  |  | Email nhận mã đơn / thông báo (khách vãng lai bắt buộc nhập ở bước chốt đơn) |
 | `ShippingAddress` | NVARCHAR(400) | Không |  |  | Địa chỉ giao (snapshot) |
 | `Subtotal` | DECIMAL(18,0) | Không |  |  | Tổng tiền hàng |
 | `DiscountAmount` | DECIMAL(18,0) | Không |  | 0 | Giảm giá |

@@ -1,0 +1,63 @@
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-4"><div class="kpi kpi-rust"><span class="kpi-icon"><%- ico('truck') %></span><div class="kpi-label">Nhà cung cấp</div><div class="kpi-value tabular-nums"><%= totals.suppliers %></div><div class="kpi-foot"><%= totals.active %> đang hợp tác</div></div></div>
+  <div class="col-6 col-lg-4"><div class="kpi <%= Number(totals.outstanding) > 0 ? 'kpi-amber' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('receipt') %></span><div class="kpi-label">Công nợ phải trả</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(totals.outstanding) %></div><div class="kpi-foot">tổng các phiếu nhập đã chốt chưa thanh toán</div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4">
+        <label class="form-label" for="sup-q">Tìm theo tên, MST, người liên hệ, SĐT</label>
+        <input id="sup-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="sup-status">Trạng thái</label>
+        <select id="sup-status" name="status" class="form-select">
+          <option value="">Tất cả</option>
+          <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Đang hợp tác</option>
+          <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Ngừng hợp tác</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="sup-sort">Sắp xếp</label>
+        <select id="sup-sort" name="sort" class="form-select">
+          <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Tên A-Z</option>
+          <option value="debt_desc" <%= filters.sort === 'debt_desc' ? 'selected' : '' %>>Công nợ cao nhất</option>
+          <option value="purchased_desc" <%= filters.sort === 'purchased_desc' ? 'selected' : '' %>>Nhập nhiều nhất</option>
+          <option value="newest" <%= filters.sort === 'newest' ? 'selected' : '' %>>Mới thêm</option>
+        </select>
+      </div>
+      <div class="col-12 col-lg-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button>
+        <a class="btn btn-outline-secondary" href="/warehouse/suppliers">Xoá lọc</a>
+        <a class="btn btn-primary ms-auto" href="/warehouse/suppliers/new"><%- ico('plus') %> Thêm NCC</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Nhà cung cấp</th><th>Liên hệ</th><th class="text-end">Hạn TT</th><th class="text-end">Đã nhập</th><th class="text-end">Còn nợ</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+    <tbody>
+      <% suppliers.forEach(function (s) { %>
+        <tr>
+          <td><div class="fw-semibold"><%= s.SupplierName %></div><% if (s.TaxCode) { %><span class="part-no">MST <%= s.TaxCode %></span><% } %></td>
+          <td><div><%= s.ContactName || '—' %></div><div class="small text-muted"><%= s.Phone || '' %><%= s.Phone && s.Email ? ' · ' : '' %><%= s.Email || '' %></div></td>
+          <td class="text-end tabular-nums"><%= s.PaymentTermDays %> ngày</td>
+          <td class="text-end tabular-nums"><%= fmtMoney(s.TotalPurchased) %><div class="small text-muted"><%= s.ReceiptCount %> phiếu</div></td>
+          <td class="text-end tabular-nums <%= Number(s.Outstanding) > 0 ? 'text-danger fw-semibold' : '' %>"><%= fmtMoney(s.Outstanding) %></td>
+          <td><span class="badge text-bg-<%= s.IsActive ? 'success' : 'secondary' %>"><%= s.IsActive ? 'Đang hợp tác' : 'Ngừng' %></span></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/warehouse/suppliers/<%= s.SupplierId %>/edit">Sửa</a>
+            <form class="d-inline" method="post" action="/warehouse/suppliers/<%= s.SupplierId %>/delete" onsubmit="return confirm('Xoá nhà cung cấp này? Nếu đã có phiếu nhập, hệ thống chỉ chuyển sang Ngừng hợp tác.')">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!suppliers.length) { %><tr><td colspan="7" class="text-center text-muted py-4">Không có nhà cung cấp phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

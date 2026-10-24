@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const Customer = require('../../models/customer.model');
 const accountController = require('./account.controller');
+// Địa giới lấy từ API ngoài: trong test thay bằng bản giả để không gọi mạng
+require('../../core/geo').validate = async (province) => (['TP. Hồ Chí Minh', 'TP. Hà Nội'].includes(province) ? null : 'Tỉnh/Thành phố không hợp lệ.');
 
 const originals = {};
 const profile = {
@@ -144,7 +146,7 @@ test('first address can be added and invalid address identifiers do not call the
   await accountController.addAddress(addRequest.req, addRequest.res);
   assert.equal(address.customerId, 7);
   assert.equal(address.values.isDefault, true);
-  assert.equal(addRequest.res.redirected, '/account/addresses');
+  assert.equal(addRequest.res.redirected, '/account#addresses');
 
   const deleteRequest = request();
   deleteRequest.req.params.id = '1.5';
@@ -165,5 +167,5 @@ test('addresses belonging to another customer are reported as unavailable', asyn
   await accountController.deleteAddress(req, res);
 
   assert.deepEqual(flashes, [['warning', 'Địa chỉ không tồn tại hoặc không thuộc tài khoản của bạn.']]);
-  assert.equal(res.redirected, '/account/addresses');
+  assert.equal(res.redirected, '/account#addresses');
 });

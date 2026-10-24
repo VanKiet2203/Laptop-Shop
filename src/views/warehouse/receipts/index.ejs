@@ -1,0 +1,91 @@
+<%
+  var maxAmt = Math.max.apply(null, monthly.map(function (m) { return m.amount; }).concat([1]));
+  var yearTotal = monthly.reduce(function (s, m) { return s + m.amount; }, 0);
+  var yearReceipts = monthly.reduce(function (s, m) { return s + m.receipts; }, 0);
+  var thisYear = new Date().getFullYear();
+%>
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>Giá trị nhập theo tháng · <%= year %></span>
+        <span class="small fw-normal">
+          <a href="?year=<%= year - 1 %>" class="text-decoration-none">&laquo; <%= year - 1 %></a>
+          <% if (year < thisYear) { %> · <a href="?year=<%= year + 1 %>" class="text-decoration-none"><%= year + 1 %> &raquo;</a><% } %>
+        </span>
+      </div>
+      <div class="card-body">
+        <% if (!yearTotal) { %>
+          <div class="empty-state"><%- ico('boxin') %><p class="mb-0">Năm <%= year %> chưa có phiếu nhập nào được chốt.</p></div>
+        <% } else { %>
+          <div class="bars" role="img" aria-label="Biểu đồ cột giá trị nhập kho theo 12 tháng của năm <%= year %>">
+            <div class="bars-grid" aria-hidden="true"><span><%= fmtAxis(maxAmt) %></span><span><%= fmtAxis(maxAmt / 2) %></span><span>0</span></div>
+            <div class="bars-plot">
+              <% monthly.forEach(function (m, i) { var h = m.amount ? Math.max(4, Math.round(m.amount * 100 / maxAmt)) : 0; %>
+                <div class="bar-col" tabindex="0" data-tip="Tháng <%= m.month %> · <%= fmtMoney(m.amount) %> · <%= m.receipts %> phiếu">
+                  <span class="bar" style="height: <%= h %>%; animation-delay: <%= i * 25 %>ms"></span>
+                  <span class="bar-x">T<%= m.month %></span>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4 d-flex flex-column gap-3">
+    <div class="kpi kpi-rust"><span class="kpi-icon"><%- ico('boxin') %></span><div class="kpi-label">Đã nhập năm <%= year %></div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(yearTotal) %></div><div class="kpi-foot"><%= yearReceipts %> phiếu đã chốt</div></div>
+    <div class="kpi <%= counts.Draft ? 'kpi-amber' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('clock') %></span><div class="kpi-label">Phiếu nháp chờ chốt</div><div class="kpi-value tabular-nums"><%= counts.Draft %></div><div class="kpi-foot"><a href="?status=Draft">Xem các phiếu nháp</a></div></div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-3"><label class="form-label" for="rc-q">Số phiếu hoặc NCC</label><input id="rc-q" name="q" class="form-control" maxlength="30" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="rc-month">Tháng</label><input id="rc-month" type="month" name="month" class="form-control" value="<%= filters.month %>"></div>
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="rc-sup">Nhà cung cấp</label>
+        <select id="rc-sup" name="supplierId" class="form-select"><option value="">Tất cả</option>
+          <% suppliers.forEach(function (s) { %><option value="<%= s.SupplierId %>" <%= String(filters.supplierId) === String(s.SupplierId) ? 'selected' : '' %>><%= s.SupplierName %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="rc-status">Trạng thái</label>
+        <select id="rc-status" name="status" class="form-select"><option value="">Tất cả</option>
+          <% Object.keys(RECEIPT_STATUS).forEach(function (k) { %><option value="<%= k %>" <%= filters.status === k ? 'selected' : '' %>><%= RECEIPT_STATUS[k].label %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-12 col-lg-2 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button>
+        <a class="btn btn-outline-secondary" href="/warehouse/receipts">Xoá</a>
+      </div>
+      <div class="col-12 d-flex justify-content-between align-items-center">
+        <span class="small text-muted tabular-nums"><%= pg.total %> phiếu · tổng đã chốt trong kết quả: <strong><%= fmtMoney(postedTotal) %></strong></span>
+        <% if (currentUser.permissions.includes('receipt.create')) { %><a class="btn btn-primary" href="/warehouse/receipts/new"><%- ico('plus') %> Lập phiếu nhập</a><% } %>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Số phiếu</th><th>Nhà cung cấp</th><th>Ngày nhập</th><th class="text-end">Dòng / SL</th><th class="text-end">Tổng tiền</th><th class="text-end">Đã trả</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+    <tbody>
+      <% receipts.forEach(function (r) { var st = RECEIPT_STATUS[r.Status]; %>
+        <tr>
+          <td><span class="part-no"><%= r.ReceiptNo %></span></td>
+          <td><div class="fw-semibold"><%= r.SupplierName %></div><div class="small text-muted">Lập bởi <%= r.EmployeeName %></div></td>
+          <td class="small tabular-nums"><%= fmtDateTime(r.ReceiptDate) %></td>
+          <td class="text-end tabular-nums"><%= r.LineCount %> / <%= r.TotalQty %></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(r.TotalAmount) %></td>
+          <td class="text-end tabular-nums <%= r.Status === 'Posted' && Number(r.PaidAmount) < Number(r.TotalAmount) ? 'text-danger' : '' %>"><%= fmtMoney(r.PaidAmount) %></td>
+          <td><span class="badge text-bg-<%= st.cls %>"><%= st.label %></span></td>
+          <td class="text-end"><a class="btn btn-sm <%= r.Status === 'Draft' ? 'btn-primary' : 'btn-outline-primary' %>" href="/warehouse/receipts/<%= r.ReceiptId %>"><%= r.Status === 'Draft' ? 'Xem & chốt' : 'Chi tiết' %></a></td>
+        </tr>
+      <% }) %>
+      <% if (!receipts.length) { %><tr><td colspan="8" class="text-center text-muted py-4">Không có phiếu nhập phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

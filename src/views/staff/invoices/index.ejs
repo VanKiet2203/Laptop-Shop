@@ -1,0 +1,40 @@
+<p class="text-muted">Hoá đơn được phát hành tự động khi đơn hàng được duyệt, bạn có thể xem và in lại bất cứ lúc nào. Hoá đơn của đơn bị huỷ sẽ chuyển sang "Đã vô hiệu".</p>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4"><label class="form-label" for="iv-q">Số hoá đơn, mã đơn, người mua, MST</label><input id="iv-q" name="q" class="form-control" maxlength="60" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="iv-status">Trạng thái</label>
+        <select id="iv-status" name="status" class="form-select"><option value="">Tất cả</option><option value="Issued" <%= filters.status === 'Issued' ? 'selected' : '' %>>Còn hiệu lực</option><option value="Voided" <%= filters.status === 'Voided' ? 'selected' : '' %>>Đã vô hiệu</option></select>
+      </div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="iv-from">Từ ngày</label><input id="iv-from" type="date" name="from" class="form-control" value="<%= filters.from %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="iv-to">Đến ngày</label><input id="iv-to" type="date" name="to" class="form-control" value="<%= filters.to %>"></div>
+      <div class="col-6 col-lg-2 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button><a class="btn btn-outline-secondary" href="/staff/invoices">Xoá</a></div>
+      <div class="col-12 small text-muted tabular-nums"><%= pg.total %> hoá đơn · tổng giá trị còn hiệu lực: <strong><%= fmtMoney(issuedTotal) %></strong></div>
+    </form>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Số hoá đơn</th><th>Người mua</th><th>Đơn hàng</th><th>Ngày phát hành</th><th class="text-end">VAT</th><th class="text-end">Tổng tiền</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+    <tbody>
+      <% invoices.forEach(function (i) { %>
+        <tr>
+          <td><span class="part-no"><%= i.InvoiceNo %></span></td>
+          <td><div class="fw-semibold"><%= i.BuyerCompany || i.BuyerName %></div><% if (i.BuyerCompany) { %><div class="small text-muted"><%= i.BuyerName %></div><% } %></td>
+          <td><% if (currentUser.permissions.includes('order.view')) { %><a href="/staff/orders/<%= i.OrderId %>"><%= i.OrderNo %></a><% } else { %><%= i.OrderNo %><% } %></td>
+          <td class="small tabular-nums"><%= fmtDateTime(i.IssuedAt) %></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(i.VatAmount) %></td>
+          <td class="text-end tabular-nums fw-semibold"><%= fmtMoney(i.TotalAmount) %></td>
+          <td><span class="badge text-bg-<%= i.Status === 'Issued' ? 'success' : 'secondary' %>"><%= i.Status === 'Issued' ? 'Còn hiệu lực' : 'Đã vô hiệu' %></span><% if (i.PrintCount) { %><div class="small text-muted">In <%= i.PrintCount %> lần</div><% } %></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/staff/invoices/<%= i.InvoiceId %>">Chi tiết</a>
+            <% if (i.Status === 'Issued' && currentUser.permissions.includes('invoice.print')) { %><a class="btn btn-sm btn-outline-secondary" href="/staff/invoices/<%= i.InvoiceId %>/print" target="_blank" rel="noopener" aria-label="In hoá đơn <%= i.InvoiceNo %>"><%- ico('doc') %> In</a><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!invoices.length) { %><tr><td colspan="8" class="text-center text-muted py-4">Không có hoá đơn phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

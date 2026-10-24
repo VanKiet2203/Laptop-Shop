@@ -60,3 +60,13 @@ phần "Linh kiện tương thích" (trước đây phần tương thích bị l
 - Render thử template bằng `ejs.renderFile` với dữ liệu giả (không cần SQL Server) để bắt lỗi cú pháp.
 - Mọi giá trị DB trong view vẫn `<%= %>`; chỉ `ico()` và `include` mới dùng `<%- %>`.
 - Sprite phải là XML hợp lệ (`[xml](Get-Content sprite.svg)`).
+
+## Cập nhật 25/10/2026 - giao diện cửa hàng (public/css/store.css)
+
+- CSS cửa hàng nằm riêng ở `public/css/store.css` (chỉ cho `body.store`, nạp sau `app.css`). Màu nhấn cửa hàng = indigo `--st-accent`; khu admin/staff/kho vẫn dùng màu theo khu vực trong `app.css`.
+- Sprite hiện có ~75 icon (thêm: refresh, card, headset, gift, flame, star, percent, phone, mail, pin, filter, trash, x, qr, copy, camera, userplus, grid, google (nhiều màu), facebook/youtube/tiktok/zalo, mouse, keyboard, plug...).
+- Thẻ sản phẩm dùng chung: `partials/product-card.ejs` (`include('../partials/product-card', { p, rank })`); ảnh lỗi/thiếu tự đổi sang `/images/cat-*.svg` qua `data-fallback` (JS bắt sự kiện `error`) + luôn `referrerpolicy="no-referrer"` cho ảnh ngoài.
+- Ảnh sản phẩm thật nằm ở `public/images/products/` (đã tải về, không hotlink); poster khuyến mãi là SVG tự vẽ ở `public/images/banner/`.
+- Hiệu ứng JS nằm trong `public/js/app.js` (không thư viện): toast `LS.toast`, thêm giỏ AJAX (`data-add-to-cart`), gợi ý tìm kiếm (`#nav-search-q`), lọc tức thì (`data-live-filter`, `a[data-ajax]`), stepper số lượng giỏ, mô phỏng trả góp, upload avatar (thu nhỏ bằng canvas).
+- Class `slide` của Bootstrap carousel trùng tên: đừng đặt class `slide` cho phần tử khác (đã gây vỡ bố cục poster).
+- Dải "quyền lợi" (bảo hành, miễn phí giao hàng...) nằm TRONG khối footer tối, không dùng dải trắng riêng (người dùng chê tách màu).

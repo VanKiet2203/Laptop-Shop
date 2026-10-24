@@ -27,7 +27,8 @@ test.beforeEach(() => {
     [db, 'transaction'],
     [db, 'query'],
     [Customer, 'createWithAccount'],
-    [Customer, 'findAccountByUsernameOrEmail'],
+    [Customer, 'findAccountByUsername'],
+    [Customer, 'findAccountByEmail'],
     [Customer, 'findCustomerByPhone'],
     [Account, 'getPermissions'],
     [audit, 'log'],
@@ -38,7 +39,8 @@ test.beforeEach(() => {
     originals[name] = { object, key, value: object[key] };
   }
 
-  Customer.findAccountByUsernameOrEmail = async () => null;
+  Customer.findAccountByUsername = async () => null;
+  Customer.findAccountByEmail = async () => null;
   Customer.findCustomerByPhone = async () => null;
   Customer.createWithAccount = async (data, transaction) => {
     events.push(['create', transaction, data]);
@@ -203,7 +205,7 @@ test('malformed body values and values beyond schema limits do not start a trans
 
 test('existing username is rejected before hashing or opening a transaction', async () => {
   const { req, res } = request();
-  Customer.findAccountByUsernameOrEmail = async (value) => (
+  Customer.findAccountByUsername = async (value) => (
     value === validBody.username ? { AccountId: 9 } : null
   );
 
@@ -251,7 +253,7 @@ test('createWithAccount uses the caller transaction and executes all four writes
   assert.equal(calls.length, 4);
   assert.ok(calls.every(({ sql }) => typeof sql === 'string'));
   assert.match(calls[1].sql, /VALUES \(@username, @email, @passwordHash, @roleId\)/);
-  assert.match(calls[2].sql, /VALUES \(@accountId, @fullName, @phone, @email\)/);
+  assert.match(calls[2].sql, /VALUES \(@accountId, @fullName, @phone, @email, @avatarUrl\)/);
   assert.deepEqual(calls[1].params, {
     username: validBody.username,
     email: validBody.email,
@@ -263,6 +265,7 @@ test('createWithAccount uses the caller transaction and executes all four writes
     fullName: validBody.fullName,
     phone: validBody.phone,
     email: validBody.email,
+    avatarUrl: null,
   });
 });
 

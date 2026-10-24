@@ -1,0 +1,137 @@
+<%
+  const queryString = (overrides) => {
+    const params = Object.assign({}, filters, overrides);
+    return Object.keys(params)
+      .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== '')
+      .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+      .join('&');
+  };
+  const tabs = [
+    { key: '', label: 'Tất cả', n: counts.all },
+    { key: 'Pending', label: 'Đang kiểm tra hàng', n: counts.Pending },
+    { key: 'Approved', label: 'Đã xác nhận', n: counts.Approved },
+    { key: 'Completed', label: 'Đã giao', n: counts.Completed },
+    { key: 'Cancelled', label: 'Đã huỷ', n: counts.Cancelled },
+  ];
+%>
+
+<ul class="nav nav-pills order-tabs mb-3 flex-wrap gap-1">
+  <% tabs.forEach(function (t) { %>
+    <li class="nav-item">
+      <a class="nav-link <%= filters.status === t.key && !filters.payStatus ? 'active' : '' %>" href="/staff/orders<%= t.key ? '?status=' + t.key : '' %>">
+        <%= t.label %> <span class="badge rounded-pill text-bg-light tabular-nums"><%= t.n %></span>
+      </a>
+    </li>
+  <% }) %>
+  <% if (counts.RefundPending) { %>
+    <li class="nav-item">
+      <a class="nav-link <%= filters.payStatus === 'RefundPending' ? 'active' : '' %>" href="/staff/orders?payStatus=RefundPending">
+        <%- ico('alert', 'ico-sm') %> Chờ hoàn tiền <span class="badge rounded-pill text-bg-warning tabular-nums"><%= counts.RefundPending %></span>
+      </a>
+    </li>
+  <% } %>
+</ul>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4">
+        <label class="form-label" for="order-q">Tìm theo mã đơn, tên hoặc SĐT khách</label>
+        <input id="order-q" name="q" class="form-control" maxlength="60" value="<%= filters.q %>" placeholder="VD: DH2610-00012, Nguyễn, 0912...">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="order-status">Trạng thái đơn</label>
+        <select id="order-status" name="status" class="form-select">
+          <option value="">Tất cả</option>
+          <% Object.keys(ORDER_STATUS).forEach(function (k) { %>
+            <option value="<%= k %>" <%= filters.status === k ? 'selected' : '' %>><%= ORDER_STATUS[k].label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="order-pay">Thanh toán</label>
+        <select id="order-pay" name="payStatus" class="form-select">
+          <option value="">Tất cả</option>
+          <% Object.keys(PAYMENT_STATUS).forEach(function (k) { %>
+            <option value="<%= k %>" <%= filters.payStatus === k ? 'selected' : '' %>><%= PAYMENT_STATUS[k].label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="order-from">Từ ngày</label>
+        <input id="order-from" type="date" name="from" class="form-control" value="<%= filters.from %>">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="order-to">Đến ngày</label>
+        <input id="order-to" type="date" name="to" class="form-control" value="<%= filters.to %>">
+      </div>
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc đơn hàng</button>
+        <a class="btn btn-outline-secondary" href="/staff/orders">Xoá bộ lọc</a>
+        <span class="ms-auto small text-muted align-self-center tabular-nums"><%= pg.total %> đơn</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead>
+      <tr>
+        <th>Mã đơn</th>
+        <th>Khách nhận hàng</th>
+        <th>Ngày đặt</th>
+        <th class="text-end">SL</th>
+        <th class="text-end">Tổng tiền</th>
+        <th>Thanh toán</th>
+        <th>Trạng thái</th>
+        <th class="text-end">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% orders.forEach(function (o) { var st = ORDER_STATUS[o.Status] || { label: o.Status, cls: 'secondary' }; var ps = PAYMENT_STATUS[o.PaymentStatus] || { label: o.PaymentStatus, cls: 'secondary' }; %>
+        <tr>
+          <td><span class="part-no"><%= o.OrderNo %></span></td>
+          <td>
+            <div class="fw-semibold"><%= o.ReceiverName %></div>
+            <div class="small text-muted"><%= o.ReceiverPhone %></div>
+          </td>
+          <td class="tabular-nums small"><%= fmtDateTime(o.CreatedAt) %></td>
+          <td class="text-end tabular-nums"><%= o.TotalQty %></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(o.TotalAmount) %></td>
+          <td>
+            <div class="small"><%= PAYMENT_METHOD[o.PaymentMethod] || o.PaymentMethod %></div>
+            <span class="badge text-bg-<%= ps.cls %>"><%= ps.label %></span>
+          </td>
+          <td><span class="badge text-bg-<%= st.cls %>"><%= st.label %></span></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm <%= o.Status === 'Pending' ? 'btn-primary' : 'btn-outline-primary' %>" href="/staff/orders/<%= o.OrderId %>">
+              <%= o.Status === 'Pending' ? 'Kiểm tra & duyệt' : 'Chi tiết' %>
+            </a>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!orders.length) { %>
+        <tr><td colspan="8" class="text-center text-muted py-4">Không có đơn hàng phù hợp.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (pg.pages > 1) { %>
+  <nav class="mt-3" aria-label="Phân trang đơn hàng">
+    <ul class="pagination justify-content-center">
+      <li class="page-item <%= pg.page <= 1 ? 'disabled' : '' %>">
+        <a class="page-link" href="?<%= queryString({ page: pg.page - 1 }) %>" aria-label="Trang trước">&laquo;</a>
+      </li>
+      <% for (let page = 1; page <= pg.pages; page += 1) { %>
+        <li class="page-item <%= page === pg.page ? 'active' : '' %>">
+          <a class="page-link tabular-nums" href="?<%= queryString({ page }) %>"><%= page %></a>
+        </li>
+      <% } %>
+      <li class="page-item <%= pg.page >= pg.pages ? 'disabled' : '' %>">
+        <a class="page-link" href="?<%= queryString({ page: pg.page + 1 }) %>" aria-label="Trang sau">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+<% } %>

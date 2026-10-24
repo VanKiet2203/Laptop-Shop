@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" role="img" aria-label="Minh hoạ laptop gaming RGB và chuột">
+  <defs>
+    <linearGradient id="rgb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#f43f5e"/></linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27272a"/><stop offset="1" stop-color="#09090b"/></linearGradient>
+    <linearGradient id="scr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+  </defs>
+  <ellipse cx="280" cy="386" rx="240" ry="16" fill="#000" opacity=".4"/>
+  <g stroke="url(#rgb)" stroke-width="3" fill="none" opacity=".5" stroke-linecap="round"><path d="M10 60h120l20 20h60"/><path d="M550 100H440l-20 20h-60"/><path d="M20 340h100"/><path d="M450 350h100"/></g>
+  <g transform="translate(70 60)">
+    <rect x="20" y="0" width="330" height="214" rx="16" fill="url(#lid)"/>
+    <rect x="32" y="12" width="306" height="190" rx="8" fill="url(#scr)"/>
+    <path d="M32 150l70-48 56 30 70-62 110 70v62H32z" fill="#0f172a" opacity=".55"/>
+    <circle cx="260" cy="64" r="26" fill="#f43f5e" opacity=".9"/><circle cx="260" cy="64" r="40" fill="none" stroke="#fda4af" stroke-width="3" opacity=".6"/>
+    <path d="M0 224h390l-22 40a16 16 0 0 1-14 8H36a16 16 0 0 1-14-8z" fill="#3f3f46"/>
+    <rect x="0" y="224" width="390" height="5" fill="url(#rgb)"/>
+    <rect x="150" y="238" width="90" height="8" rx="4" fill="#52525b"/>
+  </g>
+  <!-- chuột gaming -->
+  <g transform="translate(400 250) rotate(8)">
+    <path d="M60 0C20 0 0 32 0 80c0 50 24 80 60 80s60-30 60-80C120 32 100 0 60 0z" fill="url(#lid)" stroke="#52525b" stroke-width="3"/>
+    <path d="M60 0v64" stroke="#52525b" stroke-width="3"/>
+    <rect x="54" y="26" width="12" height="26" rx="6" fill="url(#rgb)"/>
+    <path d="M14 126c14 22 32 30 46 30s32-8 46-30" fill="none" stroke="url(#rgb)" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <path d="M60 340l-26 40h20l-8 34 36-48H64z" fill="#fde047" transform="translate(0 -56) scale(.9)"/>
+</svg>

@@ -11,8 +11,14 @@ Yêu cầu: **Node.js ≥ 18**, **SQL Server 2017+** (bật đăng nhập SQL - 
    `01_schema.sql` → `02_programmability.sql` → `03_seed.sql`
    (`01` sẽ xoá & tạo lại database `LaptopShopDB`.)
 2. `copy .env.example .env` rồi sửa `DB_USER`, `DB_PASSWORD`, `DB_SERVER` cho đúng máy bạn.
+   (Dùng login SQL `laptopshop_app`? `03_seed.sql` tự tạo lại user + quyền trong database sau mỗi lần chạy lại `01_schema.sql`, nên không còn lỗi *Login failed*.)
 3. `npm install`
 4. `npm run db:check` (kiểm tra kết nối) → `npm run dev` → mở http://localhost:3000
+
+### Tuỳ chọn: đăng nhập Google & email xác nhận đơn
+
+- **Đăng nhập Google**: điền `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` trong `.env` (xem hướng dẫn ngay trong `.env.example`). Chưa điền thì nút Google báo chưa cấu hình, các cách đăng nhập khác vẫn dùng bình thường.
+- **Email xác nhận đơn + gửi lại mã đơn**: điền `SMTP_*` trong `.env`. Chưa điền thì email được lưu thành file HTML trong thư mục `outbox/` (để demo/kiểm tra nội dung).
 
 ## 2. Tài khoản mẫu (mật khẩu chung `123456`)
 
@@ -43,7 +49,8 @@ src/
 
 - Controller không viết SQL; SQL nằm trong `models/`, luôn dùng tham số `@name`.
 - Nghiệp vụ nhiều bước (đặt/duyệt/huỷ đơn, chốt phiếu nhập) nằm trong **stored procedure**, Node chỉ gọi `db.exec(...)`.
-- Route chưa code hiện trang "CHƯA TRIỂN KHAI" kèm checklist việc cần làm - làm xong thì thay bằng `res.render(...)`.
+- Toàn bộ route của 3 khu vực quản trị đã có chức năng thật (không còn trang "CHƯA TRIỂN KHAI"): **Bán hàng** (tổng quan, đơn hàng, hoá đơn + in, tra cứu bảo hành, thống kê doanh thu, sản phẩm bán chạy/lợi nhuận), **Kho** (nhà cung cấp, tồn kho, tra cứu Serial, sổ kho, phiếu nhập nháp → chốt/huỷ + in) và **Admin** (tài khoản, vai trò & phân quyền, nhật ký). `core/todo.js` chỉ còn để dùng khi cần dựng khung cho chức năng mới.
+- Danh sách có lọc + phân trang dùng chung `views/partials/pager.ejs` và `paginate()` trong `core/helpers.js`; mọi bộ lọc đi qua hàm `normalizeFilters()` của model (chỉ nhận giá trị trong danh sách cho phép).
 - Ví dụ mẫu để bắt chước: CRUD Thương hiệu (`routes/staff-catalog.routes.js`, `controllers/staff/brand.controller.js`, `models/brand.model.js`, `views/staff/brands/`).
 - Ghi nhật ký thao tác quan trọng: `audit.log(req, 'ACTION', 'Entity', id, 'chi tiết')`.
 

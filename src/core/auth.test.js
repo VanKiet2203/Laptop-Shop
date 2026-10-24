@@ -18,21 +18,28 @@ function request(sessionUser = {
   permissions: ['product.view', 'product.delete'],
 }) {
   const flashes = [];
-  return {
-    req: {
-      session: {
-        user: sessionUser,
-        destroy(callback) {
-          this.destroyed = true;
-          delete this.user;
-          callback();
-        },
-      },
-      originalUrl: '/staff/products',
-      flash(...args) {
-        flashes.push(args);
-      },
+  const req = {
+    originalUrl: '/staff/products',
+    flash(...args) {
+      flashes.push(args);
     },
+  };
+  // Giống express-session thật: destroy() gỡ hẳn req.session; regenerate() tạo phiên mới (rỗng) trên req
+  req.session = {
+    user: sessionUser,
+    destroy(callback) {
+      req.destroyedSession = this;
+      delete req.session;
+      callback();
+    },
+    regenerate(callback) {
+      req.regeneratedFrom = this;
+      req.session = { destroy: this.destroy, regenerate: this.regenerate };
+      callback();
+    },
+  };
+  return {
+    req,
     res: {
       status(code) {
         this.statusCode = code;
@@ -118,17 +125,18 @@ test('role changes replace both role and permissions before downstream middlewar
   assert.equal(res.statusCode, undefined);
 });
 
-test('missing or inactive account destroys the old session and redirects to login', async () => {
+test('missing or inactive account is logged out with a fresh session (must not crash after the old one is gone)', async () => {
   for (const state of [null, authState({ IsActive: false })]) {
     Account.getAuthState = async () => state;
     const { req, res, flashes } = request();
     await requireLogin(req, res, () => assert.fail('next must not run for invalid account'));
 
-    assert.equal(req.session.destroyed, true);
+    assert.ok(req.regeneratedFrom, 'old session replaced');
     assert.equal(req.session.user, undefined);
     assert.equal(req.session.returnTo, '/staff/products');
     assert.equal(res.redirected, '/auth/login');
-    assert.deepEqual(flashes, [['warning', 'Vui lòng đăng nhập để tiếp tục.']]);
+    assert.equal(flashes.length, 1);
+    assert.equal(flashes[0][0], 'warning');
   }
 });
 

@@ -1,24 +1,11 @@
-// MODULE 1 - KHO (nhập hàng)
-// Chủ sở hữu: Thành viên 1 - Hệ thống & Kho
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+// MODULE 1 - KHO: tổng quan (số liệu tồn, cảnh báo sắp hết hàng, phiếu nhập gần đây)
+const Stock = require('../../models/stock.model');
+const Receipt = require('../../models/goodsReceipt.model');
+const Supplier = require('../../models/supplier.model');
 
-// GET /warehouse/
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M1",
-    "owner": "Thành viên 1 - Hệ thống & Kho",
-    "title": "Kho - Tổng quan",
-    "route": "GET /warehouse/",
-    "tasks": [
-      "Thẻ thống kê: tổng SKU, tổng tồn, phiếu nhập tháng này",
-      "Bảng cảnh báo sắp hết hàng từ view vw_LowStock",
-      "Phiếu nhập gần đây"
-    ],
-    "db": "vw_LowStock, GoodsReceipts",
-    "rubric": "",
-    "controller": "src/controllers/warehouse/dashboard.controller.js",
-    "view": "src/views/warehouse/..."
-  });
+  const [summary, lowStock, month, counts, recent, supplierTotals] = await Promise.all([
+    Stock.summary(), Stock.lowStock(8), Receipt.monthSummary(), Receipt.counts(), Receipt.recent(6), Supplier.totals(),
+  ]);
+  res.render('warehouse/dashboard', { title: 'Tổng quan kho', summary, lowStock, month, counts, recent, supplierTotals });
 };

@@ -1,10 +1,69 @@
 // MODULE 2 - Model Sản phẩm (phần công khai cho cửa hàng + phần quản lý của nhân viên)
 const db = require('../config/db');
+const { fmtMoneyShort } = require('../core/helpers');
+
+/** Bỏ dấu + chữ thường để so khớp tìm kiếm ("ban phim" khớp "Bàn phím"). */
+const normalizeText = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase();
+
+/** Tách từ khoá tìm kiếm: tối đa 5 từ, mỗi từ tối đa 40 ký tự. */
+function tokenizeQuery(q) {
+  return String(q || '').trim().split(/\s+/).filter(Boolean).slice(0, 5).map((t) => t.slice(0, 40));
+}
+
+/** Escape ký tự đại diện của LIKE để người dùng gõ % hoặc _ không biến thành wildcard. */
+const escapeLike = (s) => s.replace(/[\[%_]/g, (c) => `[${c}]`);
+
+/**
+ * Mệnh đề WHERE cho từ khoá: MỖI từ phải xuất hiện trong "tên + hãng + SKU" (không phân biệt dấu/hoa thường).
+ * Trả về { clause, params } - từ khoá luôn đi qua tham số, không nối chuỗi vào SQL.
+ */
+function searchClause(q, prefix = 't') {
+  const tokens = tokenizeQuery(q);
+  const params = {};
+  const parts = tokens.map((t, i) => {
+    params[`${prefix}${i}`] = escapeLike(t);
+    return `(ProductName + N' ' + BrandName + N' ' + Sku + N' ' + CategoryName) COLLATE Vietnamese_CI_AI LIKE N'%' + @${prefix}${i} + N'%'`;
+  });
+  return { clause: parts.length ? `AND ${parts.join(' AND ')}` : '', params };
+}
 
 /** Sản phẩm nổi bật cho trang chủ (mới nhất, đang bán) */
 exports.featured = (limit = 8) => db.query(
-  `SELECT TOP (@limit) ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, QtyAvailable, PrimaryImage
+  `SELECT TOP (@limit) ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, CategorySlug, QtyAvailable, PrimaryImage
    FROM dbo.vw_ProductCatalog WHERE IsActive = 1 ORDER BY ProductId DESC`, { limit });
+
+/** Bán chạy nhất theo số lượng đã bán (đơn Approved/Completed). Thiếu dữ liệu bán hàng thì bù bằng sản phẩm mới nhất. */
+exports.bestSellers = async (limit = 8) => {
+  const sold = await db.query(
+    `SELECT TOP (@limit) c.ProductId, c.Sku, c.ProductName, c.Slug, c.SalePrice, c.BrandName, c.CategoryName, c.CategorySlug,
+            c.QtyAvailable, c.PrimaryImage, s.QtySold
+     FROM dbo.vw_ProductSales s
+     JOIN dbo.vw_ProductCatalog c ON c.ProductId = s.ProductId
+     WHERE c.IsActive = 1 AND s.QtySold > 0
+     ORDER BY s.QtySold DESC, c.ProductId DESC`, { limit });
+  if (sold.length >= limit) return sold;
+  const have = new Set(sold.map((p) => p.ProductId));
+  const filler = (await exports.featured(limit * 2)).filter((p) => !have.has(p.ProductId));
+  return sold.concat(filler).slice(0, limit);
+};
+
+/** Sản phẩm mới nhất của một nhóm danh mục (kể cả danh mục con), dùng cho các hàng "Laptop gaming", "RAM & SSD"... */
+exports.topByCategorySlugs = async (slugs, limit = 4) => {
+  const snap = await catalogSnapshot();
+  const ids = new Set();
+  for (const slug of slugs) {
+    const cat = snap.categories.find((c) => c.Slug === slug);
+    if (cat) snap.descendants(cat.CategoryId).forEach((id) => ids.add(id));
+  }
+  if (!ids.size) return [];
+  return db.query(
+    `SELECT TOP (@limit) ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, CategorySlug, QtyAvailable, PrimaryImage
+     FROM dbo.vw_ProductCatalog
+     WHERE IsActive = 1 AND CategoryId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@ids, ','))
+     ORDER BY CASE WHEN QtyAvailable > 0 THEN 0 ELSE 1 END, ProductId DESC`,
+    { limit, ids: [...ids].join(',') });
+};
 
 exports.rootCategories = () => db.query(
   'SELECT CategoryId, CategoryName, Slug FROM dbo.Categories WHERE ParentId IS NULL AND IsActive = 1 ORDER BY SortOrder');
@@ -14,10 +73,194 @@ exports.allBrands = () => db.query('SELECT BrandId, BrandName FROM dbo.Brands WH
 exports.categoryBySlug = (slug) => db.queryOne(
   'SELECT CategoryId, CategoryName, Slug, ParentId FROM dbo.Categories WHERE Slug = @slug AND IsActive = 1', { slug });
 
+/* ------------------------------------------------------------------------------------------------
+   Ảnh chụp danh mục + sản phẩm đang bán (cache 30 giây) - dùng để tính bộ lọc theo danh mục (hãng, mức giá còn sản phẩm)
+   và menu "mega" mà không phải truy vấn lặp lại mỗi request. Cửa hàng nhỏ (vài trăm sản phẩm) nên nằm gọn trong bộ nhớ.
+   ------------------------------------------------------------------------------------------------ */
+const SNAPSHOT_TTL_MS = 30 * 1000;
+let snapshotCache = null;
+let snapshotAt = 0;
+
+async function catalogSnapshot() {
+  if (snapshotCache && Date.now() - snapshotAt < SNAPSHOT_TTL_MS) return snapshotCache;
+  const [allCategories, products] = await Promise.all([
+    db.query('SELECT CategoryId, ParentId, CategoryName, Slug, SortOrder, IsActive FROM dbo.Categories ORDER BY SortOrder, CategoryName'),
+    db.query(
+      `SELECT ProductId, ProductName, Sku, Slug, CategoryId, CategoryName, BrandId, BrandName, SalePrice, QtyAvailable
+       FROM dbo.vw_ProductCatalog WHERE IsActive = 1`),
+  ]);
+  const byId = new Map(allCategories.map((c) => [c.CategoryId, c]));
+  // Danh mục chỉ "hiển thị" khi chính nó và mọi danh mục cha đều đang bật
+  const visible = (c) => {
+    for (let cur = c, guard = 0; cur && guard < 20; cur = byId.get(cur.ParentId), guard += 1) {
+      if (!cur.IsActive) return false;
+    }
+    return true;
+  };
+  const categories = allCategories.filter(visible);
+  const childrenOf = new Map();
+  for (const c of categories) {
+    if (c.ParentId != null) {
+      if (!childrenOf.has(c.ParentId)) childrenOf.set(c.ParentId, []);
+      childrenOf.get(c.ParentId).push(c.CategoryId);
+    }
+  }
+  const descendants = (id) => {
+    const out = new Set();
+    const stack = [id];
+    while (stack.length) {
+      const cur = stack.pop();
+      if (out.has(cur)) continue;
+      out.add(cur);
+      (childrenOf.get(cur) || []).forEach((k) => stack.push(k));
+    }
+    return out;
+  };
+  snapshotCache = { categories, products, descendants };
+  snapshotAt = Date.now();
+  return snapshotCache;
+}
+exports.invalidateCatalogCache = () => { snapshotCache = null; snapshotAt = 0; };
+
+/**
+ * Mức giá gợi ý theo phạm vi sản phẩm: phụ kiện/RAM/SSD dùng mốc nhỏ, laptop dùng mốc triệu,
+ * "tất cả" dùng mốc chung. Chỉ trả về mức nào còn ít nhất 1 sản phẩm. value = "min-max" (khớp parsePriceRange).
+ */
+function buildPriceTiers(prices, scopeIsAll) {
+  if (!prices.length) return [];
+  const max = Math.max(...prices);
+  let cuts;
+  if (scopeIsAll) cuts = [1000000, 5000000, 10000000, 20000000, 30000000];
+  else if (max <= 3000000) cuts = [500000, 1000000, 2000000];
+  else if (max <= 12000000) cuts = [3000000, 6000000, 9000000];
+  else cuts = [10000000, 15000000, 20000000, 30000000];
+  const tiers = [];
+  for (let i = 0; i <= cuts.length; i += 1) {
+    const min = i === 0 ? 0 : cuts[i - 1];
+    const upper = i === cuts.length ? null : cuts[i] - 1;
+    const count = prices.filter((p) => p >= min && (upper === null || p <= upper)).length;
+    if (!count) continue;
+    let label;
+    if (i === 0) label = `Dưới ${fmtMoneyShort(cuts[0])}`;
+    else if (i === cuts.length) label = `Trên ${fmtMoneyShort(cuts[i - 1])}`;
+    else label = `${fmtMoneyShort(min)} - ${fmtMoneyShort(cuts[i])}`;
+    tiers.push({ label, value: `${min}-${upper === null ? '' : upper}`, min, max: upper, count });
+  }
+  return tiers;
+}
+
+function brandsOf(products) {
+  const map = new Map();
+  for (const p of products) {
+    const cur = map.get(p.BrandId) || { BrandId: p.BrandId, BrandName: p.BrandName, count: 0 };
+    cur.count += 1;
+    map.set(p.BrandId, cur);
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.BrandName.localeCompare(b.BrandName, 'vi'));
+}
+
+/**
+ * Bộ lọc theo ngữ cảnh: chỉ gợi ý hãng và mức giá THỰC SỰ có trong danh mục đang xem
+ * (Laptop thì không có Kingston, RAM thì không có Acer...). categoryId trống = tất cả danh mục.
+ * Trả: { brands, priceTiers, categories (danh mục gốc + số sản phẩm), children (danh mục con của danh mục đang xem) }
+ */
+exports.facets = async ({ categoryId, q } = {}) => {
+  const snap = await catalogSnapshot();
+  let scope = snap.products;
+  if (categoryId) {
+    const ids = snap.descendants(Number(categoryId));
+    scope = scope.filter((p) => ids.has(p.CategoryId));
+  }
+  const tokens = tokenizeQuery(q).map(normalizeText);
+  const matchesQuery = (p) => {
+    const hay = normalizeText(`${p.ProductName} ${p.BrandName} ${p.Sku} ${p.CategoryName}`);
+    return tokens.every((t) => hay.includes(t));
+  };
+  if (tokens.length) scope = scope.filter(matchesQuery);
+  const countIn = (rootId, base) => {
+    const ids = snap.descendants(rootId);
+    return base.filter((p) => ids.has(p.CategoryId)).length;
+  };
+  // Số lượng ở thanh danh mục tính theo từ khoá (không theo danh mục đang chọn) để người dùng đổi danh mục dễ
+  const searchBase = tokens.length ? snap.products.filter(matchesQuery) : snap.products;
+  const roots = snap.categories.filter((c) => c.ParentId == null)
+    .map((c) => ({ CategoryId: c.CategoryId, CategoryName: c.CategoryName, Slug: c.Slug, count: countIn(c.CategoryId, searchBase) }));
+  let children = [];
+  if (categoryId) {
+    const current = snap.categories.find((c) => c.CategoryId === Number(categoryId));
+    if (current) {
+      // Danh mục con của danh mục đang xem; nếu đang ở danh mục con thì hiện các danh mục cùng cấp.
+      const parentId = current.ParentId == null ? current.CategoryId : current.ParentId;
+      children = snap.categories.filter((c) => c.ParentId === parentId)
+        .map((c) => ({ CategoryId: c.CategoryId, CategoryName: c.CategoryName, Slug: c.Slug, count: countIn(c.CategoryId, searchBase) }))
+        .filter((c) => c.count > 0);
+    }
+  }
+  return {
+    brands: brandsOf(scope),
+    priceTiers: buildPriceTiers(scope.map((p) => Number(p.SalePrice)), !categoryId),
+    categories: roots,
+    children,
+    total: scope.length,
+  };
+};
+
+/** Dữ liệu menu "mega" trên thanh điều hướng: mỗi danh mục gốc kèm danh mục con, hãng và mức giá còn hàng. */
+exports.menuData = async () => {
+  const snap = await catalogSnapshot();
+  return snap.categories.filter((c) => c.ParentId == null).map((root) => {
+    const ids = snap.descendants(root.CategoryId);
+    const scope = snap.products.filter((p) => ids.has(p.CategoryId));
+    const children = snap.categories.filter((c) => c.ParentId === root.CategoryId).map((c) => {
+      const sub = snap.descendants(c.CategoryId);
+      return { CategoryName: c.CategoryName, Slug: c.Slug, count: scope.filter((p) => sub.has(p.CategoryId)).length };
+    }).filter((c) => c.count > 0);
+    return {
+      CategoryId: root.CategoryId,
+      CategoryName: root.CategoryName,
+      Slug: root.Slug,
+      count: scope.length,
+      children,
+      brands: brandsOf(scope).slice(0, 10),
+      priceTiers: buildPriceTiers(scope.map((p) => Number(p.SalePrice)), false),
+    };
+  }).filter((c) => c.count > 0);
+};
+
+/**
+ * Gợi ý khi gõ ô tìm kiếm (chưa cần Enter): vài sản phẩm khớp + danh mục + hãng khớp.
+ * Không phân biệt dấu/hoa thường, mọi từ phải khớp.
+ */
+exports.suggest = async (q, limit = 6) => {
+  const tokens = tokenizeQuery(q);
+  if (!tokens.length || String(q).trim().length < 2) return { products: [], categories: [], brands: [] };
+  const { clause, params } = searchClause(q);
+  const safeLimit = Math.min(10, Math.max(1, Number(limit) || 6));
+  const [products, snap] = await Promise.all([
+    db.query(
+      `SELECT TOP (@limit) ProductId, ProductName, Slug, SalePrice, BrandName, CategoryName, CategorySlug, QtyAvailable, PrimaryImage
+       FROM dbo.vw_ProductCatalog
+       WHERE IsActive = 1 ${clause}
+       ORDER BY CASE WHEN ProductName COLLATE Vietnamese_CI_AI LIKE @first + N'%' THEN 0 ELSE 1 END,
+                CASE WHEN QtyAvailable > 0 THEN 0 ELSE 1 END, SalePrice`,
+      { ...params, limit: safeLimit, first: escapeLike(tokens[0]) }),
+    catalogSnapshot(),
+  ]);
+  const needle = tokens.map(normalizeText);
+  const matches = (text) => { const h = normalizeText(text); return needle.every((t) => h.includes(t)); };
+  const categories = snap.categories.filter((c) => matches(c.CategoryName)).slice(0, 3)
+    .map((c) => ({ CategoryName: c.CategoryName, Slug: c.Slug }));
+  const brandMap = new Map();
+  snap.products.forEach((p) => { if (matches(p.BrandName)) brandMap.set(p.BrandId, p.BrandName); });
+  const brands = [...brandMap].slice(0, 3).map(([BrandId, BrandName]) => ({ BrandId, BrandName }));
+  return { products, categories, brands };
+};
+
 /**
  * Tìm kiếm/lọc/phân trang sản phẩm cho cửa hàng.
  * sort KHÔNG được đưa thẳng vào SQL - chỉ ánh xạ qua danh sách cột cho phép (ORDER BY
  * không parameterize được trong T-SQL), tránh SQL injection từ query string.
+ * brandIds: mảng mã hãng (chọn nhiều hãng); brandId (một hãng) vẫn được hỗ trợ cho code cũ.
  */
 const SORT_COLUMNS = {
   price_asc: 'SalePrice ASC',
@@ -26,18 +269,21 @@ const SORT_COLUMNS = {
   newest: 'ProductId DESC',
 };
 
-exports.search = async ({ q, minPrice, maxPrice, categoryId, brandId, sort, page = 1, pageSize = 12 } = {}) => {
+exports.search = async ({ q, minPrice, maxPrice, categoryId, brandId, brandIds, sort, page = 1, pageSize = 12 } = {}) => {
   const pageNumber = Number.isSafeInteger(Number(page)) && Number(page) > 0 ? Number(page) : 1;
   const safePageSize = Number.isSafeInteger(Number(pageSize))
     ? Math.min(100, Math.max(1, Number(pageSize)))
     : 12;
   const orderBy = SORT_COLUMNS[sort] || SORT_COLUMNS.newest;
+  const search = searchClause(q);
+  const brandList = (Array.isArray(brandIds) && brandIds.length ? brandIds : (brandId == null || brandId === '' ? [] : [brandId]))
+    .map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 20);
   const where = `WHERE IsActive = 1
-    AND (@q IS NULL OR ProductName LIKE '%' + @q + '%' OR Sku LIKE '%' + @q + '%')
+    ${search.clause}
     AND (@minPrice IS NULL OR SalePrice >= @minPrice)
     AND (@maxPrice IS NULL OR SalePrice <= @maxPrice)
     AND (@categoryId IS NULL OR CategoryId IN (SELECT CategoryId FROM CategoryTree))
-    AND (@brandId IS NULL OR BrandId = @brandId)`;
+    AND (@brandIds IS NULL OR BrandId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@brandIds, ',')))`;
   const categoryTree = `;WITH CategoryAncestors AS (
       SELECT CategoryId AS SelectedCategoryId, CategoryId, ParentId, IsActive
       FROM dbo.Categories
@@ -61,10 +307,11 @@ exports.search = async ({ q, minPrice, maxPrice, categoryId, brandId, sort, page
     )`;
   const params = {
     q: q ? String(q).trim() : null,
+    ...search.params,
     minPrice: minPrice == null || minPrice === '' ? null : Number(minPrice),
     maxPrice: maxPrice == null || maxPrice === '' ? null : Number(maxPrice),
     categoryId: categoryId == null || categoryId === '' ? null : Number(categoryId),
-    brandId: brandId == null || brandId === '' ? null : Number(brandId),
+    brandIds: brandList.length ? brandList.join(',') : null,
   };
   const totalRow = await db.queryOne(
     `${categoryTree}
@@ -77,7 +324,7 @@ exports.search = async ({ q, minPrice, maxPrice, categoryId, brandId, sort, page
   const offset = (currentPage - 1) * safePageSize;
   const rows = await db.query(
     `${categoryTree}
-     SELECT ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, QtyAvailable, PrimaryImage
+     SELECT ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, CategorySlug, QtyAvailable, PrimaryImage
      FROM dbo.vw_ProductCatalog ${where}
      ORDER BY ${orderBy}
      OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
@@ -140,7 +387,7 @@ exports.compatibleComponentsOf = async (productId, limitPerCategory = 4) => {
      CompatibleProducts AS (
        SELECT DISTINCT compatRule.ComponentCategoryId, compatRule.ComponentCategoryName,
               product.ProductId, product.Sku, product.ProductName, product.Slug,
-              product.SalePrice, product.BrandName, product.QtyAvailable, product.PrimaryImage
+              product.SalePrice, product.BrandName, product.QtyAvailable, product.PrimaryImage, product.CategorySlug
        FROM ApplicableRules compatRule
        JOIN RuleCategoryTree tree ON tree.RuleId = compatRule.RuleId
        JOIN dbo.vw_ProductCatalog product ON product.CategoryId = tree.CategoryId
@@ -189,7 +436,7 @@ exports.compatibleComponentsOf = async (productId, limitPerCategory = 4) => {
        FROM CompatibleProducts compatible
      )
      SELECT ComponentCategoryId, ComponentCategoryName, ProductId, Sku, ProductName,
-            Slug, SalePrice, BrandName, QtyAvailable, PrimaryImage
+            Slug, SalePrice, BrandName, QtyAvailable, PrimaryImage, CategorySlug
      FROM RankedProducts
      WHERE RecommendationRank <= @limitPerCategory
      ORDER BY ComponentCategoryName, RecommendationRank

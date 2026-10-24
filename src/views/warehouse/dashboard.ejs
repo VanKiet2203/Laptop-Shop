@@ -1,0 +1,73 @@
+<%
+  var hour = new Date().getHours();
+  var greet = hour < 11 ? 'Chào buổi sáng' : (hour < 14 ? 'Chào buổi trưa' : (hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'));
+  var attention = summary.lowStock + summary.outOfStock;
+  var can = function (p) { return currentUser.permissions.includes(p); };
+%>
+<section class="dash-hero mb-4">
+  <div class="dash-hero-body">
+    <div class="dash-hero-eyebrow"><span class="live-dot" aria-hidden="true"></span> Kho hàng · <%= fmtDate(new Date()) %></div>
+    <h2 class="dash-hero-title"><%= greet %>, <%= currentUser ? currentUser.fullName : 'thủ kho' %></h2>
+    <p class="dash-hero-sub">
+      <% if (attention) { %><strong class="tabular-nums"><%= attention %></strong> mặt hàng sắp hết hoặc đã hết hàng cần nhập thêm.<% } else { %>Tồn kho đang ổn định, chưa có mặt hàng nào sắp hết.<% } %>
+      <% if (counts.Draft) { %> Có <strong class="tabular-nums"><%= counts.Draft %></strong> phiếu nhập nháp chờ chốt.<% } %>
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <% if (can('receipt.create')) { %><a href="/warehouse/receipts/new" class="btn btn-light btn-sm"><%- ico('boxin') %> Lập phiếu nhập</a><% } %>
+      <a href="/warehouse/stock/serials" class="btn btn-outline-light btn-sm"><%- ico('scan') %> Tra cứu Serial</a>
+      <a href="/warehouse/stock?level=low" class="btn btn-outline-light btn-sm"><%- ico('alert') %> Hàng sắp hết</a>
+    </div>
+  </div>
+  <svg class="dash-hero-art" viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M40 150V80l60-30 60 30v70z" /><path d="M40 80l60 30 60-30M100 110v40" /><path d="M170 150V96l50-24 50 24v54z" /><path d="M170 96l50 24 50-24M220 120v30" />
+    </g>
+  </svg>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="kpi kpi-rust"><span class="kpi-icon"><%- ico('boxes') %></span><div class="kpi-label">Mặt hàng đang bán</div><div class="kpi-value tabular-nums" data-count="<%= summary.skus %>"><%= summary.skus %></div><div class="kpi-foot"><%= summary.onHand %> sản phẩm tồn thực tế</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('receipt') %></span><div class="kpi-label">Giá trị tồn kho</div><div class="kpi-value is-money tabular-nums"><%= fmtMoneyShort(summary.stockValue) %></div><div class="kpi-foot">theo giá vốn nhập gần nhất</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi <%= attention ? 'kpi-danger' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('alert') %></span><div class="kpi-label">Cần nhập thêm</div><div class="kpi-value tabular-nums" data-count="<%= attention %>"><%= attention %></div><div class="kpi-foot"><%= summary.outOfStock %> hết hàng · <%= summary.lowStock %> sắp hết</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-teal"><span class="kpi-icon"><%- ico('boxin') %></span><div class="kpi-label">Nhập tháng này</div><div class="kpi-value is-money tabular-nums"><%= fmtMoneyShort(month.amount) %></div><div class="kpi-foot"><%= month.receipts %> phiếu đã chốt · NCC còn nợ <%= fmtMoneyShort(supplierTotals.outstanding) %></div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Cảnh báo sắp hết hàng</span><a href="/warehouse/stock?sort=available_asc" class="small fw-semibold text-decoration-none">Xem tồn kho <%- ico('arrow', 'ico-sm') %></a></div>
+      <% if (!lowStock.length) { %>
+        <div class="card-body"><div class="empty-state"><%- ico('checkcircle') %><p class="mb-0">Không có mặt hàng nào dưới ngưỡng cảnh báo.</p></div></div>
+      <% } else { %>
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+          <thead><tr><th>Sản phẩm</th><th class="text-end">Khả dụng</th><th class="text-end">Ngưỡng</th></tr></thead>
+          <tbody>
+            <% lowStock.forEach(function (p) { %>
+              <tr><td><span class="part-no d-inline-block mb-1"><%= p.Sku %></span><div><%= p.ProductName %></div></td>
+                <td class="text-end tabular-nums fw-semibold <%= p.QtyAvailable <= 0 ? 'text-danger' : 'text-warning' %>"><%= p.QtyAvailable %></td>
+                <td class="text-end tabular-nums text-muted"><%= p.ReorderLevel %></td></tr>
+            <% }) %>
+          </tbody>
+        </table></div>
+      <% } %>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Phiếu nhập gần đây</span><a href="/warehouse/receipts" class="small fw-semibold text-decoration-none">Tất cả <%- ico('arrow', 'ico-sm') %></a></div>
+      <% if (!recent.length) { %>
+        <div class="card-body"><div class="empty-state"><%- ico('boxin') %><p class="mb-0">Chưa có phiếu nhập nào.</p></div></div>
+      <% } else { %>
+        <ul class="list-group list-group-flush">
+          <% recent.forEach(function (r) { var st = RECEIPT_STATUS[r.Status]; %>
+            <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+              <div class="text-truncate"><a class="part-no text-decoration-none" href="/warehouse/receipts/<%= r.ReceiptId %>"><%= r.ReceiptNo %></a>
+                <div class="small text-muted text-truncate"><%= r.SupplierName %> · <%= fmtDate(r.ReceiptDate) %></div></div>
+              <div class="text-end"><div class="tabular-nums small fw-semibold"><%= fmtMoneyShort(r.TotalAmount) %></div><span class="badge text-bg-<%= st.cls %>"><%= st.label %></span></div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+</div>

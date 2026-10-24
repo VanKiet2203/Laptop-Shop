@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const expressLayouts = require('express-ejs-layouts');
-const { locals } = require('./core/locals');
+const { locals, loadMenu } = require('./core/locals');
 const { isBusinessError } = require('./core/helpers');
 
 const app = express();
@@ -22,6 +22,7 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 8 },
 }));
 app.use(locals);
+app.use(loadMenu);
 
 app.use('/', require('./routes'));
 

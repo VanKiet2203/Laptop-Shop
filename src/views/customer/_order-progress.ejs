@@ -1,0 +1,24 @@
+<%# Tiến độ đơn hàng: Đặt hàng -> Kiểm tra/Xác nhận -> Hoàn tất (hoặc Đã huỷ). Truyền vào: { ord } %>
+<%
+  var cancelled = ord.Status === 'Cancelled';
+  var steps = [
+    { key: 'placed', label: 'Đã đặt hàng', done: true, time: ord.CreatedAt },
+    { key: 'check', label: ord.Status === 'Pending' ? 'Đang kiểm tra hàng' : 'Đã xác nhận', done: ord.Status === 'Approved' || ord.Status === 'Completed', current: ord.Status === 'Pending', time: ord.ApprovedAt },
+    { key: 'done', label: 'Đã giao', done: ord.Status === 'Completed', time: ord.CompletedAt },
+  ];
+%>
+<% if (cancelled) { %>
+  <div class="progress-cancelled"><%- ico('x') %> <div><strong>Đơn hàng đã huỷ</strong><% if (ord.CancelledAt) { %> lúc <%= fmtDateTime(ord.CancelledAt) %><% } %><% if (ord.CancelReason) { %> — <%= ord.CancelReason %><% } %></div></div>
+<% } else { %>
+  <ol class="order-progress" aria-label="Tiến độ đơn hàng">
+    <% steps.forEach(function (s) { %>
+      <li class="<%= s.done ? 'is-done' : '' %> <%= s.current ? 'is-current' : '' %>">
+        <span class="op-dot"><% if (s.done) { %><%- ico('check', 'ico-sm') %><% } %></span>
+        <span class="op-label"><%= s.label %></span>
+        <% if (s.time && (s.done || s.current)) { %><span class="op-time tabular-nums"><%= fmtDateTime(s.time) %></span><% } %>
+      </li>
+    <% }) %>
+  </ol>
+  <p class="progress-hint"><%- ico('info', 'ico-sm') %><span><%= ORDER_STATUS[ord.Status] ? ORDER_STATUS[ord.Status].hint : '' %>
+    <% if (ord.Status === 'Pending') { %> Đơn từ 2 sản phẩm trở lên cần nhân viên xác nhận tồn kho.<% } %></span></p>
+<% } %>

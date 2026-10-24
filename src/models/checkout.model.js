@@ -1,35 +1,33 @@
 // Thành viên 3 - Khách mua hàng
 // Model = nơi DUY NHẤT chứa câu lệnh SQL của nhóm chức năng này (controller không viết SQL).
-// Bảng / đối tượng DB liên quan: sp_PlaceOrderFromCart, Promotions
-// Hàm gợi ý: previewPromo(code, subtotal), placeOrder({customerId, addressId, paymentMethod, promoCode, note}) -> orderId
+// Bảng / đối tượng DB liên quan: sp_PlaceOrder, Promotions
+// Hàm chính: previewPromo(code, subtotal), placeOrder({...}) -> { orderId, status }, getCheckoutData({ customerId | entries })
 
 const db = require('../config/db');
+const Cart = require('./cart.model');
 
-/**
- * Kiểm tra mã voucher và tính trước số tiền giảm giá cho đơn hàng
- * @param {string} code - Mã voucher
- * @param {number} subtotal - Tổng tiền hàng tạm tính
- * @returns {Promise<{ promotionId: number, code: string, discountAmount: number }>}
- */
+// Quy tắc tính tiền - PHẢI khớp sp_PlaceOrder: freeship từ 5 triệu (tính trên tiền hàng TRƯỚC giảm giá), VAT 10% trên tiền sau giảm.
+const FREE_SHIPPING_FROM = 5000000;
+const SHIPPING_FEE = 30000;
+const VAT_RATE = 10;
 
 function calculateTotals(subtotal, discountAmount = 0) {
   const safeDiscount = Math.min(discountAmount, subtotal);
   const taxable = Math.max(0, subtotal - safeDiscount); // Tiền chịu thuế sau giảm giá
-  
-  // Miễn phí vận chuyển cho đơn từ 5.000.000đ, dưới 5 triệu phí ship 30.000đ (theo sp_PlaceOrderFromCart)
-  const shippingFee = (subtotal >= 5000000 || subtotal === 0) ? 0 : 30000;
-  const vatRate = 10;
-  const vatAmount = Math.round(taxable * (vatRate / 100));
+  const shippingFee = (subtotal >= FREE_SHIPPING_FROM || subtotal === 0) ? 0 : SHIPPING_FEE;
+  const vatAmount = Math.round(taxable * (VAT_RATE / 100));
   const totalAmount = taxable + shippingFee + vatAmount;
   return {
     subtotal,
     discountAmount: safeDiscount,
     shippingFee,
-    vatRate,
+    vatRate: VAT_RATE,
     vatAmount,
     totalAmount,
   };
 }
+exports.calculateTotals = calculateTotals;
+
 /**
  * Kiểm tra mã voucher và tính trước số tiền giảm giá
  */
@@ -58,7 +56,6 @@ exports.previewPromo = async (code, subtotal) => {
   if (promo.DiscountType === 'Percent' && promo.MaxDiscount != null && discount > promo.MaxDiscount) {
     discount = promo.MaxDiscount;
   }
-  // Tái sử dụng hàm tính tiền dùng chung
   const totals = calculateTotals(subtotal, discount);
   return {
     promotionId: promo.PromotionId,
@@ -67,60 +64,59 @@ exports.previewPromo = async (code, subtotal) => {
   };
 };
 
-
-
-
-exports.placeOrder = async ({ customerId, addressId, paymentMethod, promoCode, note }) => {
+/**
+ * Đặt hàng qua sp_PlaceOrder. Khách đã đăng nhập: truyền customerId (đọc giỏ trong DB).
+ * Khách chưa đăng nhập: truyền entries [{productId, qty}] từ giỏ session (gửi JSON, giá/tồn đọc lại trong DB).
+ * Trả về { orderId, status } - status 'Approved' nghĩa là hệ thống đã tự xác nhận (đơn 1 sản phẩm).
+ */
+exports.placeOrder = async ({
+  customerId = null, entries = null, receiverName, receiverPhone, receiverEmail = null, shippingAddress, paymentMethod, promoCode, note,
+}) => {
   const result = await db.exec(
-    'dbo.sp_PlaceOrderFromCart',
+    'dbo.sp_PlaceOrder',
     {
-      CustomerId: customerId,
-      AddressId: addressId,
+      ReceiverName: receiverName,
+      ReceiverPhone: receiverPhone,
+      ReceiverEmail: receiverEmail || null,
+      ShippingAddress: shippingAddress,
       PaymentMethod: paymentMethod,
+      CustomerId: customerId,
       PromoCode: promoCode ? promoCode.trim() : null,
       Note: note ? note.trim() : null,
+      ItemsJson: customerId ? null : JSON.stringify((entries || []).map((e) => ({ productId: e.productId, qty: e.qty }))),
     },
-    { OrderId: db.sql.Int } // Nhận tham số @OrderId OUTPUT từ procedure
+    { OrderId: db.sql.Int, OrderStatus: db.sql.VarChar(10) }
   );
-  return result.output.OrderId;
+  return { orderId: result.output.OrderId, status: result.output.OrderStatus };
 };
 
-//Lấy thông tin checkout gồm: địa chỉ, món hàng, tổng tiền, phương thức thanh toán
-exports.getCheckoutData = async (customerId) => {
-  // 1. Lấy sổ địa chỉ của khách hàng (địa chỉ mặc định xếp lên đầu)
-  const addresses = await db.query(
-    `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province, IsDefault
-     FROM dbo.CustomerAddresses
-     WHERE CustomerId = @customerId
-     ORDER BY IsDefault DESC, AddressId ASC`,
-    { customerId }
-  );
-  // 2. Lấy các món hàng đang có trong giỏ kèm hình ảnh & tồn kho khả dụng
-  const items = await db.query(
-    `SELECT ci.Quantity, p.ProductId, p.ProductName, p.Slug, p.Sku, p.SalePrice, p.IsActive,
-            (p.QtyOnHand - p.QtyReserved) AS QtyAvailable,
-            img.ImageUrl AS PrimaryImage
-     FROM dbo.Carts c
-     JOIN dbo.CartItems ci ON ci.CartId = c.CartId
-     JOIN dbo.Products p ON p.ProductId = ci.ProductId
-     LEFT JOIN dbo.ProductImages img ON img.ProductId = p.ProductId AND img.IsPrimary = 1
-     WHERE c.CustomerId = @customerId`,
-    { customerId }
-  );
-  // 3. Tính tiền ban đầu (khi chưa áp mã giảm giá)
+/** Phương thức thanh toán hỗ trợ */
+exports.PAYMENT_METHODS = [
+  { code: 'COD', name: 'Thanh toán khi nhận hàng (COD)', desc: 'Nhân viên gọi xác nhận, bạn kiểm tra hàng rồi trả tiền mặt', icon: 'truck' },
+  { code: 'BankTransfer', name: 'Chuyển khoản ngân hàng', desc: 'Hiện mã QR VietQR ngay sau khi đặt hàng', icon: 'qr' },
+  { code: 'Installment', name: 'Trả góp', desc: 'Thẻ tín dụng 0% hoặc công ty tài chính - ước tính tiền góp mỗi tháng', icon: 'percent' },
+  { code: 'Card', name: 'Thẻ tín dụng / Ghi nợ', desc: 'Visa, MasterCard, JCB - nhân viên gửi link thanh toán an toàn', icon: 'card' },
+];
+
+/**
+ * Dữ liệu trang thanh toán. source = { customerId } (khách đăng nhập) hoặc { entries } (khách vãng lai).
+ */
+exports.getCheckoutData = async ({ customerId = null, entries = null }) => {
+  const items = customerId ? await Cart.items(customerId) : await Cart.itemsForEntries(entries);
+  const addresses = customerId
+    ? await db.query(
+      `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province, IsDefault
+       FROM dbo.CustomerAddresses
+       WHERE CustomerId = @customerId
+       ORDER BY IsDefault DESC, AddressId ASC`,
+      { customerId })
+    : [];
   const subtotal = items.reduce((sum, i) => sum + i.Quantity * i.SalePrice, 0);
   const totals = calculateTotals(subtotal, 0);
-  // 4. Danh sách các phương thức thanh toán hỗ trợ
-  const paymentMethods = [
-    { code: 'COD', name: 'Thanh toán khi nhận hàng (COD)', desc: 'Nhận hàng, kiểm tra rồi thanh toán tiền mặt' },
-    { code: 'BankTransfer', name: 'Chuyển khoản ngân hàng', desc: 'Chuyển khoản qua mã QR VietQR / Internet Banking' },
-    { code: 'Card', name: 'Thẻ tín dụng / Ghi nợ', desc: 'Hỗ trợ thẻ Visa, MasterCard, JCB' },
-    { code: 'Installment', name: 'Trả góp', desc: 'Trả góp qua thẻ tín dụng lãi suất 0%' },
-  ];
   return {
     addresses,
     items,
     ...totals, // Gồm: subtotal, discountAmount (0), shippingFee, vatRate (10), vatAmount, totalAmount
-    paymentMethods,
+    paymentMethods: exports.PAYMENT_METHODS,
   };
 };

@@ -1,54 +1,33 @@
-// MODULE 4 - NV BÁN HÀNG: ĐƠN, HOÁ ĐƠN, BÁO CÁO
-// Chủ sở hữu: Thành viên 4 - Đơn hàng, hoá đơn, báo cáo
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+// MODULE 4 - NV BÁN HÀNG: hoá đơn bán hàng (phát hành tự động khi duyệt đơn; ở đây chỉ xem / in lại)
+const Invoice = require('../../models/invoice.model');
+const audit = require('../../models/audit.model');
+const { parseId } = require('../../core/helpers');
+
+const NOT_FOUND = { layout: 'layouts/staff', title: 'Không tìm thấy' };
 
 // GET /staff/invoices
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Hoá đơn bán hàng",
-    "route": "GET /staff/invoices",
-    "tasks": [
-      "Xem hoá đơn theo khoảng thời gian tuỳ chọn (from, to), tổng hợp số tiền"
-    ],
-    "db": "Invoices",
-    "rubric": "A4 xem hoá đơn trong thời điểm tuỳ chọn",
-    "controller": "src/controllers/staff/invoice.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const result = await Invoice.search(req.query, req.query.page);
+  res.render('staff/invoices/index', { title: 'Hoá đơn bán hàng', invoices: result.rows, pg: result.pg, filters: result.filters, issuedTotal: result.issuedTotal });
 };
 
 // GET /staff/invoices/:id
 exports.show = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Chi tiết hoá đơn",
-    "route": "GET /staff/invoices/:id",
-    "tasks": [],
-    "db": "",
-    "rubric": "",
-    "controller": "src/controllers/staff/invoice.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const id = parseId(req.params.id);
+  const invoice = id ? await Invoice.findById(id) : null;
+  if (!invoice) return res.status(404).render('errors/404', NOT_FOUND);
+  res.render('staff/invoices/show', { title: `Hoá đơn ${invoice.InvoiceNo}`, invoice });
 };
 
-// GET /staff/invoices/:id/print
+// GET /staff/invoices/:id/print - bản in (không layout), mỗi lần mở tăng số lần in
 exports.print = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - In hoá đơn",
-    "route": "GET /staff/invoices/:id/print",
-    "tasks": [
-      "View riêng (layout:false) khổ A5/A4, danh sách serial từng máy, tăng Invoices.PrintCount"
-    ],
-    "db": "Invoices, OrderDetails, OrderDetailSerials",
-    "rubric": "A4 in hoá đơn, lưu trữ",
-    "controller": "src/controllers/staff/invoice.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const id = parseId(req.params.id);
+  const invoice = id ? await Invoice.findById(id) : null;
+  if (!invoice) return res.status(404).render('errors/404', NOT_FOUND);
+  if (invoice.Status === 'Issued') {
+    await Invoice.markPrinted(id);
+    invoice.PrintCount += 1;
+    await audit.log(req, 'PRINT', 'Invoice', id, `In hoá đơn ${invoice.InvoiceNo} (lần ${invoice.PrintCount})`);
+  }
+  res.render('staff/invoices/print', { layout: false, title: `Hoá đơn ${invoice.InvoiceNo}`, invoice });
 };
