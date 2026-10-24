@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hóa đơn <%= invoice.InvoiceNo %></title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      color: #222;
+      margin: 0;
+      padding: 20px;
+      font-size: 13px;
+    }
+
+    .invoice {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 28px;
+      border: 1px solid #ddd;
+    }
+
+    h1, h2, p {
+      margin-top: 0;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f2f2f2;
+    }
+
+    .number {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .totals {
+      width: 320px;
+      margin-left: auto;
+    }
+
+    .totals td {
+      border: none;
+      padding: 5px;
+    }
+
+    .grand-total {
+      border-top: 1px solid #333 !important;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      text-align: center;
+      margin-top: 45px;
+    }
+
+    .signatures p {
+      margin-bottom: 60px;
+      font-weight: bold;
+    }
+
+    .actions {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .actions button {
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+
+      .invoice {
+        max-width: none;
+        border: none;
+        padding: 0;
+      }
+
+      .actions {
+        display: none;
+      }
+
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button onclick="window.print()">In hóa đơn</button>
+    <button onclick="window.close()">Đóng</button>
+  </div>
+
+  <main class="invoice">
+    <h1>HÓA ĐƠN BÁN HÀNG</h1>
+    <p class="subtitle">
+      Số hóa đơn: <strong><%= invoice.InvoiceNo %></strong>
+    </p>
+
+    <div class="info">
+      <div>
+        <strong>Ngày lập:</strong>
+        <%= invoice.IssuedAt
+          ? new Date(invoice.IssuedAt).toLocaleString('vi-VN')
+          : '' %>
+      </div>
+
+      <div>
+        <strong>Mã đơn hàng:</strong>
+        #<%= invoice.OrderId %>
+      </div>
+
+      <div>
+        <strong>Người mua:</strong>
+        <%= invoice.BuyerName || 'Khách lẻ' %>
+      </div>
+
+      <div>
+        <strong>Công ty:</strong>
+        <%= invoice.BuyerCompany || 'Không có' %>
+      </div>
+
+      <div>
+        <strong>Mã số thuế:</strong>
+        <%= invoice.BuyerTaxCode || 'Không có' %>
+      </div>
+
+      <div>
+        <strong>Điện thoại:</strong>
+        <%= invoice.CustomerPhone || invoice.ReceiverPhone || 'Không có' %>
+      </div>
+
+      <div>
+        <strong>Địa chỉ:</strong>
+        <%= invoice.BuyerAddress || invoice.ShippingAddress || 'Không có' %>
+      </div>
+
+      <div>
+        <strong>Thanh toán:</strong>
+        <%= invoice.PaymentMethod || 'Không có' %>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Sản phẩm</th>
+          <th>Serial</th>
+          <th>SL</th>
+          <th>Đơn giá</th>
+          <th>Thành tiền</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (details && details.length > 0) { %>
+          <% details.forEach((item, index) => { %>
+            <tr>
+              <td><%= index + 1 %></td>
+              <td>
+                <strong><%= item.ProductName %></strong><br>
+                Mã: <%= item.Sku %><br>
+                Bảo hành: <%= item.WarrantyMonths || 0 %> tháng
+              </td>
+              <td><%= item.Serials || '—' %></td>
+              <td class="number"><%= item.Quantity %></td>
+              <td class="number">
+                <%= Number(item.UnitPrice || 0).toLocaleString('vi-VN') %> ₫
+              </td>
+              <td class="number">
+                <%= Number(item.LineTotal || 0).toLocaleString('vi-VN') %> ₫
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="6" style="text-align:center">
+              Không có sản phẩm.
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+
+    <table class="totals">
+      <tbody>
+        <tr>
+          <td>Tiền hàng</td>
+          <td class="number">
+            <%= Number(invoice.SubtotalAmount || 0).toLocaleString('vi-VN') %> ₫
+          </td>
+        </tr>
+        <tr>
+          <td>Giảm giá</td>
+          <td class="number">
+            <%= Number(invoice.DiscountAmount || 0).toLocaleString('vi-VN') %> ₫
+          </td>
+        </tr>
+        <tr>
+          <td>VAT</td>
+          <td class="number">
+            <%= Number(invoice.VatAmount || 0).toLocaleString('vi-VN') %> ₫
+          </td>
+        </tr>
+        <tr>
+          <td class="grand-total">TỔNG CỘNG</td>
+          <td class="number grand-total">
+            <%= Number(invoice.TotalAmount || 0).toLocaleString('vi-VN') %> ₫
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="text-align:center; margin-top:24px">
+      Cảm ơn quý khách đã mua hàng!
+    </p>
+
+    <div class="signatures">
+      <div>
+        <p>Người mua hàng</p>
+      </div>
+      <div>
+        <p>Người bán hàng</p>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

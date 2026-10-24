@@ -1,0 +1,57 @@
+
+<h2>Sản phẩm bán chạy</h2>
+
+<form method="GET" action="/staff/reports/products">
+  <label for="from">Từ ngày:</label>
+  <input type="date" id="from" name="from" value="<%= from %>" required>
+
+  <label for="to">Đến ngày:</label>
+  <input type="date" id="to" name="to" value="<%= to %>" required>
+
+  <label for="limit">Số sản phẩm:</label>
+  <select id="limit" name="limit">
+    <option value="10" <%= Number(limit) === 10 ? 'selected' : '' %>>10</option>
+    <option value="20" <%= Number(limit) === 20 ? 'selected' : '' %>>20</option>
+    <option value="50" <%= Number(limit) === 50 ? 'selected' : '' %>>50</option>
+  </select>
+
+  <button type="submit">Xem báo cáo</button>
+</form>
+
+<p>
+  <a href="/staff/reports">Quay lại báo cáo doanh thu</a>
+</p>
+
+<table border="1" cellpadding="8" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>Mã SKU</th>
+      <th>Tên sản phẩm</th>
+      <th>Danh mục</th>
+      <th>Thương hiệu</th>
+      <th>Số lượng bán</th>
+      <th>Doanh số</th>
+      <th>Doanh thu thuần</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% if (!report.products || report.products.length === 0) { %>
+      <tr>
+        <td colspan="7">Chưa có dữ liệu sản phẩm.</td>
+      </tr>
+    <% } else { %>
+      <% report.products.forEach(function(product) { %>
+        <tr>
+          <td><%= product.Sku || '' %></td>
+          <td><%= product.ProductName || '' %></td>
+          <td><%= product.CategoryName || '' %></td>
+          <td><%= product.BrandName || '' %></td>
+          <td><%= Number(product.QtySold || 0).toLocaleString('vi-VN') %></td>
+          <td><%= Number(product.SalesAmount || 0).toLocaleString('vi-VN') %> VNĐ</td>
+          <td><%= Number(product.NetSalesAmount || 0).toLocaleString('vi-VN') %> VNĐ</td>
+        </tr>
+      <% }); %>
+    <% } %>
+  </tbody>
+</table>

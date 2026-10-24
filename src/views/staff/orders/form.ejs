@@ -1,0 +1,87 @@
+
+<h1>Chi tiết đơn hàng: <%= order.OrderNo %></h1>
+
+<% if (message) { %>
+  <p style="color: green;"><%= message %></p>
+<% } %>
+
+<% if (error) { %>
+  <p style="color: red;"><%= error %></p>
+<% } %>
+
+<h2>Thông tin khách hàng</h2>
+<p><strong>Họ tên:</strong> <%= order.CustomerName || '-' %></p>
+<p><strong>Số điện thoại:</strong> <%= order.CustomerPhone || '-' %></p>
+<p><strong>Email:</strong> <%= order.CustomerEmail || '-' %></p>
+
+<h2>Thông tin đơn hàng</h2>
+<p><strong>Mã đơn:</strong> <%= order.OrderNo %></p>
+<p><strong>Ngày tạo:</strong> <%= order.CreatedAt ? new Date(order.CreatedAt).toLocaleString('vi-VN') : '-' %></p>
+<p><strong>Trạng thái:</strong> <%= order.Status %></p>
+<p><strong>Phương thức thanh toán:</strong> <%= order.PaymentMethod || '-' %></p>
+<p><strong>Trạng thái thanh toán:</strong> <%= order.PaymentStatus || '-' %></p>
+<p><strong>Tổng tiền:</strong> <%= Number(order.TotalAmount || 0).toLocaleString('vi-VN') %> đ</p>
+
+<h2>Danh sách sản phẩm</h2>
+<table border="1" cellpadding="8" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Sản phẩm</th>
+      <th>SKU</th>
+      <th>Số lượng</th>
+      <th>Đơn giá</th>
+      <th>Thành tiền</th>
+      <th>Serial</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (!order.details || order.details.length === 0) { %>
+      <tr><td colspan="6">Không có sản phẩm.</td></tr>
+    <% } %>
+
+    <% (order.details || []).forEach(item => { %>
+      <tr>
+        <td><%= item.ProductName || '-' %></td>
+        <td><%= item.Sku || '-' %></td>
+        <td><%= item.Quantity %></td>
+        <td><%= Number(item.UnitPrice || 0).toLocaleString('vi-VN') %> đ</td>
+        <td><%= Number(item.LineTotal || 0).toLocaleString('vi-VN') %> đ</td>
+        <td><%= item.SerialNumbers || '-' %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<h2>Thao tác</h2>
+
+<% if (order.Status === 'Pending') { %>
+  <form method="POST" action="/staff/orders/<%= order.OrderId %>/approve">
+    <button type="submit">Duyệt đơn</button>
+  </form>
+
+  <form method="POST" action="/staff/orders/<%= order.OrderId %>/cancel">
+    <label for="reason">Lý do hủy:</label>
+    <input type="text" id="reason" name="reason" required>
+    <button type="submit">Hủy đơn</button>
+  </form>
+<% } %>
+
+<% if (order.Status === 'Approved' && order.PaymentStatus !== 'Paid' && order.PaymentMethod !== 'COD') { %>
+  <form method="POST" action="/staff/orders/<%= order.OrderId %>/confirm-payment">
+    <button type="submit">Xác nhận thanh toán</button>
+  </form>
+<% } %>
+
+<% if (order.Status === 'Approved') { %>
+  <form method="POST" action="/staff/orders/<%= order.OrderId %>/complete">
+    <button type="submit">Hoàn tất đơn hàng</button>
+  </form>
+<% } %>
+
+<% if (order.PaymentStatus === 'RefundPending') { %>
+  <form method="POST" action="/staff/orders/<%= order.OrderId %>/confirm-refund">
+    <button type="submit">Xác nhận hoàn tiền</button>
+  </form>
+<% } %>
+
+<p><a href="/staff/orders">Quay lại danh sách đơn hàng</a></p>

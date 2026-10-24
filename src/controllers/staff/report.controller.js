@@ -1,40 +1,55 @@
 // MODULE 4 - NV BÁN HÀNG: ĐƠN, HOÁ ĐƠN, BÁO CÁO
 // Chủ sở hữu: Thành viên 4 - Đơn hàng, hoá đơn, báo cáo
 // Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+
+const Report = require('../../models/report.model');
 
 // GET /staff/reports
+// Báo cáo doanh thu theo ngày, tháng, năm.
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Thống kê doanh thu",
-    "route": "GET /staff/reports",
-    "tasks": [
-      "Doanh thu theo ngày/tháng/năm (bộ lọc from/to + group), biểu đồ (Chart.js CDN), tổng đơn, giảm giá, VAT",
-      "Gợi ý dùng view vw_SalesDaily, GROUP BY YEAR/MONTH"
-    ],
-    "db": "vw_SalesDaily",
-    "rubric": "A4 xem thống kê, báo cáo bán hàng",
-    "controller": "src/controllers/staff/report.controller.js",
-    "view": "src/views/staff/..."
-  });
+  try {
+    const { from, to, group } = req.query;
+
+    const report = await Report.revenue({ from, to, group });
+    const cards = await Report.dashboardCards();
+
+    res.render('staff/reports/index', {
+      title: 'Thống kê doanh thu',
+      report,
+      cards,
+      from: report.from,
+      to: report.to,
+      group: report.group
+    });
+  } catch (error) {
+    console.error('Lỗi báo cáo doanh thu:', error);
+    res.status(500).send(
+      'Không thể tải báo cáo doanh thu. Vui lòng kiểm tra kết nối database và cấu trúc view.'
+    );
+  }
 };
 
 // GET /staff/reports/products
+// Danh sách sản phẩm bán chạy.
 exports.products = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV - Sản phẩm bán chạy & lợi nhuận",
-    "route": "GET /staff/reports/products",
-    "tasks": [
-      "vw_ProductSales: SL bán, doanh số, lợi nhuận gộp; sản phẩm tồn đọng"
-    ],
-    "db": "vw_ProductSales",
-    "rubric": "",
-    "controller": "src/controllers/staff/report.controller.js",
-    "view": "src/views/staff/..."
-  });
+  try {
+    const { from, to, limit } = req.query;
+
+    const report = await Report.topProducts({ from, to, limit });
+
+    res.render('staff/reports/products', {
+      title: 'Sản phẩm bán chạy',
+      report,
+      from: report.from,
+      to: report.to,
+      limit: [10, 20, 50].includes(Number(limit))
+        ? Number(limit)
+        : 10
+    });
+  } catch (error) {
+    console.error('Lỗi báo cáo sản phẩm:', error);
+    res.status(500).send(
+      'Không thể tải báo cáo sản phẩm. Vui lòng kiểm tra kết nối database và cấu trúc view.'
+    );
+  }
 };
