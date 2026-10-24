@@ -34,7 +34,10 @@
           </div>
           <div class="col-12">
             <label class="form-label" for="address-province">Tỉnh/Thành phố</label>
-            <input id="address-province" name="province" class="form-control" maxlength="100" required>
+            <select id="address-province" name="province" class="form-select" required>
+              <option value="">Chọn tỉnh/thành phố</option>
+              <% provinces.forEach(function (p) { %><option value="<%= p %>"><%= p %></option><% }) %>
+            </select>
           </div>
           <div class="col-12">
             <div class="form-check">

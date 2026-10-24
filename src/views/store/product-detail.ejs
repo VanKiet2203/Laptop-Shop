@@ -1,3 +1,15 @@
+<%
+  var inStock = product.QtyAvailable > 0;
+  var lowStock = inStock && product.QtyAvailable <= 5;
+  var mainImg = (images[0] && images[0].ImageUrl) || '/images/placeholder.svg';
+  function attrIcon(name) {
+    var n = String(name || '').toLowerCase();
+    if (/ram|bộ nhớ/.test(n)) return 'ram';
+    if (/ssd|ổ cứng|lưu trữ|hdd/.test(n)) return 'ssd';
+    if (/cpu|vi xử lý|chip|gpu|card/.test(n)) return 'cpu';
+    return null;
+  }
+%>
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb small">
     <li class="breadcrumb-item"><a href="/">Trang chủ</a></li>
@@ -6,102 +18,119 @@
   </ol>
 </nav>
 
-<div class="row g-4">
-  <div class="col-md-5">
-    <div class="card">
-      <img src="<%= (images[0] && images[0].ImageUrl) || '/images/placeholder.svg' %>" class="card-img-top p-4" alt="<%= product.ProductName %>">
-    </div>
-    <% if (images.length > 1) { %>
-    <div class="d-flex gap-2 mt-2">
-      <% images.forEach(function (img) { %>
-        <img src="<%= img.ImageUrl %>" class="rounded border" style="width:64px;height:64px;object-fit:contain;" alt="">
-      <% }) %>
-    </div>
-    <% } %>
-  </div>
-
-  <div class="col-md-7">
-    <div class="small text-muted mb-1"><%= product.BrandName %> · <span class="part-no"><%= product.Sku %></span></div>
-    <h1 class="h3 mb-2"><%= product.ProductName %></h1>
-    <% if (product.ShortDesc) { %><p class="text-muted"><%= product.ShortDesc %></p><% } %>
-
-    <div class="d-flex align-items-baseline gap-3 mb-3">
-      <span class="fs-2 fw-bold text-danger tabular-nums"><%= fmtMoney(product.SalePrice) %></span>
-      <% if (product.QtyAvailable > 0) { %>
-        <span class="badge text-bg-success">Còn <%= product.QtyAvailable %> sản phẩm</span>
-      <% } else { %>
-        <span class="badge text-bg-secondary">Hết hàng</span>
+<div class="row g-4 g-xl-5 pd">
+  <div class="col-lg-6">
+    <div class="pd-gallery">
+      <div class="pd-stage">
+        <span class="pd-corner pd-corner-tl" aria-hidden="true"></span><span class="pd-corner pd-corner-br" aria-hidden="true"></span>
+        <% if (!inStock) { %><span class="pd-ribbon">Hết hàng</span><% } else if (lowStock) { %><span class="pd-ribbon pd-ribbon-warn">Sắp hết</span><% } %>
+        <img id="pd-main" src="<%= mainImg %>" alt="<%= product.ProductName %>">
+      </div>
+      <% if (images.length > 1) { %>
+      <div class="pd-thumbs" role="list">
+        <% images.forEach(function (img, i) { %>
+          <button type="button" class="pd-thumb <%= i === 0 ? 'is-active' : '' %>" role="listitem" data-src="<%= img.ImageUrl %>" aria-label="Xem ảnh <%= i + 1 %> của <%= images.length %>" aria-pressed="<%= i === 0 ? 'true' : 'false' %>">
+            <img src="<%= img.ImageUrl %>" alt="" loading="lazy">
+          </button>
+        <% }) %>
+      </div>
       <% } %>
     </div>
+  </div>
 
-    <p class="small text-muted mb-4"><i class="bi bi-shield-check text-primary"></i> Bảo hành <%= product.WarrantyMonths %> tháng<% if (product.IsSerialTracked) { %> · theo dõi theo Serial/IMEI<% } %></p>
+  <div class="col-lg-6">
+    <div class="pd-info">
+      <div class="pd-meta"><span class="pd-brand"><%= product.BrandName %></span><span class="part-no"><%= product.Sku %></span></div>
+      <h1 class="pd-title"><%= product.ProductName %></h1>
+      <% if (product.ShortDesc) { %><p class="pd-short"><%= product.ShortDesc %></p><% } %>
 
-    <% if (currentUser && currentUser.role === 'CUSTOMER') { %>
-      <form method="post" action="/cart/add" class="d-flex gap-2 mb-4">
-        <input type="hidden" name="productId" value="<%= product.ProductId %>">
-        <input type="number" name="qty" value="1" min="1" max="99" class="form-control" style="max-width:6rem" <%= product.QtyAvailable <= 0 ? 'disabled' : '' %>>
-        <button class="btn btn-primary flex-grow-1" <%= product.QtyAvailable <= 0 ? 'disabled' : '' %>>
-          <i class="bi bi-cart-plus"></i> Thêm vào giỏ
-        </button>
-      </form>
-    <% } else if (!currentUser) { %>
-      <a href="/auth/login" class="btn btn-primary mb-4"><i class="bi bi-cart-plus"></i> Đăng nhập để mua</a>
-    <% } %>
-
-    <% if (attributes.length) { %>
-    <div class="card">
-      <div class="card-header">Thông số kỹ thuật</div>
-      <div class="table-responsive">
-        <table class="table table-sm mb-0">
-          <tbody>
-            <% attributes.forEach(function (a) { %>
-              <tr><th class="text-muted fw-normal" style="width:40%"><%= a.AttrName %></th><td><%= a.AttrValue %><%= a.Unit ? ' ' + a.Unit : '' %></td></tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <% if (compatibilityGroups.length) { %>
-    <section class="mt-4" aria-labelledby="compatible-components-heading">
-      <div class="d-flex align-items-end justify-content-between gap-2 mb-3">
+      <div class="pd-price-box">
         <div>
-          <h2 id="compatible-components-heading" class="h5 mb-1">Linh kiện tương thích</h2>
-          <p class="small text-muted mb-0">Gợi ý theo chuẩn RAM/SSD và khả năng nâng cấp của sản phẩm.</p>
+          <div class="pd-price-label">Giá bán</div>
+          <div class="pd-price tabular-nums"><%= fmtMoney(product.SalePrice) %></div>
         </div>
+        <% if (inStock) { %>
+          <span class="stock-pill <%= lowStock ? 'is-low' : 'is-ok' %>"><span class="stock-dot" aria-hidden="true"></span><%= lowStock ? 'Chỉ còn ' : 'Còn ' %><%= product.QtyAvailable %> sản phẩm</span>
+        <% } else { %>
+          <span class="stock-pill is-out"><span class="stock-dot" aria-hidden="true"></span>Hết hàng</span>
+        <% } %>
       </div>
 
-      <% compatibilityGroups.forEach(function (group) { %>
-      <div class="mb-4">
-        <h3 class="h6 mb-2"><%= group.categoryName %></h3>
-        <div class="row row-cols-2 row-cols-md-4 g-3">
-          <% group.products.forEach(function (component) { %>
-          <div class="col">
-            <div class="card h-100 product-card">
-              <img src="<%= component.PrimaryImage || '/images/placeholder.svg' %>"
-                   class="card-img-top p-3"
-                   alt="<%= component.ProductName %>"
-                   loading="lazy">
-              <div class="card-body d-flex flex-column">
-                <div class="small text-muted"><%= component.BrandName %></div>
-                <a class="stretched-link text-decoration-none text-dark fw-semibold"
-                   href="/products/<%= component.Slug %>"><%= component.ProductName %></a>
-                <div class="small text-muted part-no mt-1"><%= component.Sku %></div>
-                <div class="mt-auto pt-2">
-                  <div class="text-danger fw-bold tabular-nums"><%= fmtMoney(component.SalePrice) %></div>
-                  <div class="small <%= component.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>">
-                    <%= component.QtyAvailable > 0 ? 'Còn ' + component.QtyAvailable + ' sản phẩm' : 'Hết hàng' %>
-                  </div>
-                </div>
+      <ul class="pd-trust list-unstyled">
+        <li><span class="pd-trust-ico"><%- ico('shieldcheck') %></span><div><strong>Bảo hành <%= product.WarrantyMonths %> tháng</strong><span>Tra cứu theo số Serial</span></div></li>
+        <% if (product.IsSerialTracked) { %>
+        <li><span class="pd-trust-ico"><%- ico('scan') %></span><div><strong>Theo dõi Serial/IMEI</strong><span>Mỗi máy một mã định danh</span></div></li>
+        <% } %>
+        <li><span class="pd-trust-ico"><%- ico('box') %></span><div><strong><%= inStock ? 'Sẵn hàng trong kho' : 'Tạm hết hàng' %></strong><span><%= inStock ? 'Đặt là có thể xử lý ngay' : 'Vui lòng quay lại sau' %></span></div></li>
+      </ul>
+
+      <% if (currentUser && currentUser.role === 'CUSTOMER') { %>
+        <form method="post" action="/cart/add" class="pd-buy">
+          <input type="hidden" name="productId" value="<%= product.ProductId %>">
+          <div class="qty" data-qty>
+            <button type="button" class="qty-btn" data-step="-1" aria-label="Giảm số lượng" <%= inStock ? '' : 'disabled' %>><%- ico('minus') %></button>
+            <label class="visually-hidden" for="pd-qty">Số lượng</label>
+            <input id="pd-qty" type="number" name="qty" value="1" min="1" max="<%= inStock ? Math.min(99, product.QtyAvailable) : 99 %>" inputmode="numeric" <%= inStock ? '' : 'disabled' %>>
+            <button type="button" class="qty-btn" data-step="1" aria-label="Tăng số lượng" <%= inStock ? '' : 'disabled' %>><%- ico('plus') %></button>
+          </div>
+          <button class="btn btn-primary btn-buy" <%= inStock ? '' : 'disabled' %>><%- ico('cartplus') %> Thêm vào giỏ</button>
+        </form>
+      <% } else if (!currentUser) { %>
+        <a href="/auth/login" class="btn btn-primary btn-buy"><%- ico('cartplus') %> Đăng nhập để mua</a>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (attributes.length) { %>
+<section class="pd-section" aria-labelledby="spec-heading">
+  <h2 id="spec-heading" class="pd-h2">Thông số kỹ thuật</h2>
+  <dl class="spec-grid">
+    <% attributes.forEach(function (a) { var ic = attrIcon(a.AttrName); %>
+      <div class="spec-item">
+        <dt><% if (ic) { %><%- ico(ic) %><% } %><%= a.AttrName %></dt>
+        <dd><%= a.AttrValue %><%= a.Unit ? ' ' + a.Unit : '' %></dd>
+      </div>
+    <% }) %>
+  </dl>
+</section>
+<% } %>
+
+<% if (compatibilityGroups.length) { %>
+<section class="pd-section" aria-labelledby="compatible-components-heading">
+  <div class="mb-3">
+    <h2 id="compatible-components-heading" class="pd-h2 mb-1">Linh kiện tương thích</h2>
+    <p class="small text-muted mb-0">Gợi ý theo chuẩn RAM/SSD và khả năng nâng cấp của sản phẩm.</p>
+  </div>
+
+  <% compatibilityGroups.forEach(function (group) { %>
+  <div class="mb-4">
+    <h3 class="h6 mb-2 d-flex align-items-center gap-2"><span class="pd-chip"></span><%= group.categoryName %></h3>
+    <div class="row row-cols-2 row-cols-md-4 g-3">
+      <% group.products.forEach(function (component) { %>
+      <div class="col">
+        <div class="card h-100 product-card">
+          <img src="<%= component.PrimaryImage || '/images/placeholder.svg' %>"
+               class="card-img-top p-3"
+               alt="<%= component.ProductName %>"
+               loading="lazy">
+          <div class="card-body d-flex flex-column">
+            <div class="small text-muted"><%= component.BrandName %></div>
+            <a class="stretched-link text-decoration-none text-dark fw-semibold"
+               href="/products/<%= component.Slug %>"><%= component.ProductName %></a>
+            <div class="small text-muted part-no mt-1"><%= component.Sku %></div>
+            <div class="mt-auto pt-2">
+              <div class="text-danger fw-bold tabular-nums"><%= fmtMoney(component.SalePrice) %></div>
+              <div class="small <%= component.QtyAvailable > 0 ? 'text-success' : 'text-secondary' %>">
+                <%= component.QtyAvailable > 0 ? 'Còn ' + component.QtyAvailable + ' sản phẩm' : 'Hết hàng' %>
               </div>
             </div>
           </div>
-          <% }) %>
         </div>
       </div>
       <% }) %>
-    </section>
-    <% } %>
-    <% } %>
+    </div>
   </div>
-</div>
+  <% }) %>
+</section>
+<% } %>
