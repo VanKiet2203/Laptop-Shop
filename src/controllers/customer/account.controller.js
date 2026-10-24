@@ -1,6 +1,7 @@
-// MODULE 3 - KHÁCH MUA HÀNG
+﻿// MODULE 3 - KHÁCH MUA HÀNG
 // Chủ sở hữu: Thành viên 3 - Khách mua hàng
 const Customer = require('../../models/customer.model');
+const PROVINCES = require('../../core/provinces');
 
 function textField(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -47,7 +48,7 @@ function addressValues(body) {
   if (values.ward.length > 100) errors.push('Phường/Xã không được vượt quá 100 ký tự.');
   if (values.district.length > 100) errors.push('Quận/Huyện không được vượt quá 100 ký tự.');
   if (!values.province) errors.push('Tỉnh/Thành phố không được để trống.');
-  else if (values.province.length > 100) errors.push('Tỉnh/Thành phố không được vượt quá 100 ký tự.');
+  else if (!PROVINCES.includes(values.province)) errors.push('Tỉnh/Thành phố không hợp lệ.');
   return { values, errors };
 }
 
@@ -108,7 +109,7 @@ exports.updateProfile = async (req, res) => {
 // GET /account/addresses
 exports.addresses = async (req, res) => {
   const addresses = await Customer.addresses(req.session.user.customerId);
-  return res.render('customer/addresses', { title: 'Sổ địa chỉ', addresses });
+  return res.render('customer/addresses', { title: 'Sổ địa chỉ', addresses, provinces: PROVINCES });
 };
 
 // POST /account/addresses
@@ -119,10 +120,6 @@ exports.addAddress = async (req, res) => {
     req.flash('danger', errors.join(' '));
     return res.redirect('/account/addresses');
   }
-  if (await isDuplicateAddress(req.session.user.customerId, values)) {
-    req.flash('danger', 'Địa chỉ này đã tồn tại trong sổ địa chỉ của bạn.');
-    return res.redirect('/account/addresses');
-  }
 
   try {
     const addressId = await Customer.addAddress(req.session.user.customerId, values);
@@ -131,7 +128,7 @@ exports.addAddress = async (req, res) => {
       return res.redirect('/account/addresses');
     }
   } catch (error) {
-    if (error.code === 'ADDRESS_LIMIT_REACHED') {
+    if (error.code === 'ADDRESS_LIMIT_REACHED' || error.code === 'ADDRESS_DUPLICATE') {
       req.flash('danger', error.message);
       return res.redirect('/account/addresses');
     }
@@ -171,20 +168,3 @@ exports.setDefault = async (req, res) => {
   return res.redirect('/account/addresses');
 };
 
-
-async function isDuplicateAddress(customerId, value) {
-  const normalized = {
-    ReceiverName: textField(value.receiverName),
-    ReceiverPhone: textField(value.receiverPhone),
-    AddressLine: textField(value.addressLine),
-    Ward: textField(value.ward),
-    District: textField(value.district),
-    Province: textField(value.province),
-  };
-
-  const addresses = await Customer.addresses(customerId);
-  return addresses.some((address) =>
-    ['ReceiverName', 'ReceiverPhone', 'AddressLine', 'Ward', 'District', 'Province']
-      .every((field) => textField(address[field]) === normalized[field])
-  );
-}

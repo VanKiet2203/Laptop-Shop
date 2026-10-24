@@ -33,4 +33,12 @@ const isBusinessError = (err) => err && typeof err.number === 'number' && err.nu
 const slugify = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-module.exports = { fmtMoney, fmtDate, fmtDateTime, ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD, paginate, isBusinessError, slugify };
+/** Icon riêng của dự án (public/icons/sprite.svg). ico('cart') -> <svg>; dùng với <%- %>.
+ *  `name` chỉ nhận [a-z0-9-] nên an toàn để in raw. Icon trang trí => aria-hidden. */
+const ico = (name, cls = '') => {
+  const n = String(name).replace(/[^a-z0-9-]/g, '');
+  const c = String(cls).replace(/[^a-zA-Z0-9_ -]/g, '');
+  return `<svg class="ico ${c}" aria-hidden="true" focusable="false"><use href="/icons/sprite.svg#i-${n}"></use></svg>`;
+};
+
+module.exports = { ico, fmtMoney, fmtDate, fmtDateTime, ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD, paginate, isBusinessError, slugify };

@@ -29,6 +29,14 @@ don't duplicate nav/shell markup inside an individual view:
 - `layouts/warehouse.ejs` — warehouse staff
 - `layouts/admin.ejs` — admin
 
+## Icons & buttons — custom, not Bootstrap Icons
+
+The user explicitly rejected stock icons ("quá AI"). **Do not write new `<i class="bi bi-*">`.** Use
+`<%- ico('name') %>` from the project's own sprite (`public/icons/sprite.svg`), and follow the keycap button
+language in `app.css`. Full rules, icon list and how to add one: see the `laptopshop-icons` skill (load it).
+Where this file says "Bootstrap Icons (`bi bi-*`) via CDN" below, that is legacy — the CDN link remains only
+for old views not yet migrated.
+
 ## Shared helpers — use them, don't hand-roll
 
 `src/core/helpers.js` is spread onto every view's locals (`locals.js`). Use

@@ -101,9 +101,19 @@ exports.addAddress = (customerId, address) => db.transaction(async (transaction)
   if (!customers[0]) return false;
 
   const addresses = await transaction.query(
-    `SELECT AddressId FROM dbo.CustomerAddresses WITH (UPDLOCK, HOLDLOCK)
+    `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province
+     FROM dbo.CustomerAddresses WITH (UPDLOCK, HOLDLOCK)
      WHERE CustomerId = @customerId`,
     { customerId });
+  // So khớp trong transaction (đã khoá) để tránh race khi gửi form 2 lần; không phân biệt hoa/thường.
+  const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  const fields = [
+    ['ReceiverName', 'receiverName'], ['ReceiverPhone', 'receiverPhone'], ['AddressLine', 'addressLine'],
+    ['Ward', 'ward'], ['District', 'district'], ['Province', 'province'],
+  ];
+  if (addresses.some((row) => fields.every(([col, key]) => same(row[col], address[key])))) {
+    throw Object.assign(new Error('Địa chỉ này đã tồn tại trong sổ địa chỉ của bạn.'), { code: 'ADDRESS_DUPLICATE' });
+  }
   if (addresses.length >= MAX_ADDRESSES_PER_CUSTOMER) {
     throw Object.assign(new Error('Mỗi khách hàng chỉ được lưu tối đa 10 địa chỉ.'), { code: 'ADDRESS_LIMIT_REACHED' });
   }

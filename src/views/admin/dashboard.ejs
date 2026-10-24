@@ -1,15 +1,171 @@
-<div class="row g-3 mb-4">
-  <% [['Tài khoản', stats.accounts, 'bi-people', 'primary'], ['Đang bị khoá', stats.lockedAccounts, 'bi-lock', 'danger'], ['Vai trò', stats.roles, 'bi-key', 'success'], ['Log 24 giờ', stats.logs24h, 'bi-journal-text', 'info']].forEach(function (c) { %>
-    <div class="col-6 col-lg-3"><div class="card stat-card border-<%= c[3] %>"><div class="card-body d-flex justify-content-between align-items-center">
-      <div><div class="text-muted small"><%= c[0] %></div><div class="fs-3 fw-bold tabular-nums"><%= c[1] %></div></div><i class="bi <%= c[2] %> fs-1 text-<%= c[3] %>"></i>
-    </div></div></div>
-  <% }) %>
-</div>
-<div class="card"><div class="card-header">Hoạt động gần đây</div>
-  <div class="table-responsive">
-  <table class="table table-sm table-hover mb-0"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Chi tiết</th></tr></thead><tbody>
-    <% recent.forEach(function (l) { %><tr><td><%= fmtDateTime(l.CreatedAt) %></td><td><%= l.Username || 'hệ thống' %></td><td><span class="badge text-bg-secondary"><%= l.Action %></span> <%= l.EntityName || '' %></td><td><%= l.Detail || '' %></td></tr><% }) %>
-    <% if (!recent.length) { %><tr><td colspan="4" class="text-center text-muted">Chưa có log</td></tr><% } %>
-  </tbody></table>
+<%
+  var maxHour = Math.max.apply(null, buckets.map(function (b) { return b.n; }).concat([1]));
+  var maxTop = Math.max.apply(null, topActions.map(function (a) { return a.n; }).concat([1]));
+  var maxRole = Math.max.apply(null, byRole.map(function (r) { return r.n; }).concat([1]));
+  var lockedPct = stats.accounts ? Math.round(stats.lockedAccounts * 100 / stats.accounts) : 0;
+  var peak = buckets.reduce(function (a, b) { return b.n > a.n ? b : a; }, buckets[0]);
+  var ACTION_TONE = { LOGIN: 'info', LOGOUT: 'muted', CREATE: 'ok', UPDATE: 'warn', DELETE: 'bad', LOCK: 'bad', UNLOCK: 'ok' };
+  var today = new Date();
+  var hour = today.getHours();
+  var greet = hour < 11 ? 'Chào buổi sáng' : (hour < 14 ? 'Chào buổi trưa' : (hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'));
+%>
+
+<section class="dash-hero mb-4">
+  <div class="dash-hero-body">
+    <div class="dash-hero-eyebrow"><span class="live-dot" aria-hidden="true"></span> Hệ thống đang hoạt động · <%= fmtDate(today) %></div>
+    <h2 class="dash-hero-title"><%= greet %>, <%= currentUser ? currentUser.fullName : 'quản trị viên' %></h2>
+    <p class="dash-hero-sub">
+      <% if (stats.logs24h) { %>24 giờ qua có <strong class="tabular-nums"><%= stats.logs24h %></strong> thao tác được ghi nhận<% if (stats.lockedAccounts) { %>, <strong class="tabular-nums"><%= stats.lockedAccounts %></strong> tài khoản đang bị khoá<% } %>.
+      <% } else { %>Chưa có thao tác nào trong 24 giờ qua.<% } %>
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="/admin/users" class="btn btn-light btn-sm"><%- ico('users') %> Quản lý tài khoản</a>
+      <a href="/admin/roles" class="btn btn-outline-light btn-sm"><%- ico('key') %> Phân quyền</a>
+      <a href="/admin/audit-logs" class="btn btn-outline-light btn-sm"><%- ico('log') %> Nhật ký</a>
+    </div>
   </div>
+  <svg class="dash-hero-art" viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 150h70l22-30h60l20 24h128" />
+      <path d="M40 40h58l18 22h72l16-18h90" />
+      <path d="M0 98h54l14 14h88l24-26h140" />
+    </g>
+    <g fill="currentColor">
+      <circle cx="80" cy="150" r="4" /><circle cx="162" cy="120" r="4" /><circle cx="98" cy="40" r="4" />
+      <circle cx="188" cy="62" r="4" /><circle cx="156" cy="112" r="4" /><circle cx="244" cy="86" r="4" />
+    </g>
+  </svg>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="kpi kpi-slate">
+      <span class="kpi-icon"><%- ico('users') %></span>
+      <div class="kpi-label">Tài khoản</div>
+      <div class="kpi-value tabular-nums" data-count="<%= stats.accounts %>"><%= stats.accounts %></div>
+      <div class="kpi-foot"><%= stats.accounts - stats.lockedAccounts %> đang hoạt động</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="kpi <%= stats.lockedAccounts ? 'kpi-danger' : 'kpi-ok' %>">
+      <span class="kpi-icon"><%- ico('lock') %></span>
+      <div class="kpi-label">Đang bị khoá</div>
+      <div class="kpi-value tabular-nums" data-count="<%= stats.lockedAccounts %>"><%= stats.lockedAccounts %></div>
+      <div class="kpi-foot">
+        <div class="kpi-meter" role="img" aria-label="<%= lockedPct %>% tài khoản bị khoá"><span style="width: <%= lockedPct %>%"></span></div>
+        <%= lockedPct %>% tổng số tài khoản
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="kpi kpi-slate">
+      <span class="kpi-icon"><%- ico('key') %></span>
+      <div class="kpi-label">Vai trò</div>
+      <div class="kpi-value tabular-nums" data-count="<%= stats.roles %>"><%= stats.roles %></div>
+      <div class="kpi-foot">nhóm quyền trong hệ thống</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="kpi kpi-teal">
+      <span class="kpi-icon"><%- ico('pulse') %></span>
+      <div class="kpi-label">Log 24 giờ</div>
+      <div class="kpi-value tabular-nums" data-count="<%= stats.logs24h %>"><%= stats.logs24h %></div>
+      <div class="kpi-foot"><% if (peak && peak.n) { %>cao điểm lúc <%= String(peak.hour).padStart(2, '0') %>:00 (<%= peak.n %>)<% } else { %>chưa có hoạt động<% } %></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Hoạt động theo giờ</span>
+        <span class="small text-muted fw-normal">24 giờ gần nhất</span>
+      </div>
+      <div class="card-body">
+        <% if (!stats.logs24h) { %>
+          <div class="empty-state"><%- ico('pulse') %><p class="mb-0">Chưa có hoạt động nào trong 24 giờ qua.</p></div>
+        <% } else { %>
+        <div class="bars" role="img" aria-label="Biểu đồ cột số thao tác theo từng giờ trong 24 giờ qua, cao nhất <%= peak.n %> thao tác lúc <%= peak.hour %> giờ">
+          <div class="bars-grid" aria-hidden="true"><span><%= maxHour %></span><span><%= Math.round(maxHour / 2) %></span><span>0</span></div>
+          <div class="bars-plot">
+            <% buckets.forEach(function (b, i) { var h = b.n ? Math.max(4, Math.round(b.n * 100 / maxHour)) : 0; %>
+              <div class="bar-col <%= b === peak && b.n ? 'is-peak' : '' %>" tabindex="0" data-tip="<%= String(b.hour).padStart(2, '0') %>:00 · <%= b.n %> thao tác">
+                <span class="bar" style="height: <%= h %>%; animation-delay: <%= i * 18 %>ms"></span>
+                <% if (i % 6 === 0 || i === 23) { %><span class="bar-x"><%= String(b.hour).padStart(2, '0') %>h</span><% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+        <details class="chart-table mt-3">
+          <summary>Xem dạng bảng</summary>
+          <div class="table-responsive mt-2"><table class="table table-sm mb-0">
+            <thead><tr><th>Giờ</th><th class="text-end">Số thao tác</th></tr></thead>
+            <tbody><% buckets.slice().reverse().forEach(function (b) { %><tr><td><%= String(b.hour).padStart(2, '0') %>:00</td><td class="text-end tabular-nums"><%= b.n %></td></tr><% }) %></tbody>
+          </table></div>
+        </details>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Tài khoản theo vai trò</div>
+      <div class="card-body">
+        <% if (!byRole.length) { %>
+          <div class="empty-state"><%- ico('users') %><p class="mb-0">Chưa có vai trò.</p></div>
+        <% } else { %>
+        <ul class="hbars list-unstyled mb-4">
+          <% byRole.forEach(function (r) { %>
+            <li>
+              <div class="hbar-row"><span class="text-truncate"><%= r.RoleName %></span><span class="tabular-nums fw-semibold"><%= r.n %></span></div>
+              <div class="hbar-track"><span style="width: <%= Math.round(r.n * 100 / maxRole) %>%"></span></div>
+            </li>
+          <% }) %>
+        </ul>
+        <% } %>
+        <h3 class="h6 text-muted text-uppercase small mb-3" style="letter-spacing:.06em">Hành động nhiều nhất · 7 ngày</h3>
+        <% if (!topActions.length) { %>
+          <p class="small text-muted mb-0">Chưa có dữ liệu.</p>
+        <% } else { %>
+        <ul class="hbars list-unstyled mb-0">
+          <% topActions.forEach(function (a) { %>
+            <li>
+              <div class="hbar-row"><span class="part-no"><%= a.Action %></span><span class="tabular-nums fw-semibold"><%= a.n %></span></div>
+              <div class="hbar-track"><span style="width: <%= Math.round(a.n * 100 / maxTop) %>%"></span></div>
+            </li>
+          <% }) %>
+        </ul>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Hoạt động gần đây</span>
+    <a href="/admin/audit-logs" class="small fw-semibold text-decoration-none">Xem tất cả <%- ico('arrow', 'ico-sm') %></a>
+  </div>
+  <% if (!recent.length) { %>
+    <div class="card-body"><div class="empty-state"><%- ico('log') %><p class="mb-0">Chưa có log.</p></div></div>
+  <% } else { %>
+  <ol class="timeline list-unstyled mb-0">
+    <% recent.forEach(function (l) { var tone = ACTION_TONE[String(l.Action).toUpperCase()] || 'muted'; %>
+      <li class="tl-item tl-<%= tone %>">
+        <span class="tl-dot" aria-hidden="true"></span>
+        <div class="tl-main">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="part-no"><%= l.Action %></span>
+            <% if (l.EntityName) { %><span class="fw-semibold"><%= l.EntityName %></span><% } %>
+            <span class="text-muted small">bởi <%= l.Username || 'hệ thống' %></span>
+          </div>
+          <% if (l.Detail) { %><div class="small text-muted text-break"><%= l.Detail %></div><% } %>
+        </div>
+        <time class="tl-time tabular-nums" datetime="<%= new Date(l.CreatedAt).toISOString() %>"><%= fmtDateTime(l.CreatedAt) %></time>
+      </li>
+    <% }) %>
+  </ol>
+  <% } %>
 </div>
