@@ -19,6 +19,7 @@ Yêu cầu: **Node.js ≥ 18**, **SQL Server 2017+** (bật đăng nhập SQL - 
 
 - **Đăng nhập Google**: điền `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` trong `.env` (xem hướng dẫn ngay trong `.env.example`). Chưa điền thì nút Google báo chưa cấu hình, các cách đăng nhập khác vẫn dùng bình thường.
 - **Quên mật khẩu / đổi mật khẩu**: `/auth/forgot` gửi link đặt lại (dùng 1 lần, hết hạn 60 phút, lưu bản băm trong bảng `PasswordResets`), `/auth/password` cho mọi vai trò đổi mật khẩu khi đã đăng nhập; đổi mật khẩu (tự đổi, qua link email hoặc do admin đặt lại) thì **mọi phiên đăng nhập khác của tài khoản đó bị đăng xuất** (cột `Accounts.PasswordChangedAt` + `pwv` trong session, kiểm tra ở `requireLogin`); cả hai gửi email thông báo nên cần `SMTP_*` (không có thì email nằm trong `outbox/`, mở file ra lấy link). Ai khác chạy lại 3 file SQL vì có thêm bảng này.
+- **Chat khách hàng ↔ nhân viên + trợ lý AI**: khung chat nổi trên cửa hàng (khách vãng lai và khách đăng nhập); nhân viên bán hàng trả lời trong **/staff/chat** (quyền `chat.reply`, có huy hiệu số tin chưa đọc). Nhân viên chưa trả lời sau `CHAT_AI_DELAY_SECONDS` (45 giây) thì **AI tự trả lời**; nhân viên trả lời/nhận hội thoại hoặc khách bấm "Gặp nhân viên" thì AI dừng. AI dùng **Google Gemini** (key MIỄN PHÍ, điền `GEMINI_API_KEY` trong `.env`, chỉ ở phía server, không lộ ra trình duyệt). Chưa có key thì dùng bộ trả lời dự phòng theo từ khoá. AI chỉ nhận nội dung chat + thông tin shop/sản phẩm công khai (không gửi SĐT/địa chỉ/đơn hàng lấy từ DB); khách tự gõ gì trong chat thì Gemini nhận đúng nội dung đó, và gói miễn phí của Google có thể dùng dữ liệu để cải thiện sản phẩm nên khung chat nhắc khách không gửi mật khẩu/số thẻ.
 - **Email xác nhận đơn + gửi lại mã đơn**: điền `SMTP_*` trong `.env`. Chưa điền thì email được lưu thành file HTML trong thư mục `outbox/` (để demo/kiểm tra nội dung).
 
 ## 2. Tài khoản mẫu (mật khẩu chung `123456`)
@@ -29,6 +30,12 @@ Yêu cầu: **Node.js ≥ 18**, **SQL Server 2017+** (bật đăng nhập SQL - 
 | `sales1`, `sales2`           | Nhân viên bán hàng | `/staff`     |
 | `kho1`                       | Nhân viên kho      | `/warehouse` |
 | `khach1`, `khach2`, `khach3` | Khách hàng         | `/`          |
+
+## 2b. Bảo mật & vận hành
+
+- Header bảo mật (helmet/CSP), nén gzip, cookie phiên `HttpOnly` + `SameSite=Lax` (+ `Secure` khi production), kiểm tra Origin chống CSRF cho mọi POST, giới hạn tần suất (đăng nhập, quên mật khẩu, đăng ký, đặt hàng, tra cứu đơn, chat), phiên lưu trong SQL (bảng `Sessions`), đổi mật khẩu thì đăng xuất các thiết bị khác, đổi mã phiên khi đăng nhập.
+- Chạy thật: đặt `NODE_ENV=production` + `SESSION_SECRET` ngẫu nhiên (bắt buộc), `TRUST_PROXY=1` nếu chạy sau proxy, `SHOW_DEMO_ACCOUNTS=false` để ẩn tài khoản thử. Đơn "Đang kiểm tra hàng" quá 48 giờ tự huỷ để nhả hàng giữ chỗ (`PENDING_HOLD_HOURS`; mặc định tắt khi phát triển để không mất đơn chờ mẫu). Mỗi SĐT tối đa 3 đơn chờ và 10 đơn/24 giờ.
+- Bootstrap được phục vụ từ `public/vendor` (không cần mạng). Kiểm thử: `npm test` (không cần SQL Server; CI chạy tự động).
 
 ## 3. Cấu trúc thư mục
 

@@ -6,10 +6,10 @@
     <aside class="sidebar d-flex flex-column p-3">
       <a class="sidebar-brand mb-3" href="<%= panel.home %>"><span class="brand-mark"><%- ico(panel.icon) %></span><span class="brand-text"><%= panel.name %></span><small class="d-block"><%= panel.subtitle %></small></a>
       <ul class="nav nav-pills flex-column mb-auto">
-        <% panel.nav.forEach(function (n) { if (n.section) { %>
+        <% panel.nav.forEach(function (n) { if (n.perm && !(currentUser && currentUser.permissions.indexOf(n.perm) !== -1)) return; if (n.section) { %>
           <li class="sidebar-section"><%= n.section %></li>
         <% } else { var active = currentPath === n.href || (n.href !== panel.home && currentPath.indexOf(n.href) === 0); %>
-          <li class="nav-item"><a class="nav-link <%= active ? 'active' : '' %>" href="<%= n.href %>"><%- ico(n.icon) %><span><%= n.label %></span></a></li>
+          <li class="nav-item"><a class="nav-link <%= active ? 'active' : '' %>" href="<%= n.href %>"><%- ico(n.icon) %><span><%= n.label %></span><% if (n.badge) { %><span class="nav-badge" id="<%= n.badge %>" hidden>0</span><% } %></a></li>
         <% } }) %>
       </ul>
       <hr>
@@ -30,5 +30,6 @@
     </div>
   </div>
   <%- include('scripts') %>
+  <% if (currentUser && currentUser.permissions.indexOf('chat.reply') !== -1) { %><script src="/js/chat-staff.js?v=<%= assetVersion %>"></script><% } %>
 </body>
 </html>

@@ -57,13 +57,18 @@ test('without SMTP configuration the email is written to outbox/ instead of bein
   fs.unlinkSync(file);
 });
 
-test('sendMail swallows transport errors', async () => {
+test('sendMail swallows transport errors but keeps a copy in outbox/ (FAILED-...) so the content is not lost', async () => {
   const saved = { host: process.env.SMTP_HOST, port: process.env.SMTP_PORT };
   process.env.SMTP_HOST = '127.0.0.1'; process.env.SMTP_PORT = '1'; // cổng đóng -> lỗi kết nối
   const err = console.error; console.error = () => {};
   try {
-    const result = await mailer.sendMail({ to: 'a@b.com', subject: 'x', html: 'x', text: 'x' });
-    assert.deepEqual(result, { sent: false, mode: 'error' });
+    const result = await mailer.sendMail({ to: 'a@b.com', subject: 'x', html: '<b>mã đơn</b>', text: 'x' });
+    assert.equal(result.sent, false);
+    assert.equal(result.mode, 'error');
+    assert.match(result.file, /^FAILED-/);
+    const file = path.join(mailer.OUTBOX, result.file);
+    assert.match(fs.readFileSync(file, 'utf8'), /mã đơn/);
+    fs.unlinkSync(file);
   } finally {
     console.error = err;
     if (saved.host === undefined) delete process.env.SMTP_HOST; else process.env.SMTP_HOST = saved.host;

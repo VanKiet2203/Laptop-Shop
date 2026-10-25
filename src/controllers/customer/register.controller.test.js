@@ -81,7 +81,10 @@ function request(body = validBody) {
   return {
     req: {
       body,
-      session: {},
+      // giống express-session: regenerate() cấp phiên mới (rỗng) nhưng giữ đối tượng/hàm
+      session: {
+        regenerate(cb) { for (const k of Object.keys(this)) if (k !== 'regenerate') delete this[k]; cb(); },
+      },
       ip: '127.0.0.1',
       flash(...args) {
         flashes.push(args);

@@ -14,7 +14,7 @@
     <p class="small text-muted mb-0 tabular-nums"><%= pg.total %> sản phẩm</p>
   </div>
   <% if (currentUser.permissions.includes('product.create')) { %>
-    <a href="/staff/products/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm sản phẩm</a>
+    <a href="/staff/products/new" class="btn btn-primary"><%- ico('plus') %> Thêm sản phẩm</a>
   <% } %>
 </div>
 
@@ -66,7 +66,7 @@
         </select>
       </div>
       <div class="col-12 d-flex gap-2">
-        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Lọc danh sách</button>
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc danh sách</button>
         <a class="btn btn-outline-secondary" href="/staff/products">Xoá bộ lọc</a>
       </div>
     </form>

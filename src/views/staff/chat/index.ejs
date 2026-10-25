@@ -1,0 +1,48 @@
+<p class="text-muted mb-3">
+  Khách nhắn từ khung chat trên cửa hàng (cả khách chưa đăng nhập). Nếu <strong>chưa nhân viên nào trả lời</strong>, trợ lý AI sẽ tự trả lời sau ít phút;
+  bấm <strong>Nhận hội thoại</strong> hoặc cứ trả lời là AI dừng. Khách bấm "Gặp nhân viên" thì hội thoại nổi lên đầu danh sách.
+</p>
+<div class="cs" id="chat-app" data-selected="<%= selected %>">
+  <aside class="cs-list" aria-label="Danh sách hội thoại">
+    <div class="cs-list-top">
+      <div class="btn-group w-100" role="group" aria-label="Lọc hội thoại">
+        <button type="button" class="btn btn-sm btn-outline-secondary active" data-status="open">Đang mở</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-status="closed">Đã đóng</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-status="all">Tất cả</button>
+      </div>
+      <label class="visually-hidden" for="cs-search">Tìm hội thoại</label>
+      <input id="cs-search" class="form-control form-control-sm mt-2" type="search" placeholder="Tìm tên, SĐT, nội dung..." maxlength="60" autocomplete="off">
+    </div>
+    <ul class="cs-conv-list" id="cs-conv-list" role="list"></ul>
+    <div class="cs-list-empty" id="cs-list-empty" hidden>Chưa có hội thoại nào.</div>
+  </aside>
+
+  <section class="cs-pane" aria-label="Nội dung hội thoại">
+    <div class="cs-empty" id="cs-empty"><%- ico('chat') %><p>Chọn một hội thoại ở bên trái để xem và trả lời.</p></div>
+    <div class="cs-active" id="cs-active" hidden>
+      <header class="cs-head">
+        <div class="cs-head-main">
+          <h2 class="cs-name" id="cs-name"></h2>
+          <div class="cs-meta" id="cs-meta"></div>
+        </div>
+        <div class="cs-actions">
+          <button type="button" class="btn btn-sm btn-primary" id="cs-claim">Nhận hội thoại</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="cs-ai"></button>
+          <button type="button" class="btn btn-sm btn-outline-danger" id="cs-status"></button>
+        </div>
+      </header>
+      <div class="cs-messages" id="cs-messages" role="log" aria-live="polite" tabindex="0"></div>
+      <form class="cs-compose" id="cs-compose">
+        <label class="visually-hidden" for="cs-quick">Câu trả lời mẫu</label>
+        <select id="cs-quick" class="form-select form-select-sm mb-2">
+          <option value="">Chèn câu trả lời mẫu…</option>
+        </select>
+        <div class="d-flex gap-2 align-items-end">
+          <label class="visually-hidden" for="cs-input">Nội dung trả lời</label>
+          <textarea id="cs-input" class="form-control" rows="2" maxlength="1000" placeholder="Nhập trả lời (Enter để gửi, Shift+Enter xuống dòng)" required></textarea>
+          <button class="btn btn-primary" type="submit" id="cs-send"><%- ico('send') %> Gửi</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>

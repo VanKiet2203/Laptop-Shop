@@ -15,7 +15,8 @@ exports.locals = (req, res, next) => {
     req.session.flash.push({ type, message });
   };
   res.locals.flash = req.session.flash || [];
-  req.session.flash = [];
+  // Chỉ ghi lại session khi thật sự có thông báo cần xoá (tránh tạo/ghi phiên cho mọi lượt truy cập, kể cả bot)
+  if (req.session.flash && req.session.flash.length) req.session.flash = [];
   res.locals.currentUser = req.session.user || null;
   res.locals.currentPath = req.path;
   res.locals.cartCount = req.session.cartCount || 0; // giỏ DB (khách đăng nhập) hoặc giỏ session (khách vãng lai)
@@ -29,7 +30,7 @@ exports.locals = (req, res, next) => {
 // lỗi DB thì bỏ qua (menu trống) chứ không làm hỏng cả trang.
 exports.loadMenu = async (req, res, next) => {
   // Chỉ giao diện cửa hàng mới có menu danh mục; các khu admin / nhân viên / kho và API JSON không cần
-  if (/^\/(admin|staff|warehouse|api)(\/|$)/.test(req.path)) return next();
+  if (/^\/(admin|staff|warehouse|api|chat)(\/|$)/.test(req.path)) return next();
   try {
     res.locals.megaMenu = await Product.menuData();
   } catch (e) {

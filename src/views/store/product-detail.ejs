@@ -42,7 +42,8 @@
   <div class="col-lg-6">
     <div class="pd-info">
       <div class="pd-meta"><span class="pd-brand"><%= product.BrandName %></span><span class="part-no"><%= product.Sku %></span></div>
-      <h1 class="pd-title"><%= product.ProductName %></h1>
+      <span hidden data-chat-product="<%= product.ProductId %>" data-chat-name="<%= product.ProductName %>"></span>
+<h1 class="pd-title"><%= product.ProductName %></h1>
       <% if (product.ShortDesc) { %><p class="pd-short"><%= product.ShortDesc %></p><% } %>
 
       <div class="pd-price-box">

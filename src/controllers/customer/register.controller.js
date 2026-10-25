@@ -7,6 +7,7 @@ const audit = require('../../models/audit.model');
 const Cart = require('../../models/cart.model');
 const db = require('../../config/db');
 const guestCart = require('../../core/guestCart');
+const { regenerate } = require('../../core/session');
 const { homeFor } = require('../../core/auth');
 
 function textField(value) {
@@ -78,8 +79,9 @@ exports.register = async (req, res) => {
 
     const { accountId, customerId, permissions } = registration;
     const guestEntries = guestCart.entries(req);
+    await regenerate(req); // mã phiên mới sau khi tạo tài khoản (chống session fixation)
     req.session.user = {
-      accountId, username, fullName, role: 'CUSTOMER', employeeId: null, customerId, avatarUrl: null,
+      accountId, username, fullName, role: 'CUSTOMER', employeeId: null, customerId, avatarUrl: null, pwv: 0,
       permissions,
     };
     // Giỏ hàng chọn lúc chưa có tài khoản chuyển sang giỏ của tài khoản mới

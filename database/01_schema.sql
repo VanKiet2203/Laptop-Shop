@@ -175,6 +175,18 @@ CREATE TABLE dbo.PasswordResets (
     CONSTRAINT FK_PwReset_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId) ON DELETE CASCADE
 );
 CREATE INDEX IX_PwReset_Account ON dbo.PasswordResets(AccountId, CreatedAt DESC);
+-- Tra cứu lịch sử theo từng đối tượng (vd: lịch sử xử lý của một đơn hàng)
+CREATE INDEX IX_Audit_Entity ON dbo.AuditLogs(EntityName, EntityId) INCLUDE (Action, CreatedAt);
+
+-- [Table] Sessions: Phiên đăng nhập / giỏ hàng khách vãng lai (lưu trong SQL để restart server không mất phiên)
+CREATE TABLE dbo.Sessions (
+    SessionId       VARCHAR(128)  NOT NULL,       -- Mã phiên (cookie connect.sid đã ký, bỏ phần chữ ký)
+    Data            NVARCHAR(MAX) NOT NULL,       -- Nội dung phiên (JSON)
+    ExpiresAt       DATETIME2(0)  NOT NULL,       -- Hết hạn lúc
+    CONSTRAINT PK_Sessions PRIMARY KEY (SessionId)
+);
+CREATE INDEX IX_Sessions_Expires ON dbo.Sessions(ExpiresAt);
+
 GO
 
 /* =====================================================================
@@ -543,6 +555,51 @@ CREATE TABLE dbo.Warranties (
     CONSTRAINT CK_War_Status CHECK (Status IN ('Active','Voided'))
 );
 CREATE INDEX IX_War_Customer ON dbo.Warranties(CustomerId);
+GO
+
+/* =====================================================================
+   NHÓM 4B: CHAT KHÁCH HÀNG <-> NHÂN VIÊN (có trợ lý AI trả lời khi nhân viên chưa phản hồi)
+   ===================================================================== */
+
+-- [Table] ChatConversations: Hội thoại chat (khách đã đăng nhập hoặc khách vãng lai theo phiên)
+CREATE TABLE dbo.ChatConversations (
+    ConversationId  INT IDENTITY(1,1) NOT NULL,   -- Mã hội thoại
+    CustomerId      INT           NULL,           -- Khách hàng (NULL = khách vãng lai)
+    GuestName       NVARCHAR(100) NULL,           -- Tên khách vãng lai tự nhập
+    ProductId       INT           NULL,           -- Sản phẩm khách đang hỏi (từ trang chi tiết)
+    Status          VARCHAR(10)   NOT NULL CONSTRAINT DF_ChatConv_Status DEFAULT 'Open', -- Open / Closed
+    AssignedEmployeeId INT        NULL,           -- Nhân viên đã nhận hội thoại
+    AiEnabled       BIT           NOT NULL CONSTRAINT DF_ChatConv_Ai DEFAULT 1, -- Cho phép AI tự trả lời khi nhân viên chưa phản hồi
+    NeedsHuman      BIT           NOT NULL CONSTRAINT DF_ChatConv_Human DEFAULT 0, -- Khách bấm "Gặp nhân viên" (AI dừng, nhân viên ưu tiên xử lý)
+    AiLockAt        DATETIME2(3)  NULL,           -- Mốc AI đang soạn câu trả lời (chống trả lời trùng)
+    AiReplyCount    INT           NOT NULL CONSTRAINT DF_ChatConv_AiCount DEFAULT 0, -- Số lần AI đã trả lời (giới hạn chi phí)
+    StaffReadUpTo   INT           NOT NULL CONSTRAINT DF_ChatConv_StaffRead DEFAULT 0, -- Nhân viên đã đọc đến tin nhắn số
+    CustomerReadUpTo INT          NOT NULL CONSTRAINT DF_ChatConv_CustRead DEFAULT 0, -- Khách đã đọc đến tin nhắn số
+    CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_ChatConv_Created DEFAULT SYSDATETIME(), -- Bắt đầu lúc
+    LastMessageAt   DATETIME2(3)  NOT NULL CONSTRAINT DF_ChatConv_Last DEFAULT SYSDATETIME(), -- Tin nhắn gần nhất lúc
+    CONSTRAINT PK_ChatConversations PRIMARY KEY (ConversationId),
+    CONSTRAINT FK_ChatConv_Customer FOREIGN KEY (CustomerId) REFERENCES dbo.Customers(CustomerId) ON DELETE SET NULL,
+    CONSTRAINT FK_ChatConv_Product FOREIGN KEY (ProductId) REFERENCES dbo.Products(ProductId),
+    CONSTRAINT FK_ChatConv_Employee FOREIGN KEY (AssignedEmployeeId) REFERENCES dbo.Employees(EmployeeId),
+    CONSTRAINT CK_ChatConv_Status CHECK (Status IN ('Open','Closed'))
+);
+CREATE INDEX IX_ChatConv_Customer ON dbo.ChatConversations(CustomerId, ConversationId DESC) WHERE CustomerId IS NOT NULL;
+CREATE INDEX IX_ChatConv_Status ON dbo.ChatConversations(Status, LastMessageAt DESC);
+
+-- [Table] ChatMessages: Tin nhắn trong hội thoại
+CREATE TABLE dbo.ChatMessages (
+    MessageId       INT IDENTITY(1,1) NOT NULL,   -- Mã tin nhắn (tăng dần, dùng làm mốc "đã đọc")
+    ConversationId  INT           NOT NULL,       -- Hội thoại
+    SenderType      VARCHAR(8)    NOT NULL,       -- Customer (khách) / Staff (nhân viên) / AI (trợ lý tự động)
+    EmployeeId      INT           NULL,           -- Nhân viên gửi (khi SenderType = Staff)
+    Body            NVARCHAR(1000) NOT NULL,      -- Nội dung (văn bản thuần)
+    CreatedAt       DATETIME2(3)  NOT NULL CONSTRAINT DF_ChatMsg_Created DEFAULT SYSDATETIME(), -- Gửi lúc
+    CONSTRAINT PK_ChatMessages PRIMARY KEY (MessageId),
+    CONSTRAINT FK_ChatMsg_Conv FOREIGN KEY (ConversationId) REFERENCES dbo.ChatConversations(ConversationId) ON DELETE CASCADE,
+    CONSTRAINT FK_ChatMsg_Employee FOREIGN KEY (EmployeeId) REFERENCES dbo.Employees(EmployeeId),
+    CONSTRAINT CK_ChatMsg_Sender CHECK (SenderType IN ('Customer','Staff','AI'))
+);
+CREATE INDEX IX_ChatMsg_Conv ON dbo.ChatMessages(ConversationId, MessageId);
 GO
 
 /* =====================================================================

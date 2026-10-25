@@ -136,6 +136,10 @@ Applies to any table with a trigger — currently `Accounts`, `Orders`,
 `ProductSerials`, `Categories` (see the trigger list in `01_schema.sql`). Plain
 tables without triggers (`Carts`, `Customers`, ...) don't need this.
 
+## Bảng/thủ tục thêm ngày 25/10/2026
+
+`PasswordResets` (mã đặt lại mật khẩu, chỉ lưu SHA-256), `Sessions` (phiên đăng nhập), `ChatConversations` + `ChatMessages` (chat), cột `Accounts.PasswordChangedAt` (DATETIME2(3) - đổi mật khẩu thì phiên cũ hết hiệu lực), index `IX_Audit_Entity`, thủ tục `sp_ExpirePendingOrders`, quyền `chat.reply` (SALES). **Thứ tự trong `01_schema.sql` quan trọng**: bảng có FK tới `Products`/`Employees` (như chat) phải nằm SAU các bảng đó (đã từng đặt nhầm trước `Products` làm vỡ cả script). Sau mọi thay đổi schema phải dựng lại 3 file trên một DB tạm (đổi tên `LaptopShopDB`) để kiểm tra, và áp lên DB đang chạy bằng `CREATE OR ALTER`/`IF OBJECT_ID IS NULL` (không DROP).
+
 ## Constraints and schema hygiene
 
 - Give every business-numeric column (rates, percentages, discount caps,

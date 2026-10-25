@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const Account = require('../../models/account.model');
 const audit = require('../../models/audit.model');
 const mailer = require('../../core/mailer');
+const rateLimit = require('../../core/rateLimit');
 const { passwordReset, passwordChanged } = require('../../core/mailTemplates');
 const { homeFor } = require('../../core/auth');
 const { startSession } = require('../../core/session');
@@ -30,17 +31,34 @@ exports.passwordError = passwordError;
 
 exports.showLogin = (req, res) => {
   if (req.session.user) return res.redirect(homeFor(req.session.user.role));
-  res.render('auth/login', { title: 'Đăng nhập', googleEnabled: googleConfigured() });
+  // Hộp "tài khoản thử nghiệm" chỉ hiện khi KHÔNG chạy production (đặt SHOW_DEMO_ACCOUNTS=false để tắt hẳn)
+  const showDemo = process.env.NODE_ENV !== 'production' && process.env.SHOW_DEMO_ACCOUNTS !== 'false';
+  res.render('auth/login', { title: 'Đăng nhập', googleEnabled: googleConfigured(), showDemo });
 };
 
+// Chống dò mật khẩu: sai 5 lần liên tiếp từ MỘT IP với cùng tài khoản thì khoá thử 15 phút; một tài khoản bị sai 20 lần
+// từ nhiều IP khác nhau cũng tạm khoá; mỗi IP tối đa 100 lượt đăng nhập / 15 phút (rộng để nhiều người dùng chung một mạng vẫn đăng nhập được). Đăng nhập đúng thì xoá bộ đếm sai.
+const LOGIN_WINDOW = 15 * 60 * 1000;
 exports.login = async (req, res) => {
   const { username = '', password = '' } = req.body;
-  const acc = await Account.findForLogin(String(username).trim());
+  const name = String(username).trim().slice(0, 100);
+  const pairKey = `login-fail:${req.ip}:${name.toLowerCase()}`;
+  const userKey = `login-fail:${name.toLowerCase()}`;
+  const ipHit = rateLimit.hit(`login:ip:${req.ip}`, 100, LOGIN_WINDOW);
+  if (!ipHit.allowed || rateLimit.count(pairKey, LOGIN_WINDOW) >= 5 || rateLimit.count(userKey, LOGIN_WINDOW) >= 20) {
+    req.flash('danger', 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi khoảng 15 phút rồi thử lại, hoặc dùng "Quên mật khẩu".');
+    res.set('Retry-After', String(ipHit.retryAfterSec || 900));
+    return res.redirect('/auth/login');
+  }
+  const acc = await Account.findForLogin(name);
   const ok = acc && acc.IsActive && (await bcrypt.compare(String(password), acc.PasswordHash));
   if (!ok) {
+    rateLimit.hit(pairKey, Infinity, LOGIN_WINDOW);
+    rateLimit.hit(userKey, Infinity, LOGIN_WINDOW);
     req.flash('danger', acc && !acc.IsActive ? 'Tài khoản đã bị khoá.' : 'Sai tên đăng nhập hoặc mật khẩu.');
     return res.redirect('/auth/login');
   }
+  rateLimit.reset(pairKey);
   await startSession(req, acc);
   await audit.log(req, 'LOGIN', 'Account', acc.AccountId, `Đăng nhập (${acc.RoleCode})`);
   const back = req.session.returnTo;
@@ -62,6 +80,7 @@ exports.showForgot = (req, res) => {
 
 // POST /auth/forgot - luôn trả cùng một thông báo dù email có tồn tại hay không (không cho dò email đã đăng ký)
 exports.forgot = async (req, res) => {
+  if (!rateLimit.hit('forgot:ip:' + req.ip, 10, 60 * 60 * 1000).allowed) { req.flash('warning', 'Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau.'); return res.redirect('/auth/forgot'); }
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 150) : '';
   const now = Date.now();
   if (req.session.lastForgot && now - req.session.lastForgot < 60 * 1000) {

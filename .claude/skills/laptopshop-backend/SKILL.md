@@ -124,6 +124,17 @@ Toàn bộ route của 3 khu vực này đã được triển khai (25/10/2026);
 - **Mọi chỗ đổi mật khẩu** phải đi qua `Account.setPassword` / `completeReset` (đã ghi `PasswordChangedAt`) - session cũ tự hết hiệu lực nhờ `pwv`; nếu sau khi đổi mà phiên hiện tại cần giữ đăng nhập thì cập nhật `req.session.user.pwv = await Account.getPwVersion(id)`. Link/mã đặt lại mật khẩu chỉ lưu bản băm, dùng 1 lần, luôn trả cùng một thông báo dù email có tồn tại hay không.
 - `requireLogin` khi tài khoản bị khoá phải dùng `session.regenerate` (KHÔNG `destroy` rồi ghi `req.session` - sẽ làm sập server; đã từng gặp). Test giả lập session phải giống express-session thật.
 
+## Hạ tầng bảo mật & chat (25/10/2026) - dùng lại, đừng viết lại
+
+- **CSRF**: `core/originCheck.js` chặn mọi POST/PUT/PATCH/DELETE có `Origin`/`Referer` khác host (kèm cookie `SameSite=Lax`). Client không cần gửi token; script/curl không có Origin vẫn qua. Đừng thêm route đổi dữ liệu bằng GET.
+- **Giới hạn tần suất**: `core/rateLimit.js` (`hit/count/reset` + middleware `byIp`) - trong bộ nhớ. Đăng nhập: sai 5 lần/IP+tài khoản → khoá 15 phút, 20 lần/tài khoản → khoá chung; các route nhạy cảm (đăng ký, đặt hàng, tra cứu đơn, quên mật khẩu, chat) đều có `byIp`.
+- **Phiên**: `core/sqlSessionStore.js` (bảng `Sessions`); `SESSION_STORE=memory` để quay về bộ nhớ. Đăng nhập/đăng ký PHẢI qua `session.regenerate(req)`/`startSession` (đổi mã phiên, giữ `returnTo`, `chatConversationId`). Đừng ghi session khi không cần (đã tránh ghi flash rỗng) vì mỗi lần ghi là một lệnh SQL.
+- **Production**: `app.js` bắt buộc `SESSION_SECRET` khác mặc định khi `NODE_ENV=production`; chi tiết lỗi 500 chỉ hiện khi `NODE_ENV=development`; `TRUST_PROXY` cho IP thật + cờ Secure.
+- **Chat**: model `chat.model.js` (SQL), khách `controllers/store/chat.controller.js` (API `/chat/*`: id hội thoại KHÔNG bao giờ lấy từ client, chỉ từ tài khoản/phiên), nhân viên `controllers/staff/chat.controller.js` (+ `routes/staff-chat.routes.js`, quyền `chat.reply`). Tin nhắn là văn bản thuần, hiển thị bằng `textContent`.
+- **AI trả lời** (`core/chatAi.js`): Google **Gemini** qua REST bằng `fetch` (người dùng chọn Gemini free, KHÔNG dùng Claude), khoá `GEMINI_API_KEY` chỉ ở server và chỉ đi trong header `x-goog-api-key`. Chỉ gửi nội dung chat + dữ liệu cửa hàng công khai, không gửi dữ liệu cá nhân từ DB. Có trần theo phút/ngày/hội thoại, nghỉ 60 giây sau lỗi 429, và trả lời dự phòng theo từ khoá khi không có key/lỗi. Vòng quét nền `chatAi.start()` trong `server.js` (AI chỉ trả lời nếu nhân viên chưa trả lời trong `CHAT_AI_DELAY_SECONDS` và không hoạt động trong 15 phút gần nhất). Đổi `GEMINI_BASE_URL` để thử bằng máy chủ giả.
+- **Đơn giữ hàng**: `sp_PlaceOrder` giới hạn 3 đơn chờ + 10 đơn/24 giờ mỗi SĐT (lỗi 50070/50071); `sp_ExpirePendingOrders` tự huỷ đơn chờ quá hạn (bật mặc định 48 giờ chỉ khi production; `PENDING_HOLD_HOURS`).
+- **Tài nguyên tĩnh**: Bootstrap ở `public/vendor/bootstrap` (không CDN); CSP cho phép nguồn `'self'` + ảnh https - thêm CDN/domain mới thì sửa CSP trong `app.js`. Không dùng `bi bi-*` nữa.
+
 ## Placeholder routes (`todo(...)`)
 
 Hiện không còn route nào dùng `todo(...)`; mục này chỉ còn áp dụng nếu bạn dựng khung chức năng mới bằng

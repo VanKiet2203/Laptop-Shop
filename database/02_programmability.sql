@@ -200,6 +200,13 @@ BEGIN
     IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment')
         THROW 50026, N'Phương thức thanh toán không hợp lệ.', 1;
 
+    -- Chống đặt hàng ảo để "giữ" tồn kho (khách vãng lai đặt không cần đăng nhập):
+    -- mỗi SĐT tối đa 3 đơn đang chờ kiểm tra hàng và 10 đơn trong 24 giờ.
+    IF (SELECT COUNT(*) FROM dbo.Orders WHERE ReceiverPhone = @ReceiverPhone AND Status = 'Pending') >= 3
+        THROW 50070, N'Số điện thoại này đang có 3 đơn chờ kiểm tra hàng. Vui lòng đợi nhân viên xác nhận hoặc huỷ bớt đơn cũ trước khi đặt thêm.', 1;
+    IF (SELECT COUNT(*) FROM dbo.Orders WHERE ReceiverPhone = @ReceiverPhone AND CreatedAt >= DATEADD(HOUR, -24, SYSDATETIME())) >= 10
+        THROW 50071, N'Số điện thoại này đã đặt quá 10 đơn trong 24 giờ. Vui lòng liên hệ hotline nếu bạn cần đặt số lượng lớn.', 1;
+
     -- SAO CHỤP toàn bộ dòng hàng (+ giá/tồn sản phẩm liên quan, có khoá) NGAY TỪ ĐẦU giao dịch vào #Cart,
     -- rồi dùng DUY NHẤT bảng tạm này cho phần còn lại (giữ tồn, tính tiền, tạo chi tiết đơn) để các lần đọc không lệch nhau.
     CREATE TABLE #Cart (ProductId INT NOT NULL PRIMARY KEY, Quantity INT NOT NULL, SalePrice DECIMAL(18,0) NOT NULL,
@@ -662,5 +669,37 @@ BEGIN
             CONCAT(N'Giao hàng thành công (Approved -> Completed), cộng ', @EarnedPoints, N' điểm thành viên'));
 
     COMMIT TRAN;
+END
+GO
+
+/* ---------- STORED PROCEDURE: TỰ HUỶ ĐƠN CHỜ QUÁ HẠN ---------- */
+-- Đơn "Đang kiểm tra hàng" (Pending) quá @Hours giờ mà chưa được nhân viên xác nhận thì hệ thống tự huỷ để NHẢ hàng giữ chỗ
+-- (qua sp_CancelOrder, người thực hiện = tài khoản hệ thống NV000). Ứng dụng gọi định kỳ (xem src/server.js).
+CREATE PROCEDURE dbo.sp_ExpirePendingOrders
+    @Hours     INT = 48,
+    @Cancelled INT = 0 OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @Cancelled = 0;
+    DECLARE @sys INT = (SELECT a.AccountId FROM dbo.Employees e JOIN dbo.Accounts a ON a.AccountId = e.AccountId WHERE e.EmployeeCode = 'NV000');
+    IF @sys IS NULL OR @Hours IS NULL OR @Hours < 1 RETURN;
+
+    DECLARE @id INT, @reason NVARCHAR(255) = CONCAT(N'Tự huỷ: quá ', @Hours, N' giờ chưa được xác nhận nên hệ thống nhả hàng giữ chỗ.');
+    DECLARE c CURSOR LOCAL FAST_FORWARD FOR
+        SELECT OrderId FROM dbo.Orders WHERE Status = 'Pending' AND CreatedAt < DATEADD(HOUR, -@Hours, SYSDATETIME());
+    OPEN c; FETCH NEXT FROM c INTO @id;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        BEGIN TRY
+            EXEC dbo.sp_CancelOrder @OrderId = @id, @Reason = @reason, @AccountId = @sys;
+            SET @Cancelled += 1;
+        END TRY
+        BEGIN CATCH
+            IF XACT_STATE() <> 0 ROLLBACK TRAN;   -- đơn lỗi thì bỏ qua, các đơn khác vẫn được xử lý
+        END CATCH
+        FETCH NEXT FROM c INTO @id;
+    END
+    CLOSE c; DEALLOCATE c;
 END
 GO

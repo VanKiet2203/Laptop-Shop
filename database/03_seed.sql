@@ -39,13 +39,14 @@ INSERT INTO dbo.Permissions (PermCode, PermName, ModuleName) VALUES
  ('receipt.create',  N'Lập phiếu nhập kho',     N'Kho'),
  ('receipt.post',    N'Chốt phiếu nhập kho',    N'Kho'),
  ('stock.view',      N'Xem tồn kho / serial',   N'Kho'),
+ ('chat.reply',      N'Trả lời chat khách hàng', N'Bán hàng'),
  ('shop.buy',        N'Mua hàng',               N'Cửa hàng');
 
 INSERT INTO dbo.RolePermissions (RoleId, PermissionId)
 SELECT r.RoleId, p.PermissionId FROM dbo.Roles r JOIN dbo.Permissions p ON
    (r.RoleCode='ADMIN'     AND p.PermCode IN ('dashboard.admin','user.manage','role.manage','audit.view'))
 OR (r.RoleCode='SALES'     AND p.PermCode IN ('product.view','product.create','product.update','product.delete','category.manage','brand.manage',
-                                              'order.view','order.approve','order.cancel','invoice.view','invoice.print','report.view','warranty.view','stock.view'))
+                                              'order.view','order.approve','order.cancel','invoice.view','invoice.print','report.view','warranty.view','stock.view','chat.reply'))
 OR (r.RoleCode='WAREHOUSE' AND p.PermCode IN ('product.view','supplier.manage','receipt.create','receipt.post','stock.view'))
 OR (r.RoleCode='CUSTOMER'  AND p.PermCode IN ('shop.buy'));
 

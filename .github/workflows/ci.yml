@@ -31,3 +31,10 @@ jobs:
 
       - name: Thử require toàn bộ app (phát hiện lỗi cú pháp/require sai đường dẫn)
         run: node -e "require('./src/app.js'); console.log('OK: app.js load được')"
+
+      - name: Chạy test tự động (không cần SQL Server - model được giả lập)
+        run: npm test
+
+      - name: Kiểm tra lỗ hổng thư viện (chỉ cảnh báo, không chặn PR)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

@@ -15,6 +15,11 @@ erDiagram
     Customers ||--o{ CustomerAddresses : "CustomerId"
     Accounts |o--o{ AuditLogs : "AccountId"
     Accounts ||--o{ PasswordResets : "AccountId"
+    Customers |o--o{ ChatConversations : "CustomerId"
+    Employees |o--o{ ChatConversations : "AssignedEmployeeId"
+    Products |o--o{ ChatConversations : "ProductId"
+    ChatConversations ||--o{ ChatMessages : "ConversationId"
+    Employees |o--o{ ChatMessages : "EmployeeId"
     Categories |o--o{ Categories : "ParentId"
     Categories ||--o{ Products : "CategoryId"
     Brands ||--o{ Products : "BrandId"
@@ -234,6 +239,49 @@ Mã đặt lại mật khẩu gửi qua email (chỉ lưu bản băm SHA-256, d�
 | `RequestIp` | VARCHAR(45) | Có |  |  | IP gửi yêu cầu (giới hạn tần suất) |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Thời điểm yêu cầu |
 
+### Sessions
+
+Phiên đăng nhập / giỏ hàng khách vãng lai (lưu trong SQL để restart server không mất phiên)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `SessionId` | VARCHAR(128) | Không | PK |  | Mã phiên (cookie connect.sid đã ký, bỏ phần chữ ký) |
+| `Data` | NVARCHAR(MAX) | Không |  |  | Nội dung phiên (JSON) |
+| `ExpiresAt` | DATETIME2(0) | Không |  |  | Hết hạn lúc |
+
+### ChatConversations
+
+Hội thoại chat (khách đã đăng nhập hoặc khách vãng lai theo phiên)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `ConversationId` | INT (IDENTITY) | Không | PK |  | Mã hội thoại |
+| `CustomerId` | INT | Có | FK → Customers |  | Khách hàng (NULL = khách vãng lai) |
+| `GuestName` | NVARCHAR(100) | Có |  |  | Tên khách vãng lai tự nhập |
+| `ProductId` | INT | Có | FK → Products |  | Sản phẩm khách đang hỏi (từ trang chi tiết) |
+| `Status` | VARCHAR(10) | Không |  | 'Open' | Open / Closed |
+| `AssignedEmployeeId` | INT | Có | FK → Employees |  | Nhân viên đã nhận hội thoại |
+| `AiEnabled` | BIT | Không |  | 1 | Cho phép AI tự trả lời khi nhân viên chưa phản hồi |
+| `NeedsHuman` | BIT | Không |  | 0 | Khách bấm "Gặp nhân viên" (AI dừng, nhân viên ưu tiên xử lý) |
+| `AiLockAt` | DATETIME2(3) | Có |  |  | Mốc AI đang soạn câu trả lời (chống trả lời trùng) |
+| `AiReplyCount` | INT | Không |  | 0 | Số lần AI đã trả lời (giới hạn chi phí) |
+| `StaffReadUpTo` | INT | Không |  | 0 | Nhân viên đã đọc đến tin nhắn số |
+| `CustomerReadUpTo` | INT | Không |  | 0 | Khách đã đọc đến tin nhắn số |
+| `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Bắt đầu lúc |
+| `LastMessageAt` | DATETIME2(3) | Không |  | SYSDATETIME() | Tin nhắn gần nhất lúc |
+
+### ChatMessages
+
+Tin nhắn trong hội thoại
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `MessageId` | INT (IDENTITY) | Không | PK |  | Mã tin nhắn (tăng dần, dùng làm mốc "đã đọc") |
+| `ConversationId` | INT | Không | FK → ChatConversations |  | Hội thoại |
+| `SenderType` | VARCHAR(8) | Không |  |  | Customer (khách) / Staff (nhân viên) / AI (trợ lý tự động) |
+| `EmployeeId` | INT | Có | FK → Employees |  | Nhân viên gửi (khi SenderType = Staff) |
+| `Body` | NVARCHAR(1000) | Không |  |  | Nội dung (văn bản thuần) |
+| `CreatedAt` | DATETIME2(3) | Không |  | SYSDATETIME() | Gửi lúc |
 ### Categories
 
 Danh mục sản phẩm nhiều cấp (Laptop > Gaming, Linh kiện > RAM...)

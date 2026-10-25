@@ -4,13 +4,16 @@ const router = require('express').Router();
 const wrap = require('../core/asyncHandler');
 const { requireRole, shopper } = require('../core/auth');
 const { useLayout } = require('../core/locals');
+const rateLimit = require('../core/rateLimit');
+
+const HOUR = 60 * 60 * 1000;
 
 router.use(useLayout('layouts/store'));
 
 const customer_register = require('../controllers/customer/register.controller');
 
 router.get('/register', wrap(customer_register.showRegister));
-router.post('/register', wrap(customer_register.register));
+router.post('/register', rateLimit.byIp('register', 10, HOUR, 'Bạn đã tạo quá nhiều tài khoản. Vui lòng thử lại sau.'), wrap(customer_register.register));
 
 const customer_account = require('../controllers/customer/account.controller');
 
@@ -35,13 +38,13 @@ const customer_checkout = require('../controllers/customer/checkout.controller')
 
 router.get('/checkout', shopper, wrap(customer_checkout.show));
 router.post('/checkout/promo', shopper, wrap(customer_checkout.checkPromo));
-router.post('/checkout', shopper, wrap(customer_checkout.place));
+router.post('/checkout', shopper, rateLimit.byIp('checkout', 20, HOUR, 'Bạn đặt hàng quá nhiều lần trong một giờ. Vui lòng liên hệ hotline nếu cần đặt số lượng lớn.'), wrap(customer_checkout.place));
 router.get('/checkout/success', shopper, wrap(customer_checkout.success));
 
 const customer_order = require('../controllers/customer/order.controller');
 
-router.get('/orders/track', wrap(customer_order.track));   // tra cứu bằng mã đơn + SĐT, không cần đăng nhập
-router.post('/orders/track/resend', wrap(customer_order.resendCodes));  // gửi lại mã đơn qua email
+router.get('/orders/track', rateLimit.byIp('track', 40, 10 * 60 * 1000, 'Bạn tra cứu quá nhiều lần. Vui lòng thử lại sau vài phút.'), wrap(customer_order.track));   // tra cứu bằng mã đơn + SĐT, không cần đăng nhập
+router.post('/orders/track/resend', rateLimit.byIp('resend', 8, HOUR), wrap(customer_order.resendCodes));  // gửi lại mã đơn qua email
 router.get('/orders', requireRole('CUSTOMER'), wrap(customer_order.index));
 router.get('/orders/:id', requireRole('CUSTOMER'), wrap(customer_order.show));
 router.post('/orders/:id/cancel', requireRole('CUSTOMER'), wrap(customer_order.cancel));

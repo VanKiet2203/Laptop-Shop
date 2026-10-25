@@ -29,10 +29,12 @@
       <p class="text-center small mt-3 mb-1">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
       <p class="text-center small mb-0 text-muted">Hoặc <a href="/products">tiếp tục mua sắm</a> — đặt hàng không cần đăng nhập.</p>
     </div>
+    <% if (typeof showDemo !== 'undefined' && showDemo) { %>
     <div class="info-box mt-3">
       <%- ico('info') %>
       <div><strong>Tài khoản thử nghiệm</strong> (mật khẩu <code>123456</code>):<br>
       <code>admin</code> · <code>sales1</code> · <code>kho1</code> · <code>khach1</code></div>
     </div>
+    <% } %>
   </div>
 </div>

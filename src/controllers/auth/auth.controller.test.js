@@ -4,13 +4,15 @@ const bcrypt = require('bcryptjs');
 const Account = require('../../models/account.model');
 const audit = require('../../models/audit.model');
 const mailer = require('../../core/mailer');
+const rateLimit = require('../../core/rateLimit');
 const controller = require('./auth.controller');
 
 const targets = [[Account, 'findActiveByEmail'], [Account, 'countRecentResets'], [Account, 'createPasswordReset'], [Account, 'findValidReset'],
-  [Account, 'completeReset'], [Account, 'findAuthInfo'], [Account, 'setPassword'], [audit, 'log'], [mailer, 'sendMail']];
+  [Account, 'completeReset'], [Account, 'findAuthInfo'], [Account, 'setPassword'], [Account, 'getPwVersion'], [Account, 'findForLogin'], [audit, 'log'], [mailer, 'sendMail']];
 const saved = [];
 let mails, created, setPw;
 test.beforeEach(() => {
+  rateLimit._clear();
   saved.length = 0; mails = []; created = []; setPw = [];
   for (const [o, k] of targets) saved.push([o, k, o[k]]);
   audit.log = async () => {};
@@ -18,13 +20,14 @@ test.beforeEach(() => {
   Account.countRecentResets = async () => ({ byAccount: 0, byIp: 0 });
   Account.createPasswordReset = async (...a) => created.push(a);
   Account.setPassword = async (...a) => setPw.push(a);
+  Account.getPwVersion = async () => 12345;
 });
 test.afterEach(() => { for (const [o, k, v] of saved) o[k] = v; });
 
 function http({ body = {}, params = {}, session = {} } = {}) {
   const flashes = [];
   const req = { body, params, query: {}, ip: '1.2.3.4', session: { ...session }, flash: (...a) => flashes.push(a) };
-  const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, render(v, d) { this.rendered = { v, d }; return this; }, redirect(l) { this.redirected = l; return this; } };
+  const res = { statusCode: 200, set() { return this; }, status(c) { this.statusCode = c; return this; }, render(v, d) { this.rendered = { v, d }; return this; }, redirect(l) { this.redirected = l; return this; } };
   return { req, res, flashes };
 }
 const ACC = { AccountId: 7, Username: 'u7', Email: 'a@b.com', FullName: 'Nguyễn A' };
@@ -123,6 +126,7 @@ test('change password: wrong current password, same password and mismatch are re
   const ok = await run({ oldPassword: 'current1', password: 'brandnew1', confirmPassword: 'brandnew1' });
   assert.equal(ok.res.redirected, '/account');
   assert.equal(setPw.length, 1);
+  assert.equal(ok.req.session.user.pwv, 12345, 'the device that changed the password stays signed in');
   assert.ok(await bcrypt.compare('brandnew1', setPw[0][1]));
   assert.equal(mails.length, 1);
 });
@@ -142,4 +146,45 @@ test('passwordError enforces length (6..72 bytes) and confirmation', () => {
   assert.match(controller.passwordError('a'.repeat(73), 'a'.repeat(73)), /72 byte/);
   assert.match(controller.passwordError('abcdef', 'abcdeg'), /không khớp/);
   assert.equal(controller.passwordError('abcdef', 'abcdef'), null);
+});
+
+test('login: 5 wrong passwords from one IP lock that IP+account pair for 15 minutes, even for the right password', async () => {
+  const hash = await bcrypt.hash('right-pass', 4);
+  Account.findForLogin = async () => ({ AccountId: 7, Username: 'u7', IsActive: 1, PasswordHash: hash });
+  const attempt = async (password, ip = '1.2.3.4') => { const h = http({ body: { username: 'U7', password } }); h.req.ip = ip; await controller.login(h.req, h.res); return h; };
+  for (let i = 0; i < 5; i += 1) {
+    const h = await attempt('wrong' + i);
+    assert.match(h.flashes[0][1], /Sai tên đăng nhập/);
+  }
+  const locked = await attempt('right-pass');
+  assert.match(locked.flashes[0][1], /quá nhiều lần/);
+  assert.equal(locked.res.redirected, '/auth/login');
+  // IP khác vẫn không bị khoá bởi bộ đếm của cặp (IP, tài khoản) kia
+  const other = await attempt('wrong', '5.6.7.8');
+  assert.match(other.flashes[0][1], /Sai tên đăng nhập/);
+});
+
+test('login: one account hammered from many IPs (20 failures) is locked for everyone; per-IP volume is capped', async () => {
+  Account.findForLogin = async () => null;
+  const attempt = async (name, ip) => { const h = http({ body: { username: name, password: 'x' } }); h.req.ip = ip; await controller.login(h.req, h.res); return h; };
+  for (let i = 0; i < 20; i += 1) await attempt('victim', `10.0.0.${i}`);
+  assert.match((await attempt('victim', '10.0.1.1')).flashes[0][1], /quá nhiều lần/);
+
+  rateLimit._clear();
+  let blocked = 0;
+  for (let i = 0; i < 105; i += 1) { const h = await attempt('user' + i, '9.9.9.9'); if (/quá nhiều lần/.test(h.flashes[0][1])) blocked += 1; }
+  assert.equal(blocked, 5);
+});
+
+test('the demo-accounts hint is hidden in production and when SHOW_DEMO_ACCOUNTS=false', () => {
+  const run = () => { const h = http(); h.req.session = {}; controller.showLogin(h.req, h.res); return h.res.rendered.d.showDemo; };
+  const env = { ...process.env };
+  try {
+    delete process.env.NODE_ENV; delete process.env.SHOW_DEMO_ACCOUNTS;
+    assert.equal(run(), true);
+    process.env.SHOW_DEMO_ACCOUNTS = 'false';
+    assert.equal(run(), false);
+    delete process.env.SHOW_DEMO_ACCOUNTS; process.env.NODE_ENV = 'production';
+    assert.equal(run(), false);
+  } finally { process.env.NODE_ENV = env.NODE_ENV; if (env.NODE_ENV === undefined) delete process.env.NODE_ENV; if (env.SHOW_DEMO_ACCOUNTS === undefined) delete process.env.SHOW_DEMO_ACCOUNTS; else process.env.SHOW_DEMO_ACCOUNTS = env.SHOW_DEMO_ACCOUNTS; }
 });
