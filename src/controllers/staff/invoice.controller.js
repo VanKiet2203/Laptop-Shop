@@ -24,10 +24,13 @@ exports.print = async (req, res) => {
   const id = parseId(req.params.id);
   const invoice = id ? await Invoice.findById(id) : null;
   if (!invoice) return res.status(404).render('errors/404', NOT_FOUND);
-  if (invoice.Status === 'Issued') {
-    await Invoice.markPrinted(id);
-    invoice.PrintCount += 1;
-    await audit.log(req, 'PRINT', 'Invoice', id, `In hoá đơn ${invoice.InvoiceNo} (lần ${invoice.PrintCount})`);
+  // Hoá đơn đã vô hiệu (đơn bị huỷ) KHÔNG được in: bản in sẽ trông như hoá đơn hợp lệ
+  if (invoice.Status !== 'Issued') {
+    req.flash('warning', `Hoá đơn ${invoice.InvoiceNo} đã bị vô hiệu do đơn hàng bị huỷ nên không thể in.`);
+    return res.redirect(`/staff/invoices/${id}`);
   }
+  await Invoice.markPrinted(id);
+  invoice.PrintCount += 1;
+  await audit.log(req, 'PRINT', 'Invoice', id, `In hoá đơn ${invoice.InvoiceNo} (lần ${invoice.PrintCount})`);
   res.render('staff/invoices/print', { layout: false, title: `Hoá đơn ${invoice.InvoiceNo}`, invoice });
 };
