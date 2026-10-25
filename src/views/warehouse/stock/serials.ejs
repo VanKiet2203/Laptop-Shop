@@ -1,0 +1,48 @@
+<ul class="nav nav-pills mb-3 flex-wrap gap-1">
+  <li class="nav-item"><a class="nav-link <%= !filters.status ? 'active' : '' %>" href="/warehouse/stock/serials<%= filters.productId ? '?productId=' + filters.productId : '' %>">Tất cả <span class="badge rounded-pill text-bg-light tabular-nums"><%= counts.all %></span></a></li>
+  <% statuses.forEach(function (s) { if (!counts[s]) return; %>
+    <li class="nav-item"><a class="nav-link <%= filters.status === s ? 'active' : '' %>" href="?status=<%= s %><%= filters.productId ? '&productId=' + filters.productId : '' %>"><%= SERIAL_STATUS[s].label %> <span class="badge rounded-pill text-bg-light tabular-nums"><%= counts[s] %></span></a></li>
+  <% }) %>
+</ul>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4"><label class="form-label" for="sr-q">Serial, IMEI, mã vạch hoặc tên sản phẩm</label><input id="sr-q" name="q" class="form-control font-monospace" maxlength="60" value="<%= filters.q %>" autofocus></div>
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="sr-prod">Sản phẩm</label>
+        <select id="sr-prod" name="productId" class="form-select"><option value="">Tất cả sản phẩm có Serial</option>
+          <% products.forEach(function (p) { %><option value="<%= p.ProductId %>" <%= String(filters.productId) === String(p.ProductId) ? 'selected' : '' %>><%= p.Sku %> — <%= p.ProductName %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="sr-status">Trạng thái</label>
+        <select id="sr-status" name="status" class="form-select"><option value="">Tất cả</option>
+          <% statuses.forEach(function (s) { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= SERIAL_STATUS[s].label %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-12 col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('scan') %> Tra cứu</button><a class="btn btn-outline-secondary" href="/warehouse/stock/serials">Xoá lọc</a></div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Serial</th><th>Sản phẩm</th><th>Trạng thái</th><th>Nhập kho</th><th>Bán cho đơn</th><th>Bảo hành</th></tr></thead>
+    <tbody>
+      <% serials.forEach(function (s) { var st = SERIAL_STATUS[s.Status] || { label: s.Status, cls: 'secondary' };
+         var expired = s.WarrantyEnd && new Date(s.WarrantyEnd) < new Date(); %>
+        <tr>
+          <td><span class="part-no"><%= s.SerialNumber %></span><% if (s.Imei) { %><div class="small text-muted">IMEI <%= s.Imei %></div><% } %></td>
+          <td><div class="fw-semibold"><%= s.ProductName %></div><div class="small text-muted"><%= s.Sku %></div></td>
+          <td><span class="badge text-bg-<%= st.cls %>"><%= st.label %></span></td>
+          <td class="small"><a href="/warehouse/receipts/<%= s.ReceiptId %>"><%= s.ReceiptNo %></a><div class="text-muted"><%= fmtDate(s.ReceiptDate) %> · <%= s.SupplierName %></div></td>
+          <td class="small"><% if (s.OrderNo) { %><% if (currentUser.permissions.includes('order.view')) { %><a href="/staff/orders/<%= s.OrderId %>"><%= s.OrderNo %></a><% } else { %><%= s.OrderNo %><% } %><div class="text-muted"><%= s.ReceiverName %></div><% } else { %><span class="text-muted">—</span><% } %></td>
+          <td class="small"><% if (s.WarrantyEnd) { %><span class="badge text-bg-<%= s.WarrantyStatus === 'Voided' ? 'secondary' : (expired ? 'danger' : 'success') %>"><%= s.WarrantyStatus === 'Voided' ? 'Vô hiệu' : (expired ? 'Hết hạn' : 'Còn hạn') %></span><div class="text-muted">đến <%= fmtDate(s.WarrantyEnd) %></div><% } else { %><span class="text-muted">—</span><% } %></td>
+        </tr>
+      <% }) %>
+      <% if (!serials.length) { %><tr><td colspan="6" class="text-center text-muted py-4">Không tìm thấy Serial nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

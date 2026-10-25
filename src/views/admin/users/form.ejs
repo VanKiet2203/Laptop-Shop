@@ -1,0 +1,56 @@
+<%
+  var creating = !user;
+  var isCustomer = user && user.RoleCode === 'CUSTOMER';
+  var staffRoles = roles.filter(function (r) { return r.RoleCode !== 'CUSTOMER'; });
+  var locked = typeof self !== 'undefined' && self;
+%>
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0"><%= creating ? 'Tạo tài khoản đăng nhập cho nhân viên hoặc khách hàng.' : 'Cập nhật thông tin và vai trò. Quyền chi tiết của vai trò được chỉnh ở mục "Vai trò & phân quyền".' %></p>
+  <a href="/admin/users" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+<% if (errors.length) { %><div class="alert alert-danger"><ul class="mb-0"><% errors.forEach(function (e) { %><li><%= e %></li><% }) %></ul></div><% } %>
+
+<form method="post" action="<%= action %>" autocomplete="off">
+  <div class="card mb-4">
+    <div class="card-body row g-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="u-username">Tên đăng nhập <% if (creating) { %><span class="text-danger">*</span><% } %></label>
+        <input id="u-username" name="username" class="form-control font-monospace" maxlength="50" value="<%= values.username || '' %>" <%= creating ? 'required' : 'disabled' %>>
+        <% if (!creating) { %><div class="form-text">Tên đăng nhập không thể đổi.</div><% } %>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="u-email">Email</label>
+        <input id="u-email" name="email" type="email" class="form-control" maxlength="150" value="<%= values.email || '' %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="u-name">Họ tên <span class="text-danger">*</span></label>
+        <input id="u-name" name="fullName" class="form-control" maxlength="100" required value="<%= values.fullName || '' %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="u-phone">Số điện thoại</label>
+        <input id="u-phone" name="phone" type="tel" class="form-control" maxlength="15" pattern="0[0-9]{9,10}" value="<%= values.phone || '' %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="u-role">Vai trò <span class="text-danger">*</span></label>
+        <% if (isCustomer) { %>
+          <input class="form-control" value="Khách hàng" disabled>
+          <div class="form-text">Tài khoản khách hàng không đổi sang vai trò nhân viên.</div>
+        <% } else { %>
+          <select id="u-role" name="roleId" class="form-select" required <%= locked ? 'disabled' : '' %>>
+            <% if (creating) { %><option value="">Chọn vai trò</option><% } %>
+            <% (creating ? roles : staffRoles).forEach(function (r) { %><option value="<%= r.RoleId %>" <%= String(values.roleId) === String(r.RoleId) ? 'selected' : '' %>><%= r.RoleName %> (<%= r.RoleCode %>)</option><% }) %>
+          </select>
+          <% if (locked) { %><input type="hidden" name="roleId" value="<%= values.roleId %>"><div class="form-text">Bạn không thể tự đổi vai trò của chính mình.</div><% } %>
+        <% } %>
+      </div>
+      <% if (creating) { %>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="u-pass">Mật khẩu <span class="text-danger">*</span></label>
+          <input id="u-pass" name="password" type="password" class="form-control" minlength="6" maxlength="72" required autocomplete="new-password">
+          <div class="form-text">Tối thiểu 6 ký tự. Người dùng nên đổi lại sau khi đăng nhập lần đầu.</div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+  <button class="btn btn-primary" type="submit"><%- ico('check') %> <%= creating ? 'Tạo tài khoản' : 'Lưu thay đổi' %></button>
+</form>

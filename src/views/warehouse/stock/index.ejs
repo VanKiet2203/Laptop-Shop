@@ -1,0 +1,65 @@
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="kpi kpi-rust"><span class="kpi-icon"><%- ico('boxes') %></span><div class="kpi-label">Mặt hàng đang bán</div><div class="kpi-value tabular-nums"><%= summary.skus %></div><div class="kpi-foot"><%= summary.onHand %> sản phẩm trong kho</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('receipt') %></span><div class="kpi-label">Giá trị tồn (theo giá vốn)</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(summary.stockValue) %></div><div class="kpi-foot"><%= summary.reserved %> đang giữ chỗ cho đơn chờ</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi <%= summary.lowStock ? 'kpi-amber' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('alert') %></span><div class="kpi-label">Sắp hết hàng</div><div class="kpi-value tabular-nums"><%= summary.lowStock %></div><div class="kpi-foot">tồn khả dụng ≤ ngưỡng cảnh báo</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi <%= summary.outOfStock ? 'kpi-danger' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('box') %></span><div class="kpi-label">Hết hàng</div><div class="kpi-value tabular-nums"><%= summary.outOfStock %></div><div class="kpi-foot">không còn hàng để bán</div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-3"><label class="form-label" for="st-q">Tên hoặc SKU</label><input id="st-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="st-cat">Nhóm hàng</label>
+        <select id="st-cat" name="categoryId" class="form-select"><option value="">Tất cả</option>
+          <% categories.forEach(function (c) { %><option value="<%= c.CategoryId %>" <%= String(filters.categoryId) === String(c.CategoryId) ? 'selected' : '' %>><%= c.CategoryName %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="st-level">Mức tồn</label>
+        <select id="st-level" name="level" class="form-select">
+          <option value="">Tất cả</option>
+          <option value="ok" <%= filters.level === 'ok' ? 'selected' : '' %>>Đủ hàng</option>
+          <option value="low" <%= filters.level === 'low' ? 'selected' : '' %>>Sắp hết</option>
+          <option value="out" <%= filters.level === 'out' ? 'selected' : '' %>>Hết hàng</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="st-sort">Sắp xếp</label>
+        <select id="st-sort" name="sort" class="form-select">
+          <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Tên A-Z</option>
+          <option value="available_asc" <%= filters.sort === 'available_asc' ? 'selected' : '' %>>Khả dụng thấp trước</option>
+          <option value="available_desc" <%= filters.sort === 'available_desc' ? 'selected' : '' %>>Khả dụng cao trước</option>
+          <option value="onhand_desc" <%= filters.sort === 'onhand_desc' ? 'selected' : '' %>>Tồn thực nhiều nhất</option>
+          <option value="value_desc" <%= filters.sort === 'value_desc' ? 'selected' : '' %>>Giá trị tồn cao nhất</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button>
+        <a class="btn btn-outline-secondary" href="/warehouse/stock">Xoá lọc</a>
+        <% if (currentUser.permissions.includes('receipt.create')) { %><a class="btn btn-primary ms-auto" href="/warehouse/receipts/new"><%- ico('boxin') %> Nhập hàng</a><% } %>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Sản phẩm</th><th class="text-end">Giá vốn</th><th class="text-end">Tồn thực</th><th class="text-end">Giữ chỗ</th><th class="text-end">Khả dụng</th><th class="text-end">Ngưỡng</th><th>Tình trạng</th></tr></thead>
+    <tbody>
+      <% products.forEach(function (p) { var out = p.QtyAvailable <= 0; var low = !out && p.QtyAvailable <= p.ReorderLevel; %>
+        <tr>
+          <td><span class="part-no d-inline-block mb-1"><%= p.Sku %></span><div class="fw-semibold"><%= p.ProductName %></div><div class="small text-muted"><%= p.CategoryName %> · <%= p.BrandName %><% if (p.IsSerialTracked) { %> · <a href="/warehouse/stock/serials?productId=<%= p.ProductId %>&status=InStock"><%= p.SerialsInStock %> Serial trong kho</a><% } %></div></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(p.CostPrice) %></td>
+          <td class="text-end tabular-nums"><%= p.QtyOnHand %></td>
+          <td class="text-end tabular-nums"><%= p.QtyReserved %></td>
+          <td class="text-end tabular-nums fw-semibold <%= out ? 'text-danger' : (low ? 'text-warning' : '') %>"><%= p.QtyAvailable %></td>
+          <td class="text-end tabular-nums text-muted"><%= p.ReorderLevel %></td>
+          <td><span class="badge text-bg-<%= out ? 'danger' : (low ? 'warning' : 'success') %>"><%= out ? 'Hết hàng' : (low ? 'Sắp hết' : 'Đủ hàng') %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!products.length) { %><tr><td colspan="7" class="text-center text-muted py-4">Không có sản phẩm phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

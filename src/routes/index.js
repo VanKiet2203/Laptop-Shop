@@ -5,6 +5,7 @@ router.use('/auth', require('./auth.routes'));            // Đăng nhập/đăn
 router.use('/admin', require('./admin.routes'));          // Giao diện ADMIN            (M1)
 router.use('/warehouse', require('./warehouse.routes'));  // Giao diện KHO / nhập hàng  (M1)
 router.use('/staff', require('./staff.routes'));          // Giao diện NV BÁN HÀNG      (M2 + M4)
+router.use('/chat', require('./chat.routes'));            // Chat khách <-> nhân viên (+ trợ lý AI)
 router.use('/', require('./customer.routes'));            // /register /cart /checkout /account /orders (M3)
 router.use('/', require('./store.routes'));               // Cửa hàng: / /products      (M2)
 

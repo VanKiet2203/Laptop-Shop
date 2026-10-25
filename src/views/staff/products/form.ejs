@@ -1,0 +1,135 @@
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <p class="text-muted mb-0">Thông tin bán hàng và thông số kỹ thuật của sản phẩm.</p>
+    <p class="small text-muted mb-0">Giá vốn và tồn kho chỉ được thay đổi qua quy trình nhập kho.</p>
+  </div>
+  <a href="/staff/products" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+
+<form method="post" action="<%= action %>">
+  <div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">Thông tin sản phẩm</div>
+    <div class="card-body row g-3">
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="product-sku">SKU <span class="text-danger">*</span></label>
+        <input id="product-sku" name="sku" class="form-control font-monospace text-uppercase" maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,39}" autocomplete="off" required value="<%= product.Sku || '' %>">
+        <div class="form-text">Tối đa 40 ký tự; chỉ dùng chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.</div>
+      </div>
+      <div class="col-12 col-md-8">
+        <label class="form-label" for="product-name">Tên sản phẩm <span class="text-danger">*</span></label>
+        <input id="product-name" name="productName" class="form-control" maxlength="200" required value="<%= product.ProductName || '' %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-category">Danh mục <span class="text-danger">*</span></label>
+        <select id="product-category" name="categoryId" class="form-select" required>
+          <option value="">Chọn danh mục</option>
+          <% categories.forEach(function (category) { %>
+            <option value="<%= category.CategoryId %>" <%= String(product.CategoryId || '') === String(category.CategoryId) ? 'selected' : '' %>>
+              <%= category.ParentCategoryName ? `${category.ParentCategoryName} / ` : '' %><%= category.CategoryName %><%= category.IsActive ? '' : ' (ngừng sử dụng)' %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-brand">Thương hiệu <span class="text-danger">*</span></label>
+        <select id="product-brand" name="brandId" class="form-select" required>
+          <option value="">Chọn thương hiệu</option>
+          <% brands.forEach(function (brand) { %>
+            <option value="<%= brand.BrandId %>" <%= String(product.BrandId || '') === String(brand.BrandId) ? 'selected' : '' %>>
+              <%= brand.BrandName %><%= brand.IsActive ? '' : ' (ngừng sử dụng)' %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-price">Giá bán (VND) <span class="text-danger">*</span></label>
+        <input id="product-price" type="number" name="salePrice" class="form-control tabular-nums" min="0" max="9007199254740991" step="1" inputmode="numeric" required value="<%= product.SalePrice == null ? '' : product.SalePrice %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-warranty">Bảo hành (tháng)</label>
+        <input id="product-warranty" type="number" name="warrantyMonths" class="form-control" min="0" max="1200" step="1" required value="<%= product.WarrantyMonths == null ? 0 : product.WarrantyMonths %>">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-short-desc">Mô tả ngắn</label>
+        <textarea id="product-short-desc" name="shortDesc" class="form-control" rows="2" maxlength="500"><%= product.ShortDesc || '' %></textarea>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-description">Mô tả chi tiết</label>
+        <textarea id="product-description" name="description" class="form-control" rows="2" maxlength="10000"><%= product.Description || '' %></textarea>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="product-images">URL ảnh sản phẩm</label>
+        <textarea id="product-images" name="imageUrls" class="form-control font-monospace" rows="4" maxlength="5000" spellcheck="false"><%= imagesText %></textarea>
+        <div class="form-text">Mỗi dòng một URL http/https hoặc đường dẫn nội bộ bắt đầu bằng /. Tối đa 8 ảnh; ảnh đầu tiên là ảnh đại diện.</div>
+      </div>
+      <div class="col-12 col-md-6 d-flex flex-column justify-content-center gap-3">
+        <div>
+          <% if (serialTrackingLocked) { %>
+            <input type="hidden" name="isSerialTracked" value="<%= product.IsSerialTracked ? '1' : '0' %>">
+            <div class="form-check">
+              <input id="product-serial" type="checkbox" class="form-check-input" <%= product.IsSerialTracked ? 'checked' : '' %> disabled>
+              <label class="form-check-label" for="product-serial">Quản lý theo Serial</label>
+            </div>
+            <div class="form-text">Không thể đổi thiết lập Serial vì sản phẩm đã có tồn kho hoặc lịch sử nhập/bán.</div>
+          <% } else { %>
+            <input type="hidden" name="isSerialTracked" value="0">
+            <div class="form-check">
+              <input id="product-serial" type="checkbox" class="form-check-input" name="isSerialTracked" value="1" <%= product.IsSerialTracked ? 'checked' : '' %>>
+              <label class="form-check-label" for="product-serial">Quản lý theo Serial</label>
+            </div>
+          <% } %>
+        </div>
+        <% if (product.ProductId) { %>
+          <div class="form-check">
+            <input id="product-active" type="checkbox" class="form-check-input" name="isActive" value="1" <%= product.IsActive ? 'checked' : '' %>>
+            <label class="form-check-label" for="product-active">Đang bán</label>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <% if (product.ProductId) { %>
+    <div class="card mb-4">
+      <div class="card-header bg-white fw-semibold">Thông tin kho (chỉ xem)</div>
+      <div class="card-body row g-3">
+        <div class="col-6 col-md-3">
+          <div class="small text-muted">Tồn thực</div>
+          <div class="fs-5 tabular-nums"><%= product.QtyOnHand %></div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="small text-muted">Đang giữ chỗ</div>
+          <div class="fs-5 tabular-nums"><%= product.QtyReserved %></div>
+        </div>
+        <div class="col-12 col-md-6 align-self-center text-muted small">
+          Thay đổi tồn kho và giá vốn được thực hiện bởi quy trình nhập kho, không phải biểu mẫu sản phẩm.
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">Thông số kỹ thuật</div>
+    <div class="card-body">
+      <% if (attributes.length) { %>
+        <div class="row g-3">
+          <% attributes.forEach(function (attribute) { %>
+            <div class="col-12 col-md-6 col-xl-4">
+              <label class="form-label" for="attr-<%= attribute.AttributeId %>">
+                <%= attribute.AttrName %><% if (attribute.Unit) { %> (<%= attribute.Unit %>)<% } %>
+              </label>
+              <input id="attr-<%= attribute.AttributeId %>" name="attr_<%= attribute.AttributeId %>" class="form-control" maxlength="200" value="<%= attribute.AttrValue || '' %>">
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="text-muted mb-0">Chưa có thuộc tính kỹ thuật. Có thể tạo thuộc tính trong mục quản lý thuộc tính.</p>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <button class="btn btn-primary" type="submit">Lưu sản phẩm</button>
+    <a href="/staff/products" class="btn btn-outline-secondary">Huỷ</a>
+  </div>
+</form>

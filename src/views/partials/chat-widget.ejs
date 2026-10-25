@@ -1,0 +1,53 @@
+<%# Khung chat nổi trên cửa hàng (khách vãng lai + khách đã đăng nhập). Tài khoản nhân viên/admin dùng hộp thư trong /staff/chat nên không hiện. %>
+<% if (!currentUser || currentUser.role === 'CUSTOMER') { %>
+<div class="chatw" id="chat-widget" data-user="<%= currentUser ? '1' : '0' %>" data-name="<%= currentUser ? currentUser.fullName : '' %>">
+  <button class="chatw-fab" id="chatw-toggle" type="button" aria-expanded="false" aria-controls="chatw-panel">
+    <%- ico('chat') %><span class="chatw-fab-text">Chat với shop</span>
+    <span class="chatw-unread" id="chatw-unread" hidden aria-label="Tin nhắn chưa đọc">0</span>
+  </button>
+
+  <section class="chatw-panel" id="chatw-panel" role="dialog" aria-label="Chat hỗ trợ khách hàng" hidden>
+    <header class="chatw-head">
+      <span class="chatw-avatar" aria-hidden="true"><%- ico('headset') %></span>
+      <div class="chatw-head-text">
+        <strong>Hỗ trợ <%= site.name %></strong>
+        <small id="chatw-status">Nhân viên phản hồi trong ít phút</small>
+      </div>
+      <button type="button" class="chatw-close" id="chatw-close" aria-label="Thu nhỏ khung chat"><%- ico('x') %></button>
+    </header>
+
+    <div class="chatw-body" id="chatw-messages" role="log" aria-live="polite" tabindex="0">
+      <div class="chatw-hello" id="chatw-hello">
+        <div class="chatw-bubble is-agent">Xin chào! Mình có thể giúp bạn chọn laptop, linh kiện, hoặc giải đáp về bảo hành, giao hàng, thanh toán. Bạn cần hỗ trợ gì ạ?</div>
+        <div class="chatw-chips" id="chatw-chips">
+          <button type="button" class="chatw-chip" data-text="Mình cần tư vấn laptop học tập, văn phòng tầm 15 triệu.">Tư vấn laptop</button>
+          <button type="button" class="chatw-chip" data-text="Cho mình hỏi chính sách bảo hành như thế nào?">Chính sách bảo hành</button>
+          <button type="button" class="chatw-chip" data-text="Shop có hỗ trợ trả góp và giao hàng không?">Trả góp &amp; giao hàng</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chatw-product" id="chatw-product" hidden>
+      <span class="chatw-product-name" id="chatw-product-name"></span>
+      <button type="button" class="chatw-chip" id="chatw-product-ask">Hỏi về sản phẩm này</button>
+    </div>
+
+    <form class="chatw-form" id="chatw-form" autocomplete="off">
+      <div class="chatw-name" id="chatw-name-row" <%= currentUser ? 'hidden' : '' %>>
+        <label class="visually-hidden" for="chatw-guest">Tên của bạn</label>
+        <input id="chatw-guest" type="text" maxlength="60" placeholder="Tên của bạn (không bắt buộc)">
+      </div>
+      <div class="chatw-input-row">
+        <label class="visually-hidden" for="chatw-input">Nhập tin nhắn</label>
+        <textarea id="chatw-input" rows="1" maxlength="1000" placeholder="Nhập tin nhắn…" required></textarea>
+        <button type="submit" class="chatw-send" id="chatw-send" aria-label="Gửi tin nhắn"><%- ico('send') %></button>
+      </div>
+      <div class="chatw-foot">
+        <button type="button" class="chatw-human" id="chatw-human"><%- ico('user', 'ico-sm') %> Gặp nhân viên</button>
+        <span class="chatw-note"><%- ico('robot', 'ico-sm') %> Trợ lý AI trả lời khi nhân viên bận. Đừng gửi mật khẩu hay số thẻ.</span>
+      </div>
+    </form>
+  </section>
+</div>
+<script src="/js/chat.js?v=<%= assetVersion %>" defer></script>
+<% } %>

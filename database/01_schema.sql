@@ -70,6 +70,7 @@ CREATE TABLE dbo.Accounts (
     RoleId          INT           NOT NULL,       -- Vai trò
     IsActive        BIT           NOT NULL CONSTRAINT DF_Accounts_Active DEFAULT 1, -- 1 = hoạt động, 0 = khoá
     LastLoginAt     DATETIME2(0)  NULL,           -- Lần đăng nhập gần nhất
+    PasswordChangedAt DATETIME2(3) NULL,          -- Lần đổi mật khẩu gần nhất (đổi mật khẩu thì các phiên đăng nhập cũ bị đăng xuất)
     CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_Accounts_Created DEFAULT SYSDATETIME(), -- Ngày tạo
     CONSTRAINT PK_Accounts PRIMARY KEY (AccountId),
     CONSTRAINT UQ_Accounts_Username UNIQUE (Username),
@@ -112,20 +113,22 @@ CREATE TABLE dbo.Customers (
     CustomerId      INT IDENTITY(1,1) NOT NULL,   -- Mã khách hàng
     AccountId       INT           NULL,           -- Tài khoản online (NULL = khách vãng lai)
     FullName        NVARCHAR(100) NOT NULL,       -- Họ tên
-    Phone           VARCHAR(15)   NOT NULL,       -- Số điện thoại (duy nhất)
+    Phone           VARCHAR(15)   NULL,           -- Số điện thoại (duy nhất nếu có; đăng ký/đăng nhập Google không bắt buộc, chỉ bắt buộc khi chốt đơn)
     Email           VARCHAR(150)  NULL,           -- Email
+    AvatarUrl       NVARCHAR(500) NULL,           -- Ảnh đại diện (đường dẫn /uploads/... hoặc ảnh Google)
     TierId          INT           NOT NULL CONSTRAINT DF_Cust_Tier DEFAULT 1, -- Hạng thân thiết
     LoyaltyPoints   INT           NOT NULL CONSTRAINT DF_Cust_Points DEFAULT 0, -- Điểm tích luỹ
     CompanyName     NVARCHAR(200) NULL,           -- Tên doanh nghiệp (xuất hoá đơn công ty)
     TaxCode         VARCHAR(20)   NULL,           -- Mã số thuế
     CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_Cust_Created DEFAULT SYSDATETIME(), -- Ngày tạo
     CONSTRAINT PK_Customers PRIMARY KEY (CustomerId),
-    CONSTRAINT UQ_Customers_Phone UNIQUE (Phone),
     CONSTRAINT FK_Customers_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId),
     CONSTRAINT FK_Customers_Tier FOREIGN KEY (TierId) REFERENCES dbo.MembershipTiers(TierId),
     CONSTRAINT CK_Customers_Points CHECK (LoyaltyPoints >= 0)
 );
 CREATE UNIQUE INDEX UX_Customers_Account ON dbo.Customers(AccountId) WHERE AccountId IS NOT NULL;
+-- Số điện thoại duy nhất khi có (nhiều khách chưa khai báo SĐT vẫn để NULL được)
+CREATE UNIQUE INDEX UX_Customers_Phone ON dbo.Customers(Phone) WHERE Phone IS NOT NULL;
 
 -- [Table] CustomerAddresses: Sổ địa chỉ giao hàng của khách
 CREATE TABLE dbo.CustomerAddresses (
@@ -157,6 +160,33 @@ CREATE TABLE dbo.AuditLogs (
     CONSTRAINT FK_Audit_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId) ON DELETE SET NULL
 );
 CREATE INDEX IX_Audit_CreatedAt ON dbo.AuditLogs(CreatedAt DESC);
+
+-- [Table] PasswordResets: Mã đặt lại mật khẩu gửi qua email (chỉ lưu bản băm SHA-256, dùng 1 lần, hết hạn nhanh)
+CREATE TABLE dbo.PasswordResets (
+    ResetId         INT IDENTITY(1,1) NOT NULL,   -- Mã yêu cầu
+    AccountId       INT           NOT NULL,       -- Tài khoản cần đặt lại mật khẩu
+    TokenHash       CHAR(64)      NOT NULL,       -- SHA-256 (hex) của mã trong link email; không lưu mã gốc
+    ExpiresAt       DATETIME2(0)  NOT NULL,       -- Hết hạn lúc
+    UsedAt          DATETIME2(0)  NULL,           -- Đã dùng / bị thay thế lúc (NULL = còn hiệu lực nếu chưa hết hạn)
+    RequestIp       VARCHAR(45)   NULL,           -- IP gửi yêu cầu (giới hạn tần suất)
+    CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_PwReset_Created DEFAULT SYSDATETIME(), -- Thời điểm yêu cầu
+    CONSTRAINT PK_PasswordResets PRIMARY KEY (ResetId),
+    CONSTRAINT UQ_PwReset_Token UNIQUE (TokenHash),
+    CONSTRAINT FK_PwReset_Account FOREIGN KEY (AccountId) REFERENCES dbo.Accounts(AccountId) ON DELETE CASCADE
+);
+CREATE INDEX IX_PwReset_Account ON dbo.PasswordResets(AccountId, CreatedAt DESC);
+-- Tra cứu lịch sử theo từng đối tượng (vd: lịch sử xử lý của một đơn hàng)
+CREATE INDEX IX_Audit_Entity ON dbo.AuditLogs(EntityName, EntityId) INCLUDE (Action, CreatedAt);
+
+-- [Table] Sessions: Phiên đăng nhập / giỏ hàng khách vãng lai (lưu trong SQL để restart server không mất phiên)
+CREATE TABLE dbo.Sessions (
+    SessionId       VARCHAR(128)  NOT NULL,       -- Mã phiên (cookie connect.sid đã ký, bỏ phần chữ ký)
+    Data            NVARCHAR(MAX) NOT NULL,       -- Nội dung phiên (JSON)
+    ExpiresAt       DATETIME2(0)  NOT NULL,       -- Hết hạn lúc
+    CONSTRAINT PK_Sessions PRIMARY KEY (SessionId)
+);
+CREATE INDEX IX_Sessions_Expires ON dbo.Sessions(ExpiresAt);
+
 GO
 
 /* =====================================================================
@@ -418,7 +448,8 @@ CREATE TABLE dbo.Orders (
     PaidAt          DATETIME2(0)  NULL,           -- Thời điểm thanh toán
     ReceiverName    NVARCHAR(100) NOT NULL,       -- Người nhận (snapshot)
     ReceiverPhone   VARCHAR(15)   NOT NULL,       -- SĐT nhận (snapshot)
-    ShippingAddress NVARCHAR(400) NOT NULL,       -- Địa chỉ giao (snapshot)
+    ReceiverEmail   VARCHAR(150)  NULL,           -- Email nhận thông báo/mã đơn (khách vãng lai bắt buộc nhập ở bước chốt đơn)
+    ShippingAddress NVARCHAR(600) NOT NULL,       -- Địa chỉ giao (snapshot) /// ghép từ AddressLine + Ward + District + Province (tổng 500 ký tự)
     Subtotal        DECIMAL(18,0) NOT NULL,       -- Tổng tiền hàng
     DiscountAmount  DECIMAL(18,0) NOT NULL CONSTRAINT DF_Ord_Disc DEFAULT 0, -- Giảm giá
     ShippingFee     DECIMAL(18,0) NOT NULL CONSTRAINT DF_Ord_Ship DEFAULT 0, -- Phí vận chuyển
@@ -444,6 +475,7 @@ CREATE TABLE dbo.Orders (
     CONSTRAINT CK_Orders_Vat CHECK (VatRate >= 0 AND VatRate <= 100)
 );
 CREATE INDEX IX_Orders_Customer ON dbo.Orders(CustomerId, CreatedAt DESC);
+CREATE INDEX IX_Orders_ReceiverPhone ON dbo.Orders(ReceiverPhone) INCLUDE (ReceiverEmail, OrderNo);  -- tra cứu đơn của khách vãng lai (mã đơn + SĐT) và gửi lại mã đơn
 CREATE INDEX IX_Orders_StatusDate ON dbo.Orders(Status, CreatedAt DESC) INCLUDE (Subtotal, DiscountAmount, ShippingFee, VatRate);
 
 -- [Table] OrderDetails: Chi tiết đơn hàng
@@ -488,7 +520,7 @@ CREATE TABLE dbo.Invoices (
     BuyerName       NVARCHAR(100) NOT NULL,       -- Tên người mua
     BuyerCompany    NVARCHAR(200) NULL,           -- Tên đơn vị (nếu xuất công ty)
     BuyerTaxCode    VARCHAR(20)   NULL,           -- MST người mua
-    BuyerAddress    NVARCHAR(400) NOT NULL,       -- Địa chỉ người mua
+    BuyerAddress    NVARCHAR(600) NOT NULL,       -- Địa chỉ người mua
     SubtotalAmount  DECIMAL(18,0) NOT NULL,       -- Tiền hàng
     DiscountAmount  DECIMAL(18,0) NOT NULL,       -- Giảm giá
     VatAmount       DECIMAL(18,0) NOT NULL,       -- Tiền VAT
@@ -526,13 +558,57 @@ CREATE INDEX IX_War_Customer ON dbo.Warranties(CustomerId);
 GO
 
 /* =====================================================================
+   NHÓM 4B: CHAT KHÁCH HÀNG <-> NHÂN VIÊN (có trợ lý AI trả lời khi nhân viên chưa phản hồi)
+   ===================================================================== */
+
+-- [Table] ChatConversations: Hội thoại chat (khách đã đăng nhập hoặc khách vãng lai theo phiên)
+CREATE TABLE dbo.ChatConversations (
+    ConversationId  INT IDENTITY(1,1) NOT NULL,   -- Mã hội thoại
+    CustomerId      INT           NULL,           -- Khách hàng (NULL = khách vãng lai)
+    GuestName       NVARCHAR(100) NULL,           -- Tên khách vãng lai tự nhập
+    ProductId       INT           NULL,           -- Sản phẩm khách đang hỏi (từ trang chi tiết)
+    Status          VARCHAR(10)   NOT NULL CONSTRAINT DF_ChatConv_Status DEFAULT 'Open', -- Open / Closed
+    AssignedEmployeeId INT        NULL,           -- Nhân viên đã nhận hội thoại
+    AiEnabled       BIT           NOT NULL CONSTRAINT DF_ChatConv_Ai DEFAULT 1, -- Cho phép AI tự trả lời khi nhân viên chưa phản hồi
+    NeedsHuman      BIT           NOT NULL CONSTRAINT DF_ChatConv_Human DEFAULT 0, -- Khách bấm "Gặp nhân viên" (AI dừng, nhân viên ưu tiên xử lý)
+    AiLockAt        DATETIME2(3)  NULL,           -- Mốc AI đang soạn câu trả lời (chống trả lời trùng)
+    AiReplyCount    INT           NOT NULL CONSTRAINT DF_ChatConv_AiCount DEFAULT 0, -- Số lần AI đã trả lời (giới hạn chi phí)
+    StaffReadUpTo   INT           NOT NULL CONSTRAINT DF_ChatConv_StaffRead DEFAULT 0, -- Nhân viên đã đọc đến tin nhắn số
+    CustomerReadUpTo INT          NOT NULL CONSTRAINT DF_ChatConv_CustRead DEFAULT 0, -- Khách đã đọc đến tin nhắn số
+    CreatedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_ChatConv_Created DEFAULT SYSDATETIME(), -- Bắt đầu lúc
+    LastMessageAt   DATETIME2(3)  NOT NULL CONSTRAINT DF_ChatConv_Last DEFAULT SYSDATETIME(), -- Tin nhắn gần nhất lúc
+    CONSTRAINT PK_ChatConversations PRIMARY KEY (ConversationId),
+    CONSTRAINT FK_ChatConv_Customer FOREIGN KEY (CustomerId) REFERENCES dbo.Customers(CustomerId) ON DELETE SET NULL,
+    CONSTRAINT FK_ChatConv_Product FOREIGN KEY (ProductId) REFERENCES dbo.Products(ProductId),
+    CONSTRAINT FK_ChatConv_Employee FOREIGN KEY (AssignedEmployeeId) REFERENCES dbo.Employees(EmployeeId),
+    CONSTRAINT CK_ChatConv_Status CHECK (Status IN ('Open','Closed'))
+);
+CREATE INDEX IX_ChatConv_Customer ON dbo.ChatConversations(CustomerId, ConversationId DESC) WHERE CustomerId IS NOT NULL;
+CREATE INDEX IX_ChatConv_Status ON dbo.ChatConversations(Status, LastMessageAt DESC);
+
+-- [Table] ChatMessages: Tin nhắn trong hội thoại
+CREATE TABLE dbo.ChatMessages (
+    MessageId       INT IDENTITY(1,1) NOT NULL,   -- Mã tin nhắn (tăng dần, dùng làm mốc "đã đọc")
+    ConversationId  INT           NOT NULL,       -- Hội thoại
+    SenderType      VARCHAR(8)    NOT NULL,       -- Customer (khách) / Staff (nhân viên) / AI (trợ lý tự động)
+    EmployeeId      INT           NULL,           -- Nhân viên gửi (khi SenderType = Staff)
+    Body            NVARCHAR(1000) NOT NULL,      -- Nội dung (văn bản thuần)
+    CreatedAt       DATETIME2(3)  NOT NULL CONSTRAINT DF_ChatMsg_Created DEFAULT SYSDATETIME(), -- Gửi lúc
+    CONSTRAINT PK_ChatMessages PRIMARY KEY (MessageId),
+    CONSTRAINT FK_ChatMsg_Conv FOREIGN KEY (ConversationId) REFERENCES dbo.ChatConversations(ConversationId) ON DELETE CASCADE,
+    CONSTRAINT FK_ChatMsg_Employee FOREIGN KEY (EmployeeId) REFERENCES dbo.Employees(EmployeeId),
+    CONSTRAINT CK_ChatMsg_Sender CHECK (SenderType IN ('Customer','Staff','AI'))
+);
+CREATE INDEX IX_ChatMsg_Conv ON dbo.ChatMessages(ConversationId, MessageId);
+GO
+
+/* =====================================================================
    NHÓM 5: TRIGGER KIỂM SOÁT TOÀN VẸN
    Chặn các thay đổi hợp lệ về mặt ràng buộc cột nhưng sai nghiệp vụ khi
    có ai đó (hoặc công cụ nào đó) ghi SQL trực tiếp, bỏ qua stored procedure.
    ===================================================================== */
 
--- Categories: không cho một danh mục tự làm cha của chính nó hoặc tạo vòng
--- cha-con nhiều cấp (A -> B -> C -> A).
+-- Categories: chặn vòng cha-con và giới hạn cây tối đa 100 cấp.
 CREATE TRIGGER dbo.trg_Categories_NoCycle ON dbo.Categories
 AFTER INSERT, UPDATE
 AS
@@ -543,7 +619,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM inserted WHERE ParentId = CategoryId)
         THROW 50001, N'Danh mục không thể là cha của chính nó.', 1;
 
-    -- Đi ngược chuỗi cha tối đa 100 cấp; nếu quay lại đúng điểm xuất phát thì có vòng lặp.
+    -- Đi ngược chuỗi cha; nếu quay lại đúng điểm xuất phát thì có vòng lặp.
     -- (CTE phải là câu lệnh riêng - không thể đặt trực tiếp bên trong IF EXISTS(...).)
     ;WITH chain AS (
         SELECT i.CategoryId AS StartId, c.CategoryId, c.ParentId, 1 AS Depth
@@ -559,6 +635,41 @@ BEGIN
         THROW 50002, N'Không thể gán danh mục cha: tạo thành vòng lặp nhiều cấp.', 1;
 
     DROP TABLE #CategoryCycleCheck;
+
+    -- Độ sâu tính từ gốc, bao gồm cả nút gốc. Khi di chuyển một nhánh,
+    -- kiểm tra cả độ sâu tổ tiên và mọi hậu duệ của từng nút vừa thay đổi.
+    ;WITH AncestorChain AS (
+        SELECT i.CategoryId AS StartId, c.CategoryId, c.ParentId, 1 AS Depth
+        FROM inserted i JOIN dbo.Categories c ON c.CategoryId = i.CategoryId
+        UNION ALL
+        SELECT a.StartId, p.CategoryId, p.ParentId, a.Depth + 1
+        FROM AncestorChain a JOIN dbo.Categories p ON p.CategoryId = a.ParentId
+        WHERE a.Depth <= 100
+    ),
+    RootDepth AS (
+        SELECT StartId, MAX(Depth) AS Depth
+        FROM AncestorChain
+        GROUP BY StartId
+    ),
+    DescendantTree AS (
+        SELECT i.CategoryId AS StartId, i.CategoryId, 0 AS Depth
+        FROM inserted i
+        UNION ALL
+        SELECT d.StartId, child.CategoryId, d.Depth + 1
+        FROM DescendantTree d
+        JOIN dbo.Categories child ON child.ParentId = d.CategoryId
+        WHERE d.Depth < 100
+    )
+    SELECT d.StartId INTO #CategoryDepthCheck
+    FROM DescendantTree d
+    JOIN RootDepth r ON r.StartId = d.StartId
+    WHERE r.Depth + d.Depth > 100
+    OPTION (MAXRECURSION 101);
+
+    IF EXISTS (SELECT 1 FROM #CategoryDepthCheck)
+        THROW 50006, N'Cây danh mục không được vượt quá 100 cấp.', 1;
+
+    DROP TABLE #CategoryDepthCheck;
 END
 GO
 

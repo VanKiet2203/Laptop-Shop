@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" role="img" aria-label="Minh hoạ Back to School: laptop, balo, vở và bút chì">
+  <defs>
+    <linearGradient id="scr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#6d5dfc"/></linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <linearGradient id="bag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#f97316"/></linearGradient>
+  </defs>
+  <!-- bóng nền -->
+  <ellipse cx="290" cy="384" rx="240" ry="16" fill="#0b1b4d" opacity=".25"/>
+  <!-- ngôi sao / hạt trang trí -->
+  <g fill="#fde68a">
+    <path d="M70 70l7 18 18 7-18 7-7 18-7-18-18-7 18-7z"/>
+    <path d="M500 40l5 12 12 5-12 5-5 12-5-12-12-5 12-5z"/>
+    <path d="M520 250l4 9 9 4-9 4-4 9-4-9-9-4 9-4z"/>
+  </g>
+  <circle cx="110" cy="260" r="7" fill="#93c5fd"/><circle cx="470" cy="120" r="9" fill="#f9a8d4"/><circle cx="40" cy="170" r="5" fill="#fde68a"/>
+  <!-- balo -->
+  <g transform="translate(366 128)">
+    <path d="M30 40c0-30 80-30 80 0" fill="none" stroke="#9a3412" stroke-width="9" stroke-linecap="round"/>
+    <rect x="0" y="34" width="140" height="196" rx="46" fill="url(#bag)"/>
+    <rect x="22" y="132" width="96" height="68" rx="16" fill="#ea580c"/>
+    <rect x="34" y="150" width="72" height="8" rx="4" fill="#fed7aa"/>
+    <path d="M22 96h96" stroke="#c2410c" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="70" cy="96" r="6" fill="#fed7aa"/>
+    <path d="M0 150c-14 6-14 46 0 52" fill="none" stroke="#c2410c" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <!-- vở -->
+  <g transform="translate(60 250) rotate(-6)">
+    <rect x="0" y="40" width="150" height="100" rx="8" fill="#fff"/>
+    <rect x="0" y="28" width="150" height="100" rx="8" fill="#fde047"/>
+    <rect x="0" y="16" width="150" height="100" rx="8" fill="#ec4899"/>
+    <path d="M18 40h110M18 58h86M18 76h98" stroke="#fbcfe8" stroke-width="5" stroke-linecap="round"/>
+    <g fill="#fff"><circle cx="12" cy="30" r="5"/><circle cx="12" cy="60" r="5"/><circle cx="12" cy="90" r="5"/></g>
+  </g>
+  <!-- laptop -->
+  <g transform="translate(120 70)">
+    <rect x="30" y="0" width="250" height="168" rx="14" fill="url(#lid)"/>
+    <rect x="42" y="12" width="226" height="144" rx="6" fill="url(#scr)"/>
+    <path d="M42 100c60-40 110-10 226-44v100H42z" fill="#fff" opacity=".14"/>
+    <text x="155" y="104" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="800" fill="#fff">A+</text>
+    <circle cx="86" cy="40" r="10" fill="#fde68a"/>
+    <path d="M0 176h310l-18 34a14 14 0 0 1-12 7H30a14 14 0 0 1-12-7z" fill="#cbd5e1"/>
+    <rect x="118" y="182" width="74" height="8" rx="4" fill="#94a3b8"/>
+  </g>
+  <!-- bút chì -->
+  <g transform="translate(300 300) rotate(-24)">
+    <rect x="0" y="0" width="190" height="20" rx="3" fill="#fbbf24"/>
+    <rect x="0" y="0" width="190" height="7" fill="#f59e0b"/>
+    <path d="M190 0l30 10-30 10z" fill="#fde7c3"/><path d="M212 6l8 4-8 4z" fill="#111827"/>
+    <rect x="-18" y="0" width="22" height="20" rx="4" fill="#f87171"/>
+  </g>
+  <!-- thẻ giá -->
+  <g transform="translate(34 80) rotate(-10)">
+    <path d="M0 18a10 10 0 0 1 10-10h74l26 28-26 28H10A10 10 0 0 1 0 54z" fill="#ef4444"/>
+    <circle cx="16" cy="36" r="5" fill="#fff"/>
+    <text x="58" y="45" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="800" fill="#fff">-8%</text>
+  </g>
+</svg>

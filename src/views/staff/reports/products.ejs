@@ -1,57 +1,58 @@
+<%
+  var maxQty = Math.max.apply(null, rows.map(function (r) { return r.QtySold; }).concat([1]));
+  var margin = totals.revenue > 0 ? Math.round(totals.profit * 1000 / totals.revenue) / 10 : 0;
+%>
+<p class="text-muted">Tính trên các đơn đang hiệu lực. Lợi nhuận gộp = doanh thu sau khuyến mãi − giá vốn (với hàng quản lý Serial là giá vốn đúng lô đã xuất bán).</p>
 
-<h2>Sản phẩm bán chạy</h2>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-4"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('box') %></span><div class="kpi-label">Đã bán<%= filters.category ? ' · ' + filters.category : '' %></div><div class="kpi-value tabular-nums"><%= totals.qty %></div><div class="kpi-foot">sản phẩm</div></div></div>
+  <div class="col-6 col-xl-4"><div class="kpi kpi-teal"><span class="kpi-icon"><%- ico('chart') %></span><div class="kpi-label">Doanh thu (chưa VAT)</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(totals.revenue) %></div><div class="kpi-foot">sau khuyến mãi</div></div></div>
+  <div class="col-12 col-xl-4"><div class="kpi kpi-ok"><span class="kpi-icon"><%- ico('trophy') %></span><div class="kpi-label">Lợi nhuận gộp</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(totals.profit) %></div><div class="kpi-foot">biên lợi nhuận <%= margin %>%</div></div></div>
+</div>
 
-<form method="GET" action="/staff/reports/products">
-  <label for="from">Từ ngày:</label>
-  <input type="date" id="from" name="from" value="<%= from %>" required>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="pp-sort">Xếp hạng theo</label>
+        <select id="pp-sort" name="sort" class="form-select">
+          <option value="qty" <%= filters.sort === 'qty' ? 'selected' : '' %>>Số lượng bán</option>
+          <option value="revenue" <%= filters.sort === 'revenue' ? 'selected' : '' %>>Doanh thu</option>
+          <option value="profit" <%= filters.sort === 'profit' ? 'selected' : '' %>>Lợi nhuận gộp</option>
+          <option value="margin" <%= filters.sort === 'margin' ? 'selected' : '' %>>Biên lợi nhuận</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="pp-cat">Danh mục</label>
+        <select id="pp-cat" name="category" class="form-select"><option value="">Tất cả</option>
+          <% categories.forEach(function (c) { %><option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="pp-limit">Hiển thị</label>
+        <select id="pp-limit" name="limit" class="form-select"><% [10, 20, 50].forEach(function (n) { %><option value="<%= n %>" <%= filters.limit === n ? 'selected' : '' %>>Top <%= n %></option><% }) %></select>
+      </div>
+      <div class="col-6 col-lg-4 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('trophy') %> Xem</button><a class="btn btn-outline-secondary" href="/staff/reports/products">Xoá lọc</a></div>
+    </form>
+  </div>
+</div>
 
-  <label for="to">Đến ngày:</label>
-  <input type="date" id="to" name="to" value="<%= to %>" required>
-
-  <label for="limit">Số sản phẩm:</label>
-  <select id="limit" name="limit">
-    <option value="10" <%= Number(limit) === 10 ? 'selected' : '' %>>10</option>
-    <option value="20" <%= Number(limit) === 20 ? 'selected' : '' %>>20</option>
-    <option value="50" <%= Number(limit) === 50 ? 'selected' : '' %>>50</option>
-  </select>
-
-  <button type="submit">Xem báo cáo</button>
-</form>
-
-<p>
-  <a href="/staff/reports">Quay lại báo cáo doanh thu</a>
-</p>
-
-<table border="1" cellpadding="8" cellspacing="0" width="100%">
-  <thead>
-    <tr>
-      <th>Mã SKU</th>
-      <th>Tên sản phẩm</th>
-      <th>Danh mục</th>
-      <th>Thương hiệu</th>
-      <th>Số lượng bán</th>
-      <th>Doanh số</th>
-      <th>Doanh thu thuần</th>
-    </tr>
-  </thead>
-
-  <tbody>
-    <% if (!report.products || report.products.length === 0) { %>
-      <tr>
-        <td colspan="7">Chưa có dữ liệu sản phẩm.</td>
-      </tr>
-    <% } else { %>
-      <% report.products.forEach(function(product) { %>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th style="width:3rem">#</th><th>Sản phẩm</th><th style="min-width:9rem">Đã bán</th><th class="text-end">Doanh thu</th><th class="text-end">Giá vốn</th><th class="text-end">Lợi nhuận gộp</th><th class="text-end">Biên</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (r, i) { %>
         <tr>
-          <td><%= product.Sku || '' %></td>
-          <td><%= product.ProductName || '' %></td>
-          <td><%= product.CategoryName || '' %></td>
-          <td><%= product.BrandName || '' %></td>
-          <td><%= Number(product.QtySold || 0).toLocaleString('vi-VN') %></td>
-          <td><%= Number(product.SalesAmount || 0).toLocaleString('vi-VN') %> VNĐ</td>
-          <td><%= Number(product.NetSalesAmount || 0).toLocaleString('vi-VN') %> VNĐ</td>
+          <td class="tabular-nums fw-semibold"><%= i + 1 %></td>
+          <td><span class="part-no d-inline-block mb-1"><%= r.Sku %></span><div class="fw-semibold"><%= r.ProductName %></div><div class="small text-muted"><%= r.CategoryName %> · <%= r.BrandName %></div></td>
+          <td><div class="hbar-row"><span class="tabular-nums fw-semibold"><%= r.QtySold %></span></div><div class="hbar-track"><span style="width: <%= Math.round(r.QtySold * 100 / maxQty) %>%"></span></div></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(r.NetSalesAmount) %></td>
+          <td class="text-end tabular-nums text-muted"><%= fmtMoney(r.CostAmount) %></td>
+          <td class="text-end tabular-nums fw-semibold <%= Number(r.GrossProfit) < 0 ? 'text-danger' : '' %>"><%= fmtMoney(r.GrossProfit) %></td>
+          <td class="text-end tabular-nums <%= Number(r.MarginPct) < 0 ? 'text-danger' : '' %>"><%= Number(r.MarginPct) %>%</td>
         </tr>
-      <% }); %>
-    <% } %>
-  </tbody>
-</table>
+      <% }) %>
+      <% if (!rows.length) { %><tr><td colspan="7" class="text-center text-muted py-4">Chưa có sản phẩm nào được bán.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>

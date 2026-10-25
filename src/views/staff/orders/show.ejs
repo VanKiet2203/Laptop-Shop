@@ -1,0 +1,145 @@
+<%
+  const st = ORDER_STATUS[order.Status] || { label: order.Status, cls: 'secondary' };
+  const ps = PAYMENT_STATUS[order.PaymentStatus] || { label: order.PaymentStatus, cls: 'secondary' };
+  const can = (p) => currentUser.permissions.includes(p);
+  const isCod = order.PaymentMethod === 'COD';
+  const showApprove = order.Status === 'Pending' && can('order.approve');
+  const showPayment = ['Pending', 'Approved'].includes(order.Status) && !isCod && order.PaymentStatus === 'Pending' && can('order.approve');
+  const showComplete = order.Status === 'Approved' && (isCod || order.PaymentStatus === 'Paid') && can('order.approve');
+  const showCancel = ['Pending', 'Approved'].includes(order.Status) && can('order.cancel');
+  const showRefund = order.Status === 'Cancelled' && order.PaymentStatus === 'RefundPending' && can('order.cancel');
+  const lowStock = order.items.filter((i) => order.Status === 'Pending' && i.QtyOnHand < i.Quantity);
+%>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <a class="small text-muted text-decoration-none" href="/staff/orders">&larr; Danh sách đơn hàng</a>
+    <h2 class="h4 mt-1 mb-1"><span class="part-no"><%= order.OrderNo %></span>
+      <span class="badge text-bg-<%= st.cls %> ms-2"><%= st.label %></span>
+      <span class="badge text-bg-<%= ps.cls %>"><%= ps.label %></span>
+    </h2>
+    <div class="small text-muted">Đặt lúc <%= fmtDateTime(order.CreatedAt) %><% if (order.SalesEmployeeName) { %> · Xử lý bởi <%= order.SalesEmployeeName %><% } %><% if (order.InvoiceNo) { %> · Hoá đơn <span class="part-no"><%= order.InvoiceNo %></span><% } %></div>
+  </div>
+</div>
+
+<% if (order.Status === 'Pending') { %>
+  <div class="alert alert-warning d-flex gap-2 align-items-start">
+    <%- ico('alert') %>
+    <div>
+      Đơn đang chờ nhân viên kiểm tra tồn kho.
+      <% if (isCod) { %> Đơn COD: gọi điện xác nhận với khách trước khi duyệt.<% } %>
+      <% if (lowStock.length) { %><strong>Cảnh báo:</strong> <%= lowStock.map((i) => i.ProductName).join(', ') %> không đủ tồn thực tế, duyệt sẽ bị từ chối.<% } %>
+    </div>
+  </div>
+<% } %>
+<% if (order.Status === 'Cancelled' && order.CancelReason) { %>
+  <div class="alert alert-secondary">Lý do huỷ: <%= order.CancelReason %><% if (order.CancelledAt) { %> (<%= fmtDateTime(order.CancelledAt) %>)<% } %></div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-12 col-xl-8">
+    <div class="card mb-4">
+      <div class="card-header bg-white fw-semibold">Sản phẩm trong đơn</div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Sản phẩm</th><th class="text-end">Đơn giá</th><th class="text-end">SL</th><th class="text-end">Thành tiền</th></tr></thead>
+          <tbody>
+            <% order.items.forEach(function (i) { %>
+              <tr>
+                <td>
+                  <span class="part-no d-inline-block mb-1"><%= i.Sku %></span>
+                  <div class="fw-semibold"><%= i.ProductName %></div>
+                  <div class="small text-muted">Bảo hành <%= i.WarrantyMonths %> tháng
+                    <% if (order.Status === 'Pending') { %> · Tồn thực <span class="tabular-nums <%= i.QtyOnHand < i.Quantity ? 'text-danger fw-semibold' : '' %>"><%= i.QtyOnHand %></span>, giữ chỗ <span class="tabular-nums"><%= i.QtyReserved %></span><% } %>
+                  </div>
+                  <% if (i.Serials) { %><div class="small mt-1">Serial: <span class="part-no"><%= i.Serials %></span></div><% } %>
+                </td>
+                <td class="text-end tabular-nums"><%= fmtMoney(i.UnitPrice) %></td>
+                <td class="text-end tabular-nums"><%= i.Quantity %></td>
+                <td class="text-end tabular-nums"><%= fmtMoney(i.LineTotal) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+          <tfoot class="table-light">
+            <tr><td colspan="3" class="text-end">Tạm tính</td><td class="text-end tabular-nums"><%= fmtMoney(order.Subtotal) %></td></tr>
+            <% if (Number(order.DiscountAmount) > 0) { %><tr><td colspan="3" class="text-end">Giảm giá<%= order.PromoCode ? ' (' + order.PromoCode + ')' : '' %></td><td class="text-end tabular-nums">-<%= fmtMoney(order.DiscountAmount) %></td></tr><% } %>
+            <tr><td colspan="3" class="text-end">Phí giao hàng</td><td class="text-end tabular-nums"><%= fmtMoney(order.ShippingFee) %></td></tr>
+            <tr><td colspan="3" class="text-end">VAT</td><td class="text-end tabular-nums"><%= fmtMoney(order.VatAmount) %></td></tr>
+            <tr class="fw-bold"><td colspan="3" class="text-end">Tổng thanh toán</td><td class="text-end tabular-nums"><%= fmtMoney(order.TotalAmount) %></td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Lịch sử xử lý</div>
+      <ul class="list-group list-group-flush">
+        <% history.forEach(function (h) { %>
+          <li class="list-group-item d-flex justify-content-between gap-3">
+            <span><strong><%= h.Actor %></strong> · <%= h.Detail %></span>
+            <span class="small text-muted text-nowrap tabular-nums"><%= fmtDateTime(h.CreatedAt) %></span>
+          </li>
+        <% }) %>
+        <% if (!history.length) { %><li class="list-group-item text-muted">Chưa có thao tác nào.</li><% } %>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <% if (showApprove || showPayment || showComplete || showRefund || showCancel) { %>
+      <div class="card mb-4">
+        <div class="card-header bg-white fw-semibold">Xử lý đơn</div>
+        <div class="card-body d-grid gap-2">
+          <% if (showApprove) { %>
+            <form method="post" action="/staff/orders/<%= order.OrderId %>/approve" onsubmit="return confirm('Duyệt đơn này? Hệ thống sẽ trừ kho, gán Serial và phát hành hoá đơn.')">
+              <button class="btn btn-primary w-100" type="submit"><%- ico('checkcircle') %> Duyệt đơn (còn hàng)</button>
+            </form>
+          <% } %>
+          <% if (showPayment) { %>
+            <form method="post" action="/staff/orders/<%= order.OrderId %>/confirm-payment" onsubmit="return confirm('Xác nhận đã nhận đủ tiền của khách?')">
+              <button class="btn btn-outline-primary w-100" type="submit"><%- ico('card') %> Xác nhận đã thanh toán</button>
+            </form>
+          <% } %>
+          <% if (showComplete) { %>
+            <form method="post" action="/staff/orders/<%= order.OrderId %>/complete" onsubmit="return confirm('Xác nhận đã giao hàng thành công<%= isCod ? ' và thu đủ tiền COD' : '' %>?')">
+              <button class="btn btn-success w-100" type="submit"><%- ico('truck') %> Giao thành công</button>
+            </form>
+          <% } %>
+          <% if (showRefund) { %>
+            <form method="post" action="/staff/orders/<%= order.OrderId %>/confirm-refund" onsubmit="return confirm('Chỉ bấm sau khi đã thực sự chuyển tiền lại cho khách. Tiếp tục?')">
+              <button class="btn btn-warning w-100" type="submit"><%- ico('refresh') %> Đã hoàn tiền cho khách</button>
+            </form>
+          <% } %>
+          <% if (showCancel) { %>
+            <form method="post" action="/staff/orders/<%= order.OrderId %>/cancel" onsubmit="return confirm('Huỷ đơn này? Tồn kho sẽ được trả lại.')">
+              <label class="form-label small mb-1" for="cancel-reason">Lý do huỷ đơn</label>
+              <input id="cancel-reason" name="reason" class="form-control form-control-sm mb-2" maxlength="255" required placeholder="VD: Khách đổi ý, hết hàng...">
+              <button class="btn btn-outline-danger w-100" type="submit"><%- ico('x') %> Huỷ đơn</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="card mb-4">
+      <div class="card-header bg-white fw-semibold">Người nhận</div>
+      <div class="card-body small">
+        <div class="fw-semibold fs-6"><%= order.ReceiverName %></div>
+        <div><%- ico('phone', 'ico-sm') %> <%= order.ReceiverPhone %></div>
+        <% if (order.ReceiverEmail) { %><div><%- ico('mail', 'ico-sm') %> <%= order.ReceiverEmail %></div><% } %>
+        <div class="mt-1"><%- ico('pin', 'ico-sm') %> <%= order.ShippingAddress %></div>
+        <div class="text-muted mt-2"><%= order.CustomerAccountId ? 'Khách có tài khoản' : 'Khách vãng lai' %></div>
+        <% if (order.Note) { %><div class="mt-2 p-2 bg-light rounded">Ghi chú: <%= order.Note %></div><% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Thanh toán</div>
+      <div class="card-body small">
+        <div><%= PAYMENT_METHOD[order.PaymentMethod] || order.PaymentMethod %></div>
+        <span class="badge text-bg-<%= ps.cls %> mt-1"><%= ps.label %></span>
+        <% if (order.PaidAt) { %><div class="text-muted mt-1">Thanh toán lúc <%= fmtDateTime(order.PaidAt) %></div><% } %>
+      </div>
+    </div>
+  </div>
+</div>

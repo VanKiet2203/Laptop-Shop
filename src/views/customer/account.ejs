@@ -1,0 +1,131 @@
+<%
+  var initial = String(profile.FullName || profile.Username || '?').trim().charAt(0).toUpperCase();
+  var avatar = currentUser && currentUser.avatarUrl;
+  var v = function (a, b) { return (values && (values[a] || values[b])) || ''; };
+%>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <!-- Thẻ hồ sơ + ảnh đại diện -->
+    <div class="profile-card">
+      <div class="avatar-xl-wrap">
+        <% if (avatar) { %>
+          <img class="avatar-xl" id="avatar-preview" src="<%= avatar %>" alt="Ảnh đại diện của <%= profile.FullName %>" referrerpolicy="no-referrer">
+        <% } else { %>
+          <span class="avatar-xl avatar-xl-letter" id="avatar-letter" aria-hidden="true"><%= initial %></span>
+          <img class="avatar-xl" id="avatar-preview" src="" alt="Ảnh đại diện" hidden>
+        <% } %>
+        <label class="avatar-edit" for="avatar-file" title="Đổi ảnh đại diện"><%- ico('camera') %><span class="visually-hidden">Đổi ảnh đại diện</span></label>
+        <input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" class="visually-hidden" data-avatar-input>
+      </div>
+      <h1 class="profile-name"><%= profile.FullName %></h1>
+      <div class="profile-user text-muted">@<%= profile.Username %></div>
+      <div class="profile-status" id="avatar-status" role="status" aria-live="polite"></div>
+      <% if (avatar) { %>
+        <form method="post" action="/account/avatar/delete" class="mt-2"><button class="btn btn-link btn-sm text-danger p-0">Xoá ảnh đại diện</button></form>
+      <% } %>
+      <div class="profile-stats">
+        <div><span>Hạng thành viên</span><strong><%= profile.TierName %></strong></div>
+        <div><span>Điểm tích luỹ</span><strong class="tabular-nums"><%= profile.LoyaltyPoints %></strong></div>
+      </div>
+      <a class="btn btn-outline-primary w-100 mt-3" href="/orders"><%- ico('receipt') %> Đơn hàng của tôi</a>
+      <a class="btn btn-outline-secondary w-100 mt-2" href="/auth/password"><%- ico('lock') %> Đổi mật khẩu</a>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <% if (errors.length) { %>
+      <div class="alert alert-danger" role="alert">
+        <ul class="mb-0 ps-3"><% errors.forEach(function (error) { %><li><%= error %></li><% }) %></ul>
+      </div>
+    <% } %>
+
+    <!-- Thông tin liên hệ -->
+    <section class="co-card" id="profile">
+      <h2 class="co-title"><span class="co-num"><%- ico('user', 'ico-sm') %></span> Thông tin cá nhân</h2>
+      <form method="post" action="/account" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="account-full-name">Họ và tên</label>
+          <input id="account-full-name" name="fullName" class="form-control" maxlength="100" required value="<%= v('FullName', 'fullName') %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="account-phone">Số điện thoại <span class="text-muted fw-normal">(chỉ bắt buộc khi đặt hàng)</span></label>
+          <input id="account-phone" name="phone" type="tel" class="form-control" maxlength="15" pattern="0[0-9]{9,10}" placeholder="09xxxxxxxx" value="<%= v('Phone', 'phone') %>">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="account-email">Email <span class="text-muted fw-normal">(không bắt buộc)</span></label>
+          <input id="account-email" name="email" type="email" class="form-control" maxlength="150" value="<%= v('Email', 'email') %>">
+          <div class="form-text">Email đăng nhập và email liên hệ được cập nhật đồng thời.</div>
+        </div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Lưu thay đổi</button></div>
+      </form>
+    </section>
+
+    <!-- Sổ địa chỉ (gộp chung trang hồ sơ) -->
+    <section class="co-card" id="addresses">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="co-title mb-0"><span class="co-num"><%- ico('pin', 'ico-sm') %></span> Sổ địa chỉ giao hàng <span class="text-muted fw-normal small tabular-nums">(<%= addresses.length %>/10)</span></h2>
+        <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#add-address" aria-expanded="false" aria-controls="add-address"><%- ico('plus', 'ico-sm') %> Thêm địa chỉ</button>
+      </div>
+
+      <div class="collapse" id="add-address">
+        <form method="post" action="/account/addresses" class="row g-3 addr-add">
+          <div class="col-md-6">
+            <label class="form-label" for="address-receiver-name">Tên người nhận</label>
+            <input id="address-receiver-name" name="receiverName" class="form-control" maxlength="100" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="address-receiver-phone">Số điện thoại người nhận</label>
+            <input id="address-receiver-phone" name="receiverPhone" type="tel" class="form-control" maxlength="15" pattern="0[0-9]{9,10}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="address-province">Tỉnh/Thành phố</label>
+            <select id="address-province" name="province" class="form-select" data-geo-province required>
+              <option value="">Chọn tỉnh/thành phố</option>
+              <% provinces.forEach(function (p) { %><option value="<%= p %>"><%= p %></option><% }) %>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="address-ward">Phường/Xã</label>
+            <select id="address-ward" name="ward" class="form-select" data-geo-ward required disabled>
+              <option value="">Chọn tỉnh/thành phố trước</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="address-line">Số nhà, tên đường</label>
+            <input id="address-line" name="addressLine" class="form-control" maxlength="200" required>
+          </div>
+          <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+            <label class="form-check mb-0"><input id="address-is-default" name="isDefault" value="1" type="checkbox" class="form-check-input"><span class="form-check-label">Đặt làm địa chỉ mặc định</span></label>
+            <button class="btn btn-primary ms-auto" type="submit">Lưu địa chỉ</button>
+          </div>
+        </form>
+        <hr>
+      </div>
+
+      <% if (!addresses.length) { %>
+        <div class="empty-inline"><%- ico('pin') %> Bạn chưa lưu địa chỉ nào. Địa chỉ đầu tiên sẽ tự động là mặc định, hoặc bạn có thể nhập địa chỉ ngay khi đặt hàng.</div>
+      <% } else { %>
+        <ul class="addr-cards list-unstyled">
+          <% addresses.forEach(function (address) { %>
+            <li class="addr-card <%= address.IsDefault ? 'is-default' : '' %>">
+              <div class="addr-card-main">
+                <div class="addr-card-name"><strong><%= address.ReceiverName %></strong> <span class="text-muted">·</span> <span class="tabular-nums"><%= address.ReceiverPhone %></span>
+                  <% if (address.IsDefault) { %><span class="flag flag-primary">Mặc định</span><% } %></div>
+                <div><%= address.AddressLine %></div>
+                <div class="text-muted small"><%= [address.Ward, address.District, address.Province].filter(Boolean).join(', ') %></div>
+              </div>
+              <div class="addr-card-actions">
+                <% if (!address.IsDefault) { %>
+                  <form method="post" action="/account/addresses/<%= address.AddressId %>/default"><button class="btn btn-sm btn-outline-primary" type="submit">Đặt mặc định</button></form>
+                <% } %>
+                <form method="post" action="/account/addresses/<%= address.AddressId %>/delete" data-confirm="Bạn có chắc muốn xoá địa chỉ này?">
+                  <button class="icon-btn icon-btn-danger" type="submit" aria-label="Xoá địa chỉ của <%= address.ReceiverName %>" title="Xoá"><%- ico('trash') %></button>
+                </form>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+</div>

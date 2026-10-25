@@ -1,76 +1,33 @@
-
-/**
- * MODULE 4 - NV BÁN HÀNG: HOÁ ĐƠN
- * Controller xử lý yêu cầu và gọi Model; không viết SQL tại đây.
- */
+// MODULE 4 - NV BÁN HÀNG: hoá đơn bán hàng (phát hành tự động khi duyệt đơn; ở đây chỉ xem / in lại)
 const Invoice = require('../../models/invoice.model');
+const audit = require('../../models/audit.model');
+const { parseId } = require('../../core/helpers');
+
+const NOT_FOUND = { layout: 'layouts/staff', title: 'Không tìm thấy' };
 
 // GET /staff/invoices
 exports.index = async (req, res) => {
-  const from = req.query.from || '';
-  const to = req.query.to || '';
-  const q = (req.query.q || '').trim();
-
-  const invoices = await Invoice.search({
-    from: from || null,
-    to: to || null,
-    q: q || null
-  });
-
-  const totalAmount = invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.TotalAmount || 0),
-    0
-  );
-
-  return res.render('staff/invoices/index', {
-    title: 'Hoá đơn bán hàng',
-    invoices,
-    filters: { from, to, q },
-    totalAmount
-  });
+  const result = await Invoice.search(req.query, req.query.page);
+  res.render('staff/invoices/index', { title: 'Hoá đơn bán hàng', invoices: result.rows, pg: result.pg, filters: result.filters, issuedTotal: result.issuedTotal });
 };
 
 // GET /staff/invoices/:id
 exports.show = async (req, res) => {
-  const id = Number(req.params.id);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).send('Mã hoá đơn không hợp lệ.');
-  }
-
-  const data = await Invoice.printData(id);
-
-  if (!data) {
-    return res.status(404).send('Không tìm thấy hoá đơn.');
-  }
-
-  return res.render('staff/invoices/show', {
-    title: 'Chi tiết hoá đơn',
-    invoice: data.invoice,
-    details: data.details
-  });
+  const id = parseId(req.params.id);
+  const invoice = id ? await Invoice.findById(id) : null;
+  if (!invoice) return res.status(404).render('errors/404', NOT_FOUND);
+  res.render('staff/invoices/show', { title: `Hoá đơn ${invoice.InvoiceNo}`, invoice });
 };
 
-// GET /staff/invoices/:id/print
+// GET /staff/invoices/:id/print - bản in (không layout), mỗi lần mở tăng số lần in
 exports.print = async (req, res) => {
-  const id = Number(req.params.id);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).send('Mã hoá đơn không hợp lệ.');
+  const id = parseId(req.params.id);
+  const invoice = id ? await Invoice.findById(id) : null;
+  if (!invoice) return res.status(404).render('errors/404', NOT_FOUND);
+  if (invoice.Status === 'Issued') {
+    await Invoice.markPrinted(id);
+    invoice.PrintCount += 1;
+    await audit.log(req, 'PRINT', 'Invoice', id, `In hoá đơn ${invoice.InvoiceNo} (lần ${invoice.PrintCount})`);
   }
-
-  const data = await Invoice.printData(id);
-
-  if (!data) {
-    return res.status(404).send('Không tìm thấy hoá đơn.');
-  }
-
-  await Invoice.increasePrintCount(id);
-
-  return res.render('staff/invoices/print', {
-    layout: false,
-    title: 'In hoá đơn',
-    invoice: data.invoice,
-    details: data.details
-  });
+  res.render('staff/invoices/print', { layout: false, title: `Hoá đơn ${invoice.InvoiceNo}`, invoice });
 };

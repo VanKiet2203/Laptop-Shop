@@ -14,6 +14,12 @@ erDiagram
     MembershipTiers ||--o{ Customers : "TierId"
     Customers ||--o{ CustomerAddresses : "CustomerId"
     Accounts |o--o{ AuditLogs : "AccountId"
+    Accounts ||--o{ PasswordResets : "AccountId"
+    Customers |o--o{ ChatConversations : "CustomerId"
+    Employees |o--o{ ChatConversations : "AssignedEmployeeId"
+    Products |o--o{ ChatConversations : "ProductId"
+    ChatConversations ||--o{ ChatMessages : "ConversationId"
+    Employees |o--o{ ChatMessages : "EmployeeId"
     Categories |o--o{ Categories : "ParentId"
     Categories ||--o{ Products : "CategoryId"
     Brands ||--o{ Products : "BrandId"
@@ -129,6 +135,7 @@ Tài khoản đăng nhập dùng chung (nhân viên, admin, khách hàng)
 | `RoleId` | INT | Không | FK → Roles |  | Vai trò |
 | `IsActive` | BIT | Không |  | 1 | 1 = hoạt động, 0 = khoá |
 | `LastLoginAt` | DATETIME2(0) | Có |  |  | Lần đăng nhập gần nhất |
+| `PasswordChangedAt` | DATETIME2(0) | Có |  |  | Lần đổi mật khẩu gần nhất (đổi mật khẩu thì các phiên đăng nhập cũ bị đăng xuất) |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Ngày tạo |
 
 **Unique:** (Username)
@@ -175,15 +182,16 @@ Khách hàng (có thể có tài khoản online hoặc khách vãng lai)
 | `CustomerId` | INT (IDENTITY) | Không | PK |  | Mã khách hàng |
 | `AccountId` | INT | Có | FK → Accounts |  | Tài khoản online (NULL = khách vãng lai) |
 | `FullName` | NVARCHAR(100) | Không |  |  | Họ tên |
-| `Phone` | VARCHAR(15) | Không |  |  | Số điện thoại (duy nhất) |
+| `Phone` | VARCHAR(15) | Có |  |  | Số điện thoại (duy nhất nếu có; đăng ký/đăng nhập Google không bắt buộc, chỉ bắt buộc khi chốt đơn) |
 | `Email` | VARCHAR(150) | Có |  |  | Email |
+| `AvatarUrl` | NVARCHAR(500) | Có |  |  | Ảnh đại diện (đường dẫn /uploads/... hoặc ảnh Google) |
 | `TierId` | INT | Không | FK → MembershipTiers | 1 | Hạng thân thiết |
 | `LoyaltyPoints` | INT | Không |  | 0 | Điểm tích luỹ |
 | `CompanyName` | NVARCHAR(200) | Có |  |  | Tên doanh nghiệp (xuất hoá đơn công ty) |
 | `TaxCode` | VARCHAR(20) | Có |  |  | Mã số thuế |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Ngày tạo |
 
-**Unique:** (Phone)  
+**Unique:** (Phone) khi khác NULL (chỉ mục lọc `UX_Customers_Phone`)  
 **Check:** `(LoyaltyPoints >= 0)`
 
 ### CustomerAddresses
@@ -217,6 +225,63 @@ Nhật ký thao tác hệ thống (ai làm gì, lúc nào)
 | `IpAddress` | VARCHAR(45) | Có |  |  | Địa chỉ IP |
 | `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Thời điểm |
 
+### PasswordResets
+
+Mã đặt lại mật khẩu gửi qua email (chỉ lưu bản băm SHA-256, dùng 1 lần, hết hạn nhanh)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `ResetId` | INT (IDENTITY) | Không | PK |  | Mã yêu cầu |
+| `AccountId` | INT | Không | FK → Accounts |  | Tài khoản cần đặt lại mật khẩu |
+| `TokenHash` | CHAR(64) | Không | UQ |  | SHA-256 (hex) của mã trong link email; không lưu mã gốc |
+| `ExpiresAt` | DATETIME2(0) | Không |  |  | Hết hạn lúc |
+| `UsedAt` | DATETIME2(0) | Có |  |  | Đã dùng / bị thay thế lúc (NULL = còn hiệu lực nếu chưa hết hạn) |
+| `RequestIp` | VARCHAR(45) | Có |  |  | IP gửi yêu cầu (giới hạn tần suất) |
+| `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Thời điểm yêu cầu |
+
+### Sessions
+
+Phiên đăng nhập / giỏ hàng khách vãng lai (lưu trong SQL để restart server không mất phiên)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `SessionId` | VARCHAR(128) | Không | PK |  | Mã phiên (cookie connect.sid đã ký, bỏ phần chữ ký) |
+| `Data` | NVARCHAR(MAX) | Không |  |  | Nội dung phiên (JSON) |
+| `ExpiresAt` | DATETIME2(0) | Không |  |  | Hết hạn lúc |
+
+### ChatConversations
+
+Hội thoại chat (khách đã đăng nhập hoặc khách vãng lai theo phiên)
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `ConversationId` | INT (IDENTITY) | Không | PK |  | Mã hội thoại |
+| `CustomerId` | INT | Có | FK → Customers |  | Khách hàng (NULL = khách vãng lai) |
+| `GuestName` | NVARCHAR(100) | Có |  |  | Tên khách vãng lai tự nhập |
+| `ProductId` | INT | Có | FK → Products |  | Sản phẩm khách đang hỏi (từ trang chi tiết) |
+| `Status` | VARCHAR(10) | Không |  | 'Open' | Open / Closed |
+| `AssignedEmployeeId` | INT | Có | FK → Employees |  | Nhân viên đã nhận hội thoại |
+| `AiEnabled` | BIT | Không |  | 1 | Cho phép AI tự trả lời khi nhân viên chưa phản hồi |
+| `NeedsHuman` | BIT | Không |  | 0 | Khách bấm "Gặp nhân viên" (AI dừng, nhân viên ưu tiên xử lý) |
+| `AiLockAt` | DATETIME2(3) | Có |  |  | Mốc AI đang soạn câu trả lời (chống trả lời trùng) |
+| `AiReplyCount` | INT | Không |  | 0 | Số lần AI đã trả lời (giới hạn chi phí) |
+| `StaffReadUpTo` | INT | Không |  | 0 | Nhân viên đã đọc đến tin nhắn số |
+| `CustomerReadUpTo` | INT | Không |  | 0 | Khách đã đọc đến tin nhắn số |
+| `CreatedAt` | DATETIME2(0) | Không |  | SYSDATETIME() | Bắt đầu lúc |
+| `LastMessageAt` | DATETIME2(3) | Không |  | SYSDATETIME() | Tin nhắn gần nhất lúc |
+
+### ChatMessages
+
+Tin nhắn trong hội thoại
+
+| Cột | Kiểu | Null | Khoá | Mặc định | Mô tả |
+|-----|------|------|------|----------|-------|
+| `MessageId` | INT (IDENTITY) | Không | PK |  | Mã tin nhắn (tăng dần, dùng làm mốc "đã đọc") |
+| `ConversationId` | INT | Không | FK → ChatConversations |  | Hội thoại |
+| `SenderType` | VARCHAR(8) | Không |  |  | Customer (khách) / Staff (nhân viên) / AI (trợ lý tự động) |
+| `EmployeeId` | INT | Có | FK → Employees |  | Nhân viên gửi (khi SenderType = Staff) |
+| `Body` | NVARCHAR(1000) | Không |  |  | Nội dung (văn bản thuần) |
+| `CreatedAt` | DATETIME2(3) | Không |  | SYSDATETIME() | Gửi lúc |
 ### Categories
 
 Danh mục sản phẩm nhiều cấp (Laptop > Gaming, Linh kiện > RAM...)
@@ -459,6 +524,7 @@ Mã khuyến mãi / voucher
 | `PaidAt` | DATETIME2(0) | Có |  |  | Thời điểm thanh toán |
 | `ReceiverName` | NVARCHAR(100) | Không |  |  | Người nhận (snapshot) |
 | `ReceiverPhone` | VARCHAR(15) | Không |  |  | SĐT nhận (snapshot) |
+| `ReceiverEmail` | VARCHAR(150) | Có |  |  | Email nhận mã đơn / thông báo (khách vãng lai bắt buộc nhập ở bước chốt đơn) |
 | `ShippingAddress` | NVARCHAR(400) | Không |  |  | Địa chỉ giao (snapshot) |
 | `Subtotal` | DECIMAL(18,0) | Không |  |  | Tổng tiền hàng |
 | `DiscountAmount` | DECIMAL(18,0) | Không |  | 0 | Giảm giá |

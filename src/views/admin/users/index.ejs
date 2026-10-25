@@ -1,0 +1,72 @@
+<%
+  var ROLE_TONE = { ADMIN: 'dark', SALES: 'info', WAREHOUSE: 'warning', CUSTOMER: 'secondary' };
+%>
+<div class="row g-3 mb-4">
+  <div class="col-4"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('users') %></span><div class="kpi-label">Tổng tài khoản</div><div class="kpi-value tabular-nums"><%= counts.total %></div><div class="kpi-foot">nhân viên + khách hàng</div></div></div>
+  <div class="col-4"><div class="kpi kpi-ok"><span class="kpi-icon"><%- ico('checkcircle') %></span><div class="kpi-label">Đang hoạt động</div><div class="kpi-value tabular-nums"><%= counts.active %></div><div class="kpi-foot">có thể đăng nhập</div></div></div>
+  <div class="col-4"><div class="kpi <%= counts.locked ? 'kpi-danger' : 'kpi-ok' %>"><span class="kpi-icon"><%- ico('lock') %></span><div class="kpi-label">Đã khoá</div><div class="kpi-value tabular-nums"><%= counts.locked %></div><div class="kpi-foot"><a href="?status=locked">Xem tài khoản bị khoá</a></div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4"><label class="form-label" for="us-q">Tên đăng nhập, họ tên, email, mã NV</label><input id="us-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="us-role">Vai trò</label>
+        <select id="us-role" name="role" class="form-select"><option value="">Tất cả</option>
+          <% roles.forEach(function (r) { %><option value="<%= r.RoleCode %>" <%= filters.role === r.RoleCode ? 'selected' : '' %>><%= r.RoleName %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="us-status">Trạng thái</label>
+        <select id="us-status" name="status" class="form-select"><option value="">Tất cả</option><option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Hoạt động</option><option value="locked" <%= filters.status === 'locked' ? 'selected' : '' %>>Đã khoá</option></select>
+      </div>
+      <div class="col-12 col-lg-4 d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button>
+        <a class="btn btn-outline-secondary" href="/admin/users">Xoá lọc</a>
+        <a class="btn btn-primary ms-auto" href="/admin/users/new"><%- ico('userplus') %> Thêm tài khoản</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Liên hệ</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+    <tbody>
+      <% users.forEach(function (u) { var mine = u.AccountId === me; var system = u.EmployeeCode === 'NV000'; %>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar" aria-hidden="true"><%= String(u.FullName || '?').trim().charAt(0).toUpperCase() %></span>
+              <div><div class="fw-semibold"><%= u.FullName %><% if (mine) { %> <span class="badge text-bg-light">Bạn</span><% } %><% if (system) { %> <span class="badge text-bg-light">Hệ thống</span><% } %></div>
+                <div class="small text-muted"><span class="part-no"><%= u.Username %></span><%= u.EmployeeCode ? ' · ' + u.EmployeeCode : '' %></div></div>
+            </div>
+          </td>
+          <td><span class="badge text-bg-<%= ROLE_TONE[u.RoleCode] || 'secondary' %>"><%= u.RoleName %></span></td>
+          <td class="small"><div><%= u.Email || '—' %></div><div class="text-muted"><%= u.Phone || '' %></div></td>
+          <td class="small tabular-nums"><%= u.LastLoginAt ? fmtDateTime(u.LastLoginAt) : 'Chưa đăng nhập' %></td>
+          <td><span class="badge text-bg-<%= u.IsActive ? 'success' : 'danger' %>"><%= u.IsActive ? 'Hoạt động' : 'Đã khoá' %></span></td>
+          <td class="text-end text-nowrap">
+            <% if (!system) { %>
+              <a class="btn btn-sm btn-outline-primary" href="/admin/users/<%= u.AccountId %>/edit">Sửa</a>
+              <% if (!mine) { %>
+                <form class="d-inline" method="post" action="/admin/users/<%= u.AccountId %>/toggle" onsubmit="return confirm('<%= u.IsActive ? 'Khoá' : 'Mở khoá' %> tài khoản <%= u.Username %>?')">
+                  <button class="btn btn-sm btn-outline-<%= u.IsActive ? 'warning' : 'success' %>" type="submit"><%= u.IsActive ? 'Khoá' : 'Mở khoá' %></button>
+                </form>
+                <form class="d-inline" method="post" action="/admin/users/<%= u.AccountId %>/reset-password" onsubmit="return confirm('Đặt lại mật khẩu của <%= u.Username %>? Mật khẩu cũ sẽ không dùng được nữa.')">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Đặt lại MK</button>
+                </form>
+                <form class="d-inline" method="post" action="/admin/users/<%= u.AccountId %>/delete" onsubmit="return confirm('Xoá tài khoản <%= u.Username %>? Nếu đã phát sinh dữ liệu, hệ thống sẽ chuyển sang khoá.')">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button>
+                </form>
+              <% } %>
+            <% } else { %><span class="small text-muted">Không chỉnh sửa</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!users.length) { %><tr><td colspan="6" class="text-center text-muted py-4">Không có tài khoản phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

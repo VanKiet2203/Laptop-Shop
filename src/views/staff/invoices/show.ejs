@@ -1,163 +1,56 @@
+<%
+  var voided = invoice.Status === 'Voided';
+  var shipping = Number(invoice.ShippingFee);
+%>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <a class="small text-muted text-decoration-none" href="/staff/invoices">&larr; Danh sách hoá đơn</a>
+    <h2 class="h4 mt-1 mb-1"><span class="part-no"><%= invoice.InvoiceNo %></span>
+      <span class="badge text-bg-<%= voided ? 'secondary' : 'success' %> ms-2"><%= voided ? 'Đã vô hiệu' : 'Còn hiệu lực' %></span></h2>
+    <div class="small text-muted">Phát hành <%= fmtDateTime(invoice.IssuedAt) %> bởi <%= invoice.IssuedBy %> (<%= invoice.EmployeeCode %>) · đã in <%= invoice.PrintCount %> lần</div>
+  </div>
+  <div class="d-flex gap-2">
+    <% if (currentUser.permissions.includes('order.view')) { %><a class="btn btn-outline-secondary" href="/staff/orders/<%= invoice.OrderId %>">Xem đơn <%= invoice.OrderNo %></a><% } %>
+    <% if (!voided && currentUser.permissions.includes('invoice.print')) { %><a class="btn btn-primary" href="/staff/invoices/<%= invoice.InvoiceId %>/print" target="_blank" rel="noopener"><%- ico('doc') %> In hoá đơn</a><% } %>
+  </div>
+</div>
+<% if (voided) { %><div class="alert alert-secondary">Hoá đơn này đã bị vô hiệu vì đơn hàng đã huỷ. Không thể in lại.</div><% } %>
 
-<div class="container-fluid py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2>Chi tiết hóa đơn</h2>
-      <p class="text-muted mb-0">
-        Số hóa đơn: <strong><%= invoice.InvoiceNo %></strong>
-      </p>
-    </div>
-
-    <div class="d-flex gap-2">
-      <a href="/staff/invoices/<%= invoice.InvoiceId %>/print"
-         target="_blank" class="btn btn-primary">
-        In hóa đơn
-      </a>
-      <a href="/staff/invoices" class="btn btn-secondary">
-        Quay lại
-      </a>
+<div class="row g-4">
+  <div class="col-12 col-xl-8">
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Hàng hoá</div>
+      <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Sản phẩm</th><th class="text-end">Đơn giá</th><th class="text-end">SL</th><th class="text-end">Thành tiền</th></tr></thead>
+        <tbody>
+          <% invoice.items.forEach(function (i) { %>
+            <tr><td><span class="part-no d-inline-block mb-1"><%= i.Sku %></span><div class="fw-semibold"><%= i.ProductName %></div>
+              <div class="small text-muted">Bảo hành <%= i.WarrantyMonths %> tháng</div>
+              <% if (i.Serials) { %><div class="small">Serial: <span class="part-no"><%= i.Serials %></span></div><% } %></td>
+              <td class="text-end tabular-nums"><%= fmtMoney(i.UnitPrice) %></td><td class="text-end tabular-nums"><%= i.Quantity %></td><td class="text-end tabular-nums"><%= fmtMoney(i.LineTotal) %></td></tr>
+          <% }) %>
+        </tbody>
+        <tfoot class="table-light">
+          <tr><td colspan="3" class="text-end">Tiền hàng</td><td class="text-end tabular-nums"><%= fmtMoney(invoice.SubtotalAmount) %></td></tr>
+          <% if (Number(invoice.DiscountAmount) > 0) { %><tr><td colspan="3" class="text-end">Giảm giá</td><td class="text-end tabular-nums">-<%= fmtMoney(invoice.DiscountAmount) %></td></tr><% } %>
+          <tr><td colspan="3" class="text-end">VAT (<%= Number(invoice.VatRate) %>%)</td><td class="text-end tabular-nums"><%= fmtMoney(invoice.VatAmount) %></td></tr>
+          <% if (shipping > 0) { %><tr><td colspan="3" class="text-end">Phí giao hàng</td><td class="text-end tabular-nums"><%= fmtMoney(shipping) %></td></tr><% } %>
+          <tr class="fw-bold"><td colspan="3" class="text-end">Tổng thanh toán</td><td class="text-end tabular-nums"><%= fmtMoney(invoice.TotalAmount) %></td></tr>
+        </tfoot>
+      </table></div>
     </div>
   </div>
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <h5 class="mb-0">Thông tin hóa đơn</h5>
-    </div>
-
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <strong>Mã đơn hàng:</strong>
-          #<%= invoice.OrderId %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Ngày lập:</strong>
-          <%= invoice.IssuedAt
-            ? new Date(invoice.IssuedAt).toLocaleString('vi-VN')
-            : '' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Người mua:</strong>
-          <%= invoice.BuyerName || 'Khách lẻ' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Công ty:</strong>
-          <%= invoice.BuyerCompany || 'Không có' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Mã số thuế:</strong>
-          <%= invoice.BuyerTaxCode || 'Không có' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Địa chỉ:</strong>
-          <%= invoice.BuyerAddress || invoice.ShippingAddress || 'Không có' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Số điện thoại:</strong>
-          <%= invoice.CustomerPhone || invoice.ReceiverPhone || 'Không có' %>
-        </div>
-
-        <div class="col-md-6">
-          <strong>Trạng thái:</strong>
-          <%= invoice.Status || 'Không có' %>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <h5 class="mb-0">Danh sách sản phẩm</h5>
-    </div>
-
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>STT</th>
-              <th>Mã sản phẩm</th>
-              <th>Tên sản phẩm</th>
-              <th>Số lượng</th>
-              <th>Đơn giá</th>
-              <th>Bảo hành</th>
-              <th>Serial</th>
-              <th>Thành tiền</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <% if (!details || details.length === 0) { %>
-              <tr>
-                <td colspan="8" class="text-center text-muted">
-                  Không có sản phẩm trong hóa đơn.
-                </td>
-              </tr>
-            <% } else { %>
-              <% details.forEach((item, index) => { %>
-                <tr>
-                  <td><%= index + 1 %></td>
-                  <td><%= item.Sku %></td>
-                  <td><%= item.ProductName %></td>
-                  <td class="text-center"><%= item.Quantity %></td>
-                  <td class="text-end">
-                    <%= Number(item.UnitPrice || 0).toLocaleString('vi-VN') %> ₫
-                  </td>
-                  <td><%= item.WarrantyMonths || 0 %> tháng</td>
-                  <td><%= item.Serials || 'Không có' %></td>
-                  <td class="text-end">
-                    <%= Number(item.LineTotal || 0).toLocaleString('vi-VN') %> ₫
-                  </td>
-                </tr>
-              <% }) %>
-            <% } %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-body">
-      <div class="row justify-content-end">
-        <div class="col-md-5">
-          <div class="d-flex justify-content-between mb-2">
-            <span>Tiền hàng:</span>
-            <strong>
-              <%= Number(invoice.SubtotalAmount || 0).toLocaleString('vi-VN') %> ₫
-            </strong>
-          </div>
-
-          <div class="d-flex justify-content-between mb-2">
-            <span>Giảm giá:</span>
-            <strong>
-              <%= Number(invoice.DiscountAmount || 0).toLocaleString('vi-VN') %> ₫
-            </strong>
-          </div>
-
-          <div class="d-flex justify-content-between mb-2">
-            <span>Thuế VAT:</span>
-            <strong>
-              <%= Number(invoice.VatAmount || 0).toLocaleString('vi-VN') %> ₫
-            </strong>
-          </div>
-
-          <hr>
-
-          <div class="d-flex justify-content-between">
-            <span class="fw-bold">Tổng thanh toán:</span>
-            <strong class="text-success fs-5">
-              <%= Number(invoice.TotalAmount || 0).toLocaleString('vi-VN') %> ₫
-            </strong>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="col-12 col-xl-4">
+    <div class="card mb-4"><div class="card-header bg-white fw-semibold">Người mua</div><div class="card-body small">
+      <div class="fw-semibold fs-6"><%= invoice.BuyerName %></div>
+      <% if (invoice.BuyerCompany) { %><div><%= invoice.BuyerCompany %></div><% } %>
+      <% if (invoice.BuyerTaxCode) { %><div>MST: <%= invoice.BuyerTaxCode %></div><% } %>
+      <div class="mt-1"><%- ico('pin', 'ico-sm') %> <%= invoice.BuyerAddress %></div>
+      <div><%- ico('phone', 'ico-sm') %> <%= invoice.ReceiverPhone %></div>
+    </div></div>
+    <div class="card"><div class="card-header bg-white fw-semibold">Thanh toán</div><div class="card-body small">
+      <div><%= PAYMENT_METHOD[invoice.PaymentMethod] || invoice.PaymentMethod %></div>
+      <span class="badge text-bg-<%= (PAYMENT_STATUS[invoice.PaymentStatus] || {}).cls || 'secondary' %> mt-1"><%= (PAYMENT_STATUS[invoice.PaymentStatus] || {}).label || invoice.PaymentStatus %></span>
+    </div></div>
   </div>
 </div>

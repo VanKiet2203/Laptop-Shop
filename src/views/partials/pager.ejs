@@ -1,0 +1,21 @@
+<%# Phân trang dùng chung. Truyền vào: { pg, query } - query là các bộ lọc hiện tại (không gồm page) %>
+<% if (pg.pages > 1) {
+  var qs = function (p) {
+    var o = Object.assign({}, query, { page: p });
+    return Object.keys(o).filter(function (k) { return o[k] !== undefined && o[k] !== null && o[k] !== ''; })
+      .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(o[k]); }).join('&');
+  };
+  var from = Math.max(1, pg.page - 2), to = Math.min(pg.pages, pg.page + 2);
+%>
+  <nav class="mt-3" aria-label="Phân trang">
+    <ul class="pagination justify-content-center flex-wrap">
+      <li class="page-item <%= pg.page <= 1 ? 'disabled' : '' %>"><a class="page-link" href="?<%= qs(pg.page - 1) %>" aria-label="Trang trước">&laquo;</a></li>
+      <% if (from > 1) { %><li class="page-item"><a class="page-link tabular-nums" href="?<%= qs(1) %>">1</a></li><% if (from > 2) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %><% } %>
+      <% for (var p = from; p <= to; p += 1) { %>
+        <li class="page-item <%= p === pg.page ? 'active' : '' %>"><a class="page-link tabular-nums" href="?<%= qs(p) %>"><%= p %></a></li>
+      <% } %>
+      <% if (to < pg.pages) { %><% if (to < pg.pages - 1) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %><li class="page-item"><a class="page-link tabular-nums" href="?<%= qs(pg.pages) %>"><%= pg.pages %></a></li><% } %>
+      <li class="page-item <%= pg.page >= pg.pages ? 'disabled' : '' %>"><a class="page-link" href="?<%= qs(pg.page + 1) %>" aria-label="Trang sau">&raquo;</a></li>
+    </ul>
+  </nav>
+<% } %>

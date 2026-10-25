@@ -1,122 +1,40 @@
-
-<div class="container-fluid py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2>Quản lý hóa đơn</h2>
-      <p class="text-muted mb-0">Tra cứu và xem hóa đơn bán hàng</p>
-    </div>
-  </div>
-
-  <div class="card mb-4">
-    <div class="card-body">
-      <form method="GET" action="/staff/invoices"
-            class="row g-3 align-items-end">
-
-        <div class="col-md-3">
-          <label for="from" class="form-label">Từ ngày</label>
-          <input type="date" id="from" name="from"
-                 class="form-control"
-                 value="<%= filters.from %>">
-        </div>
-
-        <div class="col-md-3">
-          <label for="to" class="form-label">Đến ngày</label>
-          <input type="date" id="to" name="to"
-                 class="form-control"
-                 value="<%= filters.to %>">
-        </div>
-
-        <div class="col-md-4">
-          <label for="q" class="form-label">Tìm hóa đơn</label>
-          <input type="text" id="q" name="q"
-                 class="form-control"
-                 placeholder="Số hóa đơn, tên người mua..."
-                 value="<%= filters.q %>">
-        </div>
-
-        <div class="col-md-2 d-flex gap-2">
-          <button type="submit" class="btn btn-primary">
-            Tìm kiếm
-          </button>
-          <a href="/staff/invoices" class="btn btn-secondary">
-            Xóa lọc
-          </a>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5 class="text-muted">Tổng tiền hóa đơn trong kết quả</h5>
-      <h3 class="text-success">
-        <%= Number(totalAmount || 0).toLocaleString('vi-VN') %> ₫
-      </h3>
-      <p class="mb-0">Số hóa đơn: <strong><%= invoices.length %></strong></p>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h5 class="mb-0">Danh sách hóa đơn</h5>
-    </div>
-
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Số hóa đơn</th>
-              <th>Mã đơn hàng</th>
-              <th>Ngày lập</th>
-              <th>Người mua</th>
-              <th>Tổng tiền</th>
-              <th>Số lần in</th>
-              <th>Thao tác</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <% if (invoices.length === 0) { %>
-              <tr>
-                <td colspan="7" class="text-center text-muted py-4">
-                  Không tìm thấy hóa đơn phù hợp.
-                </td>
-              </tr>
-            <% } else { %>
-              <% invoices.forEach(invoice => { %>
-                <tr>
-                  <td><%= invoice.InvoiceNo %></td>
-                  <td>#<%= invoice.OrderId %></td>
-                  <td>
-                    <%= invoice.IssuedAt
-                      ? new Date(invoice.IssuedAt).toLocaleString('vi-VN')
-                      : '' %>
-                  </td>
-                  <td>
-                    <%= invoice.BuyerName || invoice.BuyerCompany || 'Khách lẻ' %>
-                  </td>
-                  <td class="text-end">
-                    <%= Number(invoice.TotalAmount || 0).toLocaleString('vi-VN') %> ₫
-                  </td>
-                  <td class="text-center"><%= invoice.PrintCount || 0 %></td>
-                  <td>
-                    <a href="/staff/invoices/<%= invoice.InvoiceId %>"
-                       class="btn btn-sm btn-info">
-                      Chi tiết
-                    </a>
-                    <a href="/staff/invoices/<%= invoice.InvoiceId %>/print"
-                       class="btn btn-sm btn-primary"
-                       target="_blank">
-                      In
-                    </a>
-                  </td>
-                </tr>
-              <% }) %>
-            <% } %>
-          </tbody>
-        </table>
+<p class="text-muted">Hoá đơn được phát hành tự động khi đơn hàng được duyệt, bạn có thể xem và in lại bất cứ lúc nào. Hoá đơn của đơn bị huỷ sẽ chuyển sang "Đã vô hiệu".</p>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-4"><label class="form-label" for="iv-q">Số hoá đơn, mã đơn, người mua, MST</label><input id="iv-q" name="q" class="form-control" maxlength="60" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="iv-status">Trạng thái</label>
+        <select id="iv-status" name="status" class="form-select"><option value="">Tất cả</option><option value="Issued" <%= filters.status === 'Issued' ? 'selected' : '' %>>Còn hiệu lực</option><option value="Voided" <%= filters.status === 'Voided' ? 'selected' : '' %>>Đã vô hiệu</option></select>
       </div>
-    </div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="iv-from">Từ ngày</label><input id="iv-from" type="date" name="from" class="form-control" value="<%= filters.from %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="iv-to">Đến ngày</label><input id="iv-to" type="date" name="to" class="form-control" value="<%= filters.to %>"></div>
+      <div class="col-6 col-lg-2 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('search') %> Lọc</button><a class="btn btn-outline-secondary" href="/staff/invoices">Xoá</a></div>
+      <div class="col-12 small text-muted tabular-nums"><%= pg.total %> hoá đơn · tổng giá trị còn hiệu lực: <strong><%= fmtMoney(issuedTotal) %></strong></div>
+    </form>
   </div>
 </div>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Số hoá đơn</th><th>Người mua</th><th>Đơn hàng</th><th>Ngày phát hành</th><th class="text-end">VAT</th><th class="text-end">Tổng tiền</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+    <tbody>
+      <% invoices.forEach(function (i) { %>
+        <tr>
+          <td><span class="part-no"><%= i.InvoiceNo %></span></td>
+          <td><div class="fw-semibold"><%= i.BuyerCompany || i.BuyerName %></div><% if (i.BuyerCompany) { %><div class="small text-muted"><%= i.BuyerName %></div><% } %></td>
+          <td><% if (currentUser.permissions.includes('order.view')) { %><a href="/staff/orders/<%= i.OrderId %>"><%= i.OrderNo %></a><% } else { %><%= i.OrderNo %><% } %></td>
+          <td class="small tabular-nums"><%= fmtDateTime(i.IssuedAt) %></td>
+          <td class="text-end tabular-nums"><%= fmtMoney(i.VatAmount) %></td>
+          <td class="text-end tabular-nums fw-semibold"><%= fmtMoney(i.TotalAmount) %></td>
+          <td><span class="badge text-bg-<%= i.Status === 'Issued' ? 'success' : 'secondary' %>"><%= i.Status === 'Issued' ? 'Còn hiệu lực' : 'Đã vô hiệu' %></span><% if (i.PrintCount) { %><div class="small text-muted">In <%= i.PrintCount %> lần</div><% } %></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/staff/invoices/<%= i.InvoiceId %>">Chi tiết</a>
+            <% if (i.Status === 'Issued' && currentUser.permissions.includes('invoice.print')) { %><a class="btn btn-sm btn-outline-secondary" href="/staff/invoices/<%= i.InvoiceId %>/print" target="_blank" rel="noopener" aria-label="In hoá đơn <%= i.InvoiceNo %>"><%- ico('doc') %> In</a><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!invoices.length) { %><tr><td colspan="8" class="text-center text-muted py-4">Không có hoá đơn phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/pager', { pg: pg, query: filters }) %>

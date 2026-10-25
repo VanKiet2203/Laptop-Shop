@@ -1,0 +1,209 @@
+<%
+  var itemsList = checkoutData.items;
+  var addrList = checkoutData.addresses || [];
+  var pMethods = checkoutData.paymentMethods;
+  var useSaved = addrList.length > 0 && draft.addressId !== 'new';
+  var pickedAddress = draft.addressId && draft.addressId !== 'new' ? Number(draft.addressId) : (addrList.length ? addrList[0].AddressId : null);
+  var pickedMethod = draft.paymentMethod || 'COD';
+  var qtyTotal = itemsList.reduce(function (s, i) { return s + i.Quantity; }, 0);
+  var val = function (k, fallback) { return draft[k] !== undefined && draft[k] !== '' ? draft[k] : (fallback || ''); };
+%>
+<h1 class="page-title"><span class="page-title-ico"><%- ico('card') %></span> Thanh toán &amp; đặt hàng</h1>
+
+<ol class="steps" aria-label="Các bước đặt hàng">
+  <li class="is-done"><span>1</span> Giỏ hàng</li>
+  <li class="is-current"><span>2</span> Thông tin &amp; thanh toán</li>
+  <li><span>3</span> Hoàn tất</li>
+</ol>
+
+<% if (isGuest) { %>
+  <div class="guest-banner">
+    <%- ico('info') %>
+    <div>Bạn đang đặt hàng <strong>không cần đăng nhập</strong> — chỉ cần điền thông tin nhận hàng bên dưới.
+      Muốn lưu địa chỉ và theo dõi đơn dễ hơn? <a href="/auth/login">Đăng nhập</a> hoặc <a href="/register">tạo tài khoản</a> (giỏ hàng của bạn sẽ được giữ lại).</div>
+  </div>
+<% } %>
+
+<form method="post" action="/checkout" id="checkout-form" data-checkout novalidate>
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- 1. Thông tin nhận hàng -->
+      <section class="co-card">
+        <h2 class="co-title"><span class="co-num">1</span> Thông tin nhận hàng</h2>
+
+        <div class="email-field">
+          <label class="form-label" for="co-email">Email nhận mã đơn hàng <% if (isGuest) { %><span class="req">*</span><% } else { %><span class="text-muted fw-normal">(tuỳ chọn)</span><% } %></label>
+          <div class="field-icon"><%- ico('mail') %><input id="co-email" name="email" type="email" class="form-control" maxlength="150" autocomplete="email" placeholder="ten@example.com"
+            value="<%= val('email', profile ? (profile.Email || profile.AccountEmail) : '') %>" <%= isGuest ? 'required' : '' %>></div>
+          <div class="form-text">Chúng tôi gửi <strong>mã đơn hàng</strong> và hướng dẫn thanh toán vào email này — mã đơn dùng để tra cứu đơn mà không cần đăng nhập.</div>
+        </div>
+
+        <% if (addrList.length) { %>
+          <div class="addr-list" role="radiogroup" aria-label="Chọn địa chỉ nhận hàng">
+            <% addrList.forEach(function (addr) { %>
+              <label class="choice addr-choice <%= useSaved && pickedAddress === addr.AddressId ? 'is-selected' : '' %>">
+                <input type="radio" name="addressId" value="<%= addr.AddressId %>" <%= useSaved && pickedAddress === addr.AddressId ? 'checked' : '' %> data-addr-radio>
+                <span class="choice-body">
+                  <span class="choice-head"><strong><%= addr.ReceiverName %></strong><span class="text-muted">·</span><span class="tabular-nums"><%= addr.ReceiverPhone %></span>
+                    <% if (addr.IsDefault) { %><span class="flag flag-primary">Mặc định</span><% } %></span>
+                  <span class="choice-desc"><%= [addr.AddressLine, addr.Ward, addr.District, addr.Province].filter(Boolean).join(', ') %></span>
+                </span>
+              </label>
+            <% }) %>
+            <label class="choice addr-choice addr-new <%= !useSaved ? 'is-selected' : '' %>">
+              <input type="radio" name="addressId" value="new" <%= !useSaved ? 'checked' : '' %> data-addr-radio>
+              <span class="choice-body"><span class="choice-head"><%- ico('plus', 'ico-sm') %> <strong>Giao tới địa chỉ khác</strong></span></span>
+            </label>
+          </div>
+        <% } %>
+
+        <div class="addr-form <%= useSaved ? 'is-hidden' : '' %>" id="addr-form" data-addr-form>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="co-name">Họ và tên người nhận <span class="req">*</span></label>
+              <input id="co-name" name="receiverName" class="form-control" maxlength="100" autocomplete="name" value="<%= val('receiverName', profile ? profile.FullName : '') %>" <%= useSaved ? '' : 'required' %>>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="co-phone">Số điện thoại <span class="req">*</span></label>
+              <input id="co-phone" name="receiverPhone" type="tel" class="form-control" maxlength="15" inputmode="tel" autocomplete="tel" placeholder="09xxxxxxxx" pattern="0[0-9]{9,10}" value="<%= val('receiverPhone', profile ? profile.Phone : '') %>" <%= useSaved ? '' : 'required' %>>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="co-province">Tỉnh/Thành phố <span class="req">*</span></label>
+              <select id="co-province" name="province" class="form-select" data-geo-province <%= useSaved ? '' : 'required' %>>
+                <option value="">Chọn tỉnh/thành phố</option>
+                <% provinces.forEach(function (p) { %><option value="<%= p %>" <%= draft.province === p ? 'selected' : '' %>><%= p %></option><% }) %>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="co-ward">Phường/Xã <span class="req">*</span></label>
+              <select id="co-ward" name="ward" class="form-select" data-geo-ward data-selected="<%= draft.ward || '' %>" <%= useSaved ? '' : 'required' %> <%= draft.province ? '' : 'disabled' %>>
+                <% if (!draft.province) { %><option value="">Chọn tỉnh/thành phố trước</option>
+                <% } else { %><option value="">Chọn phường/xã</option>
+                  <% wards.forEach(function (w) { %><option value="<%= w %>" <%= draft.ward === w ? 'selected' : '' %>><%= w %></option><% }) %>
+                <% } %>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="co-line">Số nhà, tên đường <span class="req">*</span></label>
+              <input id="co-line" name="addressLine" class="form-control" maxlength="200" autocomplete="street-address" value="<%= val('addressLine') %>" <%= useSaved ? '' : 'required' %>>
+            </div>
+            <% if (!isGuest) { %>
+              <div class="col-12">
+                <label class="form-check">
+                  <input class="form-check-input" type="checkbox" name="saveAddress" value="1" <%= draft.saveAddress !== false ? 'checked' : '' %>>
+                  <span class="form-check-label">Lưu địa chỉ này vào sổ địa chỉ của tôi</span>
+                </label>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Phương thức thanh toán -->
+      <section class="co-card">
+        <h2 class="co-title"><span class="co-num">2</span> Phương thức thanh toán</h2>
+        <div class="pay-list" role="radiogroup" aria-label="Phương thức thanh toán">
+          <% pMethods.forEach(function (pm) { %>
+            <label class="choice pay-choice <%= pickedMethod === pm.code ? 'is-selected' : '' %>">
+              <input type="radio" name="paymentMethod" value="<%= pm.code %>" <%= pickedMethod === pm.code ? 'checked' : '' %> data-pay-radio required>
+              <span class="choice-ico"><%- ico(pm.icon) %></span>
+              <span class="choice-body"><span class="choice-head"><strong><%= pm.name %></strong></span><span class="choice-desc"><%= pm.desc %></span></span>
+            </label>
+          <% }) %>
+        </div>
+
+        <div class="pay-panel" data-pay-panel="COD" <%= pickedMethod === 'COD' ? '' : 'hidden' %>>
+          <%- ico('phone') %><div><strong>Nhân viên sẽ gọi xác nhận đơn</strong> qua số điện thoại bạn cung cấp (<%= site.hotlineHours %>) trước khi giao hàng. Bạn kiểm tra hàng rồi mới thanh toán tiền mặt.</div>
+        </div>
+        <div class="pay-panel" data-pay-panel="BankTransfer" <%= pickedMethod === 'BankTransfer' ? '' : 'hidden' %>>
+          <%- ico('qr') %><div><strong>Mã QR chuyển khoản sẽ hiện ngay sau khi đặt hàng</strong> (VietQR - quét bằng app ngân hàng, tự điền số tiền và nội dung). Đơn được xử lý khi chúng tôi nhận được tiền.</div>
+        </div>
+        <div class="pay-panel" data-pay-panel="Card" <%= pickedMethod === 'Card' ? '' : 'hidden' %>>
+          <%- ico('card') %><div><strong>Thanh toán thẻ Visa / MasterCard / JCB.</strong> Sau khi đặt hàng, nhân viên sẽ gửi link thanh toán an toàn qua số điện thoại của bạn. Chúng tôi không lưu số thẻ.</div>
+        </div>
+        <div class="pay-panel pay-panel-install" data-pay-panel="Installment" <%= pickedMethod === 'Installment' ? '' : 'hidden' %>>
+          <div class="install">
+            <div class="install-head"><%- ico('percent') %><strong>Ước tính trả góp</strong><span class="text-muted small">Chỉ mang tính tham khảo — nhân viên sẽ xác nhận hồ sơ trả góp với bạn.</span></div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="inst-provider">Hình thức</label>
+                <select id="inst-provider" name="instProvider" class="form-select" data-inst-provider>
+                  <option value="card" <%= val('instProvider', 'card') === 'card' ? 'selected' : '' %>>Thẻ tín dụng (0%)</option>
+                  <option value="finance" <%= val('instProvider') === 'finance' ? 'selected' : '' %>>Công ty tài chính</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="inst-months">Kỳ hạn</label>
+                <select id="inst-months" name="instMonths" class="form-select" data-inst-months>
+                  <% installTerms.forEach(function (m) { %><option value="<%= m %>" <%= String(val('instMonths', '12')) === String(m) ? 'selected' : '' %>><%= m %> tháng</option><% }) %>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="inst-prepay">Trả trước</label>
+                <select id="inst-prepay" name="instPrepay" class="form-select" data-inst-prepay>
+                  <% installPrepay.forEach(function (p) { %><option value="<%= p %>" <%= String(val('instPrepay', '30')) === String(p) ? 'selected' : '' %>><%= p %>%</option><% }) %>
+                </select>
+              </div>
+            </div>
+            <div class="install-result" data-inst-result aria-live="polite">
+              <div><span class="text-muted">Trả trước</span><strong class="tabular-nums" data-inst-prepay-amount>—</strong></div>
+              <div><span class="text-muted">Mỗi tháng</span><strong class="install-monthly tabular-nums" data-inst-monthly>—</strong></div>
+              <div><span class="text-muted">Tổng phải trả</span><strong class="tabular-nums" data-inst-total>—</strong></div>
+            </div>
+            <p class="install-hint small text-muted mb-0" data-inst-hint></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Ghi chú -->
+      <section class="co-card">
+        <h2 class="co-title"><span class="co-num">3</span> Ghi chú giao hàng <small class="text-muted fw-normal">(tuỳ chọn)</small></h2>
+        <label class="visually-hidden" for="co-note">Ghi chú giao hàng</label>
+        <textarea id="co-note" name="note" class="form-control" rows="2" maxlength="300" placeholder="Ví dụ: giao giờ hành chính, gọi trước khi giao 15 phút..."><%= val('note') %></textarea>
+      </section>
+    </div>
+
+    <!-- Tóm tắt -->
+    <div class="col-lg-5">
+      <div class="summary-card summary-sticky">
+        <h2 class="summary-title">Đơn hàng của bạn <span class="text-muted fw-normal tabular-nums">(<%= qtyTotal %> sản phẩm)</span></h2>
+        <ul class="mini-items list-unstyled">
+          <% itemsList.forEach(function (item) { %>
+            <li>
+              <img src="<%= productImage(item.PrimaryImage, item.CategorySlug) %>" data-fallback="<%= productImage(null, item.CategorySlug) %>" alt="" referrerpolicy="no-referrer">
+              <div class="mini-info"><div class="mini-name" title="<%= item.ProductName %>"><%= item.ProductName %></div><div class="small text-muted tabular-nums">SL <%= item.Quantity %> × <%= fmtMoney(item.SalePrice) %></div></div>
+              <div class="mini-total tabular-nums"><%= fmtMoney(item.Quantity * item.SalePrice) %></div>
+            </li>
+          <% }) %>
+        </ul>
+
+        <div class="promo-box">
+          <label class="form-label small fw-semibold" for="promo-input">Mã khuyến mãi</label>
+          <div class="input-group">
+            <input type="text" id="promo-input" name="promoCode" class="form-control" maxlength="30" placeholder="Nhập mã (nếu có)" value="<%= val('promoCode') %>" autocomplete="off">
+            <button class="btn btn-outline-primary" type="button" id="btn-apply-promo">Áp dụng</button>
+          </div>
+          <div id="promo-msg" class="small mt-1" role="status"></div>
+          <% if (promotions && promotions.length) { %>
+            <div class="promo-chips">
+              <% promotions.forEach(function (c) { %><button type="button" class="promo-chip" data-use-code="<%= c.Code %>" title="<%= c.PromoName %>"><span class="part-no"><%= c.Code %></span></button><% }) %>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="summary-row"><span>Tạm tính</span><span class="tabular-nums" id="summary-subtotal"><%= fmtMoney(checkoutData.subtotal) %></span></div>
+        <div class="summary-row text-success" id="row-discount" hidden><span>Giảm giá</span><span class="tabular-nums" id="summary-discount">-0 ₫</span></div>
+        <div class="summary-row"><span>Phí vận chuyển</span><span class="tabular-nums" id="summary-shipping"><%= checkoutData.shippingFee === 0 ? 'Miễn phí' : fmtMoney(checkoutData.shippingFee) %></span></div>
+        <div class="summary-row"><span>VAT (10%)</span><span class="tabular-nums" id="summary-vat"><%= fmtMoney(checkoutData.vatAmount) %></span></div>
+        <div class="summary-total"><span>Tổng thanh toán</span><strong class="tabular-nums" id="summary-total" data-total="<%= checkoutData.totalAmount %>"><%= fmtMoney(checkoutData.totalAmount) %></strong></div>
+
+        <p class="checkout-rule small text-muted" id="confirm-rule">
+          <%- ico('bolt', 'ico-sm') %><span><% if (qtyTotal === 1) { %>Đơn chỉ có 1 sản phẩm: hệ thống <strong>xác nhận ngay</strong> nếu còn hàng.<% } else { %>Đơn từ 2 sản phẩm: nhân viên sẽ <strong>kiểm tra hàng</strong> rồi xác nhận (thường trong 30 phút giờ hành chính).<% } %></span>
+        </p>
+
+        <button type="submit" class="btn btn-primary btn-lg w-100 btn-submit" id="btn-place"><span>Xác nhận đặt hàng</span> <%- ico('arrow') %></button>
+        <div class="text-center mt-3"><a href="/cart" class="back-link"><%- ico('arrow', 'ico-flip') %> Quay lại giỏ hàng</a></div>
+      </div>
+    </div>
+  </div>
+</form>

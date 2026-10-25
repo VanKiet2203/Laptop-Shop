@@ -1,0 +1,65 @@
+<%#
+  Hướng dẫn thanh toán theo phương thức của đơn (dùng ở trang cảm ơn và chi tiết đơn). Truyền vào: { ord }
+  - COD: thông báo nhân viên sẽ gọi xác nhận
+  - BankTransfer: mã QR VietQR + thông tin chuyển khoản (chỉ khi chưa thanh toán và đơn chưa huỷ)
+  - Installment: kế hoạch đã chọn + bảng ước tính theo kỳ hạn
+  - Card: nhân viên gửi link thanh toán
+%>
+<%
+  var isCancelled = ord.Status === 'Cancelled';
+  var isPaid = ord.PaymentStatus === 'Paid';
+  var total = Number(ord.TotalAmount);
+  var bank = site.bank;
+  var qrUrl = 'https://img.vietqr.io/image/' + encodeURIComponent(bank.code) + '-' + encodeURIComponent(bank.account) + '-compact2.png'
+    + '?amount=' + Math.round(total) + '&addInfo=' + encodeURIComponent(ord.OrderNo) + '&accountName=' + encodeURIComponent(bank.holder);
+  var plan = /^\[TRẢ GÓP\] (\d+) tháng · trả trước (\d+)% · ([^|]+)/.exec(ord.Note || '');
+  var planMonths = plan ? Number(plan[1]) : 12;
+  var planPrepay = plan ? Number(plan[2]) : 30;
+%>
+<% if (!isCancelled && isPaid) { %>
+  <div class="pay-note is-ok"><%- ico('checkcircle') %><div><strong>Đã nhận thanh toán.</strong> Cảm ơn bạn!</div></div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'COD') { %>
+  <div class="pay-note"><%- ico('phone') %><div><strong>Nhân viên sẽ gọi xác nhận đơn</strong> qua số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong> (<%= site.hotlineHours %>). Bạn kiểm tra hàng khi nhận rồi thanh toán <strong class="tabular-nums"><%= fmtMoney(total) %></strong> bằng tiền mặt.</div></div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'BankTransfer') { %>
+  <div class="qr-card">
+    <div class="qr-img">
+      <img src="<%= qrUrl %>" alt="Mã QR chuyển khoản VietQR cho đơn <%= ord.OrderNo %>" width="220" height="220" referrerpolicy="no-referrer" data-qr>
+      <div class="qr-fallback" hidden><%- ico('qr') %><span>Không tải được mã QR — hãy chuyển khoản theo thông tin bên cạnh.</span></div>
+    </div>
+    <div class="qr-info">
+      <h3 class="qr-title">Quét mã để chuyển khoản</h3>
+      <dl class="qr-dl">
+        <div><dt>Ngân hàng</dt><dd><%= bank.name %></dd></div>
+        <div><dt>Số tài khoản</dt><dd><span class="part-no"><%= bank.account %></span> <button type="button" class="copy-btn" data-copy="<%= bank.account %>" aria-label="Sao chép số tài khoản"><%- ico('copy', 'ico-sm') %></button></dd></div>
+        <div><dt>Chủ tài khoản</dt><dd><%= bank.holder %></dd></div>
+        <div><dt>Số tiền</dt><dd><strong class="tabular-nums"><%= fmtMoney(total) %></strong> <button type="button" class="copy-btn" data-copy="<%= Math.round(total) %>" aria-label="Sao chép số tiền"><%- ico('copy', 'ico-sm') %></button></dd></div>
+        <div><dt>Nội dung</dt><dd><span class="part-no"><%= ord.OrderNo %></span> <button type="button" class="copy-btn" data-copy="<%= ord.OrderNo %>" aria-label="Sao chép nội dung chuyển khoản"><%- ico('copy', 'ico-sm') %></button></dd></div>
+      </dl>
+      <p class="small text-muted mb-0"><%- ico('info', 'ico-sm') %> Vui lòng ghi đúng nội dung <strong><%= ord.OrderNo %></strong>. Đơn được xử lý ngay khi chúng tôi nhận được tiền.</p>
+    </div>
+  </div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'Installment') { %>
+  <div class="pay-note"><%- ico('percent') %><div>
+    <strong>Trả góp<% if (plan) { %>: <%= plan[1] %> tháng, trả trước <%= plan[2] %>%, <%= plan[3].trim() %><% } %></strong>
+    <div class="small">Nhân viên sẽ gọi để hướng dẫn hồ sơ trả góp. Bảng ước tính bên dưới chỉ mang tính tham khảo.</div>
+  </div></div>
+  <div class="table-responsive install-table">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Kỳ hạn</th><th class="text-end">Thẻ tín dụng (0%)</th><th class="text-end">Công ty tài chính (~1,2%/tháng)</th></tr></thead>
+      <tbody>
+        <% [6, 9, 12, 18, 24].forEach(function (m) {
+             var card = m <= 12 ? installmentPlan(total, m, planPrepay, 0) : null;
+             var fin = installmentPlan(total, m, planPrepay, 1.2); %>
+          <tr class="<%= m === planMonths ? 'is-picked' : '' %>">
+            <td><%= m %> tháng</td>
+            <td class="text-end tabular-nums"><%= card ? fmtMoney(card.monthly) + '/tháng' : '—' %></td>
+            <td class="text-end tabular-nums"><%= fmtMoney(fin.monthly) %>/tháng</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <div class="small text-muted p-2">Trả trước <%= planPrepay %>% = <strong class="tabular-nums"><%= fmtMoney(installmentPlan(total, 12, planPrepay, 0).prepay) %></strong>.</div>
+  </div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'Card') { %>
+  <div class="pay-note"><%- ico('card') %><div><strong>Thanh toán thẻ.</strong> Nhân viên sẽ gửi link thanh toán an toàn tới số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong>. Chúng tôi không lưu số thẻ của bạn.</div></div>
+<% } %>

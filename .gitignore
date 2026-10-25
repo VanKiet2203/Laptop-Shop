@@ -33,3 +33,10 @@ coverage/
 
 # Zip nguồn gốc (không cần commit)
 *.zip
+
+# Ảnh đại diện khách tải lên (giữ thư mục, bỏ nội dung)
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+
+# Email thử nghiệm khi chưa cấu hình SMTP
+outbox/

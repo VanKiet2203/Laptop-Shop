@@ -1,0 +1,110 @@
+<%
+  var ord = typeof order !== 'undefined' ? order : orderDetails;
+  var isGuestView = typeof guestView !== 'undefined' && guestView;
+  var st = ORDER_STATUS[ord.Status] || { label: ord.Status, cls: 'secondary' };
+  var pay = PAYMENT_STATUS[ord.PaymentStatus] || { label: ord.PaymentStatus, cls: 'secondary' };
+  // Khách tự huỷ: đang kiểm tra hàng, hoặc đã xác nhận nhưng chưa thanh toán (khớp sp_CancelOrder)
+  var canCancel = !isGuestView && (ord.Status === 'Pending' || (ord.Status === 'Approved' && ord.PaymentStatus !== 'Paid'));
+%>
+<div class="order-head">
+  <div class="d-flex align-items-center gap-3">
+    <a href="<%= isGuestView ? '/orders/track' : '/orders' %>" class="icon-btn" aria-label="Quay lại"><%- ico('arrow', 'ico-flip') %></a>
+    <div>
+      <h1 class="page-title mb-0">Đơn hàng <span class="part-no part-no-lg"><%= ord.OrderNo %></span></h1>
+      <div class="text-muted small mt-1"><%- ico('clock', 'ico-sm') %> Đặt lúc <%= fmtDateTime(ord.CreatedAt) %></div>
+    </div>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <span class="status-pill status-<%= st.cls %>"><%= st.label %></span>
+    <span class="status-pill status-<%= pay.cls %> status-soft"><%= pay.label %></span>
+    <% if (canCancel) { %>
+      <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalCancelOrder"><%- ico('x', 'ico-sm') %> Huỷ đơn</button>
+    <% } %>
+  </div>
+</div>
+
+<%- include('./_order-progress', { ord: ord }) %>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <% if (ord.Status !== 'Cancelled') { %>
+    <section class="co-card">
+      <h2 class="co-title"><span class="co-num"><%- ico('card', 'ico-sm') %></span> Thanh toán — <%= PAYMENT_METHOD[ord.PaymentMethod] || ord.PaymentMethod %></h2>
+      <%- include('./_payment-panel', { ord: ord }) %>
+    </section>
+    <% } %>
+
+    <section class="co-card">
+      <h2 class="co-title"><span class="co-num"><%- ico('pin', 'ico-sm') %></span> Thông tin nhận hàng</h2>
+      <div class="kv"><span>Người nhận</span><strong><%= ord.ReceiverName %></strong></div>
+      <div class="kv"><span>Số điện thoại</span><strong class="tabular-nums"><%= ord.ReceiverPhone %></strong></div>
+      <div class="kv"><span>Địa chỉ</span><strong><%= ord.ShippingAddress %></strong></div>
+      <% if (ord.Note) { %><div class="kv"><span>Ghi chú</span><strong><%= ord.Note %></strong></div><% } %>
+    </section>
+
+    <section class="co-card p-0 overflow-hidden">
+      <h2 class="co-title px-3 pt-3"><span class="co-num"><%- ico('laptop', 'ico-sm') %></span> Sản phẩm</h2>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 order-table">
+          <thead><tr><th class="ps-3">Sản phẩm</th><th class="text-end">Đơn giá</th><th class="text-center">SL</th><th class="text-center d-none d-md-table-cell">Bảo hành</th><th class="text-end pe-3">Thành tiền</th></tr></thead>
+          <tbody>
+            <% if (ord.items && ord.items.length) { ord.items.forEach(function (item) { %>
+              <tr>
+                <td class="ps-3">
+                  <div class="d-flex align-items-center gap-3">
+                    <img class="order-img" src="<%= productImage(item.PrimaryImage, item.CategorySlug) %>" data-fallback="<%= productImage(null, item.CategorySlug) %>" alt="" referrerpolicy="no-referrer">
+                    <div><a href="/products/<%= item.Slug %>" class="fw-semibold text-decoration-none d-block"><%= item.ProductName %></a><span class="part-no small"><%= item.Sku %></span></div>
+                  </div>
+                </td>
+                <td class="text-end tabular-nums"><%= fmtMoney(item.UnitPrice) %></td>
+                <td class="text-center"><%= item.Quantity %></td>
+                <td class="text-center d-none d-md-table-cell"><span class="flag"><%= item.WarrantyMonths || 12 %> tháng</span></td>
+                <td class="text-end pe-3 fw-semibold tabular-nums"><%= fmtMoney(item.LineTotal) %></td>
+              </tr>
+            <% }) } else { %>
+              <tr><td colspan="5" class="text-center py-4 text-muted">Không có thông tin chi tiết sản phẩm.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="summary-card summary-sticky">
+      <h2 class="summary-title">Tổng kết thanh toán</h2>
+      <div class="summary-row"><span>Tiền hàng</span><span class="tabular-nums"><%= fmtMoney(ord.Subtotal) %></span></div>
+      <% if (ord.DiscountAmount && ord.DiscountAmount > 0) { %>
+        <div class="summary-row text-success"><span>Giảm giá<%= ord.PromoCode ? ' (' + ord.PromoCode + ')' : '' %></span><span class="tabular-nums">-<%= fmtMoney(ord.DiscountAmount) %></span></div>
+      <% } %>
+      <div class="summary-row"><span>Phí vận chuyển</span><span class="tabular-nums"><%= Number(ord.ShippingFee) === 0 ? 'Miễn phí' : fmtMoney(ord.ShippingFee) %></span></div>
+      <div class="summary-row"><span>VAT</span><span class="tabular-nums"><%= fmtMoney(ord.VatAmount) %></span></div>
+      <div class="summary-total"><span>Tổng cộng</span><strong class="tabular-nums"><%= fmtMoney(ord.TotalAmount) %></strong></div>
+      <% if (isGuestView) { %><a class="btn btn-outline-secondary w-100 mt-3" href="/products">Tiếp tục mua sắm</a><% } %>
+    </div>
+  </div>
+</div>
+
+<% if (canCancel) { %>
+  <div class="modal fade" id="modalCancelOrder" tabindex="-1" aria-labelledby="modalCancelOrderLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" action="/orders/<%= ord.OrderId %>/cancel">
+          <div class="modal-header">
+            <h2 class="modal-title h6 fw-bold" id="modalCancelOrderLabel">Huỷ đơn <%= ord.OrderNo %>?</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted mb-3"><%= ord.Status === 'Pending' ? 'Đơn đang được kiểm tra hàng.' : 'Đơn đã được xác nhận nhưng chưa thanh toán.' %> Sau khi huỷ, sản phẩm sẽ được trả lại kho.</p>
+            <label class="form-label small fw-semibold" for="cancel-reason">Lý do huỷ (tuỳ chọn)</label>
+            <textarea id="cancel-reason" name="reason" class="form-control" rows="3" maxlength="255" placeholder="Ví dụ: đặt nhầm sản phẩm, muốn đổi địa chỉ..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Giữ đơn</button>
+            <button type="submit" class="btn btn-danger btn-sm">Xác nhận huỷ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+<% } %>

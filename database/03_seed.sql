@@ -39,13 +39,14 @@ INSERT INTO dbo.Permissions (PermCode, PermName, ModuleName) VALUES
  ('receipt.create',  N'Lập phiếu nhập kho',     N'Kho'),
  ('receipt.post',    N'Chốt phiếu nhập kho',    N'Kho'),
  ('stock.view',      N'Xem tồn kho / serial',   N'Kho'),
+ ('chat.reply',      N'Trả lời chat khách hàng', N'Bán hàng'),
  ('shop.buy',        N'Mua hàng',               N'Cửa hàng');
 
 INSERT INTO dbo.RolePermissions (RoleId, PermissionId)
 SELECT r.RoleId, p.PermissionId FROM dbo.Roles r JOIN dbo.Permissions p ON
    (r.RoleCode='ADMIN'     AND p.PermCode IN ('dashboard.admin','user.manage','role.manage','audit.view'))
 OR (r.RoleCode='SALES'     AND p.PermCode IN ('product.view','product.create','product.update','product.delete','category.manage','brand.manage',
-                                              'order.view','order.approve','order.cancel','invoice.view','invoice.print','report.view','warranty.view','stock.view'))
+                                              'order.view','order.approve','order.cancel','invoice.view','invoice.print','report.view','warranty.view','stock.view','chat.reply'))
 OR (r.RoleCode='WAREHOUSE' AND p.PermCode IN ('product.view','supplier.manage','receipt.create','receipt.post','stock.view'))
 OR (r.RoleCode='CUSTOMER'  AND p.PermCode IN ('shop.buy'));
 
@@ -68,6 +69,13 @@ SELECT a.AccountId, v.code, v.fn, v.ph, v.g, v.bd, v.ad, v.hd FROM (VALUES
  ('sales2','NV002',N'Trần Phúc Tấn',      '0901000002',1,'2003-08-21',N'Quận 10, TP.HCM','2025-03-01'),
  ('kho1',  'NV003',N'Bùi Nguyễn Quốc Huy','0901000003',1,'2003-11-02',N'Quận 3, TP.HCM','2025-02-15'))
  v(u,code,fn,ph,g,bd,ad,hd) JOIN dbo.Accounts a ON a.Username = v.u;
+
+-- Nhân viên HỆ THỐNG (NV000): đứng tên khi hệ thống tự xác nhận đơn 1 sản phẩm (sp_PlaceOrder -> sp_ApproveOrder @Auto = 1).
+-- PasswordHash '!' không phải bcrypt hợp lệ nên không ai đăng nhập được bằng tài khoản này.
+INSERT INTO dbo.Accounts (Username, Email, PasswordHash, RoleId)
+SELECT 'system', NULL, '!', r.RoleId FROM dbo.Roles r WHERE r.RoleCode = 'SALES';
+INSERT INTO dbo.Employees (AccountId, EmployeeCode, FullName, HireDate)
+SELECT AccountId, 'NV000', N'Hệ thống tự động', '2025-01-01' FROM dbo.Accounts WHERE Username = 'system';
 
 INSERT INTO dbo.MembershipTiers (TierName, MinPoints, DiscountPercent) VALUES
  (N'Thường',0,0),(N'Bạc',1000,2),(N'Vàng',5000,3),(N'Kim cương',10000,5);
@@ -148,6 +156,39 @@ JOIN dbo.Brands b ON b.BrandName = v.brand;
 
 INSERT INTO dbo.ProductImages (ProductId, ImageUrl, IsPrimary, SortOrder)
 SELECT ProductId, '/images/placeholder.svg', 1, 0 FROM dbo.Products;
+
+-- Ảnh thật cho 24 sản phẩm mẫu (đã tải về public/images/products/, lấy từ trang bán lẻ - dùng cho đồ án học tập)
+UPDATE i SET i.ImageUrl = v.url
+FROM dbo.ProductImages i
+JOIN dbo.Products p ON p.ProductId = i.ProductId
+JOIN (VALUES
+  ('KVR-D4-8','/images/products/kvr-d4-8.png'),
+  ('KVR-D5-16','/images/products/kvr-d5-16.png'),
+  ('CRU-D5-8','/images/products/cru-d5-8.png'),
+  ('SAM-980-500','/images/products/sam-980-500.jpg'),
+  ('SAM-980P-1TB','/images/products/sam-980p-1tb.jpg'),
+  ('KIN-A400-480','/images/products/kin-a400-480.jpg'),
+  ('LOGI-G102','/images/products/logi-g102.jpg'),
+  ('LOGI-MXM3S','/images/products/logi-mxm3s.jpg'),
+  ('RAZER-DAV3','/images/products/razer-dav3.jpg'),
+  ('CORSAIR-K70','/images/products/corsair-k70.png'),
+  ('LOGI-K380','/images/products/logi-k380.jpg'),
+  ('RAZER-BSV2X','/images/products/razer-bsv2x.png'),
+  ('ASUS-ROG-BP','/images/products/asus-rog-bp.png'),
+  ('ANKER-737','/images/products/anker-737.webp'),
+  ('ANKER-PL3','/images/products/anker-pl3.jpg'),
+  ('ASUS-TUF-F15','/images/products/asus-tuf-f15.webp'),
+  ('MSI-KATANA-15','/images/products/msi-katana-15.webp'),
+  ('LENOVO-LOQ-15','/images/products/lenovo-loq-15.png'),
+  ('DELL-INS-15','/images/products/dell-ins-15.webp'),
+  ('HP-15S','/images/products/hp-15s.png'),
+  ('LENOVO-IDEA5','/images/products/lenovo-idea5.png'),
+  ('MBA-M2','/images/products/mba-m2.jpg'),
+  ('ASUS-VIVO-PRO','/images/products/asus-vivo-pro.jpg'),
+  ('DELL-XPS-15','/images/products/dell-xps-15.jpg')
+) v(sku, url) ON v.sku = p.Sku
+WHERE i.IsPrimary = 1;
+
 
 -- Thuộc tính kỹ thuật (Sku, mã thuộc tính, giá trị)
 INSERT INTO dbo.ProductAttributeValues (ProductId, AttributeId, AttrValue)
@@ -338,7 +379,6 @@ SELECT p.ProductId, v.img, v.isp, v.ord FROM (VALUES
  ('DELL-15-DC15255-X9YM41','https://cdn2.cellphones.com.vn/x/media/catalog/product/l/a/laptop_dell_15_dc15255_x9ym41_-_3.png',0,2),
  ('DELL-INSPIRON-5441-5MNK1','https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/dell_inspiron_14_5441_x1p_64_100_5mnk1_1_fbddaef1f7.jpg',1,0),
  ('DELL-INSPIRON-5441-5MNK1','https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/dell_inspiron_14_5441_x1p_64_100_5mnk1_2_78056fb505.jpg',0,1),
- ('DELL-INSPIRON-5441-5MNK1','https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/dell_inspiron_14_5441_x1p_64_100_5mnk1_3_a3699f7546.jpg',0,2),
  ('DELL-15-DC15250-CPH991','https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/362020/dell-15-dc15250-i7-1355u-cph991-1-639044156610018550.jpg',1,0),
  ('DELL-15-DC15250-CPH991','https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/362020/dell-15-dc15250-i7-1355u-cph991-2-639044156603261765.jpg',0,1),
  ('DELL-15-DC15250-CPH991','https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/362020/dell-15-dc15250-i7-1355u-cph991-3-639044156595315431.jpg',0,2),
@@ -435,9 +475,7 @@ SELECT p.ProductId, v.img, v.isp, v.ord FROM (VALUES
  ('ACER-ASPIRE-7-A715-59G-53RH','https://cdn-files.hacom.vn/hacom/cdn/web/15092026/Laptop-Acer-Aspire-7-A715-59G-53RH-NH.DV0SV.001-Core-5-210H16GB-RAM512GB-SSDRTX-4050-6GB15.6-FHD-144HzWin-11Den-7.jpg',1,0),
  ('ACER-ASPIRE-7-A715-59G-53RH','https://cdn-transformations.hacom.vn/insecure/f:webp/q:85/rt:fit/w:1080/aHR0cHM6Ly9jZG4tZmlsZXMuaGFjb20udm4vaGFjb20vY2RuL3dlYi8xNTA5MjAyNi9MYXB0b3AtQWNlci1Bc3BpcmUtNy1BNzE1LTU5Ry01M1JILU5ILkRWMFNWLjAwMS1Db3JlLTUtMjEwSDE2R0ItUkFNNTEyR0ItU1NEUlRYLTQwNTAtNkdCMTUuNi1GSEQtMTQ0SHpXaW4tMTFEZW4tMS5qcGc.webp',0,1),
  ('ACER-ASPIRE-7-A715-59G-53RH','https://cdn-transformations.hacom.vn/insecure/f:webp/q:85/rt:fit/w:1080/aHR0cHM6Ly9jZG4tZmlsZXMuaGFjb20udm4vaGFjb20vY2RuL3dlYi8xNTA5MjAyNi9MYXB0b3AtQWNlci1Bc3BpcmUtNy1BNzE1LTU5Ry01M1JILU5ILkRWMFNWLjAwMS1Db3JlLTUtMjEwSDE2R0ItUkFNNTEyR0ItU1NEUlRYLTQwNTAtNkdCMTUuNi1GSEQtMTQ0SHpXaW4tMTFEZW4tMi5qcGc.webp',0,2),
- ('ACER-NITRO-PROPANEL-ANV15-42-R5EF','https://cdn2.cellphones.com.vn/media/wysiwyg/laptop/Acer/Nitro/Nitro-Propanel/laptop-acer-gaming-nitro-propanel-anv15-42-r5ef-1.jpg',1,0),
- ('ACER-NITRO-PROPANEL-ANV15-42-R5EF','https://cdn2.cellphones.com.vn/media/wysiwyg/laptop/Acer/Nitro/Nitro-Propanel/laptop-acer-gaming-nitro-propanel-anv15-42-r5ef-2.jpg',0,1),
- ('ACER-NITRO-PROPANEL-ANV15-42-R5EF','https://cdn2.cellphones.com.vn/media/wysiwyg/laptop/Acer/Nitro/Nitro-Propanel/laptop-acer-gaming-nitro-propanel-anv15-42-r5ef-3.jpg',0,2),
+ ('ACER-NITRO-PROPANEL-ANV15-42-R5EF','/images/products/acer-nitro-anv15-42.jpg',1,0),
  ('ACER-SWIFT-X-SFX14-71G-78SY','https://cdn2.cellphones.com.vn/insecure/rs:fill:0:0/q:100/plain/https://cellphones.com.vn/media/wysiwyg/laptop/Acer/Swift/laptop-acer-swift-x-sfx14-71g-78sy-2.jpg',1,0),
  ('ACER-SWIFT-X-SFX14-71G-78SY','https://cdn2.cellphones.com.vn/insecure/rs:fill:0:0/q:100/plain/https://cellphones.com.vn/media/wysiwyg/laptop/Acer/Swift/laptop-acer-swift-x-sfx14-71g-78sy-3.jpg',0,1),
  ('ACER-SWIFT-X-SFX14-71G-78SY','https://cdn2.cellphones.com.vn/insecure/rs:fill:0:0/q:100/plain/https://cellphones.com.vn/media/wysiwyg/laptop/Acer/Swift/laptop-acer-swift-x-sfx14-71g-78sy-4.jpg',0,2),
@@ -767,7 +805,8 @@ INSERT INTO dbo.Suppliers (SupplierName, TaxCode, ContactName, Phone, Email, Add
 INSERT INTO dbo.Promotions (Code, PromoName, DiscountType, DiscountValue, MinOrderAmount, MaxDiscount, StartDate, EndDate, UsageLimit) VALUES
  ('WELCOME10', N'Chào bạn mới - giảm 10%',        'Percent', 10, 5000000, 1000000, DATEADD(MONTH,-2,SYSDATETIME()), DATEADD(MONTH,6,SYSDATETIME()), 100),
  ('GIAM500K',  N'Giảm 500.000đ cho đơn từ 10 triệu','Amount', 500000, 10000000, NULL, DATEADD(MONTH,-1,SYSDATETIME()), DATEADD(MONTH,3,SYSDATETIME()), 50),
- ('TET2026',   N'Khuyến mãi Tết (đã hết hạn)',     'Percent', 15, 0, 2000000, '2026-01-10', '2026-02-20', NULL);
+ ('TET2026',   N'Khuyến mãi Tết (đã hết hạn)',     'Percent', 15, 0, 2000000, '2026-01-10', '2026-02-20', NULL),
+ ('BTS2026',   N'Back to School - giảm 8% laptop & linh kiện', 'Percent', 8, 3000000, 1500000, DATEADD(MONTH,-1,SYSDATETIME()), DATEADD(MONTH,2,SYSDATETIME()), 500);
 
 /* ---------- 6. Nhập kho (3 phiếu, có serial) ---------- */
 DECLARE @emp INT = (SELECT EmployeeId FROM dbo.Employees WHERE EmployeeCode = 'NV003');
@@ -899,4 +938,17 @@ SELECT 'ProductSerials', COUNT(*) FROM dbo.ProductSerials UNION ALL
 SELECT 'Orders', COUNT(*) FROM dbo.Orders UNION ALL
 SELECT 'Invoices', COUNT(*) FROM dbo.Invoices UNION ALL
 SELECT 'Warranties', COUNT(*) FROM dbo.Warranties;
+GO
+
+/* ---------- 8. Cấp quyền cho login ứng dụng (nếu có) ----------
+   01_schema.sql DROP DATABASE nên mất user của login 'laptopshop_app' (gây lỗi "Login failed" khi chạy app).
+   Đoạn này tự tạo lại user + quyền tối thiểu (đọc/ghi dữ liệu + chạy stored procedure) NẾU login đó tồn tại.
+   Dùng login khác (vd 'sa' hoặc tài khoản Windows) thì bỏ qua đoạn này. */
+IF SUSER_ID(N'laptopshop_app') IS NOT NULL AND DATABASE_PRINCIPAL_ID(N'laptopshop_app') IS NULL
+BEGIN
+    CREATE USER [laptopshop_app] FOR LOGIN [laptopshop_app];
+    ALTER ROLE db_datareader ADD MEMBER [laptopshop_app];
+    ALTER ROLE db_datawriter ADD MEMBER [laptopshop_app];
+    GRANT EXECUTE TO [laptopshop_app];
+END
 GO

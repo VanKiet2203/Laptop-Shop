@@ -1,22 +1,13 @@
-// MODULE 4 - NV BÁN HÀNG: ĐƠN, HOÁ ĐƠN, BÁO CÁO
-// Chủ sở hữu: Thành viên 4 - Đơn hàng, hoá đơn, báo cáo
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+// MODULE 4 - NV BÁN HÀNG: tổng quan (đơn cần xử lý, doanh thu, hàng sắp hết)
+const Order = require('../../models/order.model');
+const Report = require('../../models/report.model');
+const Stock = require('../../models/stock.model');
 
-// GET /staff/
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M4",
-    "owner": "Thành viên 4 - Đơn hàng, hoá đơn, báo cáo",
-    "title": "NV bán hàng - Tổng quan",
-    "route": "GET /staff/",
-    "tasks": [
-      "Thẻ: đơn chờ duyệt, doanh thu hôm nay/tháng, sản phẩm sắp hết (vw_LowStock)"
-    ],
-    "db": "Orders, vw_SalesDaily, vw_LowStock",
-    "rubric": "",
-    "controller": "src/controllers/staff/dashboard.controller.js",
-    "view": "src/views/staff/..."
-  });
+  const range = Report.normalizeRange({ group: 'day' });
+  const week = Report.normalizeRange({ from: new Date(Date.parse(`${range.to}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10), to: range.to });
+  const [counts, quick, weekData, pending, lowStock] = await Promise.all([
+    Order.counts(), Report.quick(), Report.revenue(week), Order.search({ status: 'Pending' }, 1), Stock.lowStock(6),
+  ]);
+  res.render('staff/dashboard', { title: 'Tổng quan bán hàng', counts, quick, week: weekData, pending: pending.rows.slice(0, 6), lowStock });
 };

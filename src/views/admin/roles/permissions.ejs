@@ -1,0 +1,50 @@
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <a class="small text-muted text-decoration-none" href="/admin/roles">&larr; Vai trò & phân quyền</a>
+    <h2 class="h4 mt-1 mb-1"><%= role.RoleName %> <span class="part-no ms-1"><%= role.RoleCode %></span></h2>
+    <p class="text-muted mb-0"><%= role.Description || '' %></p>
+  </div>
+</div>
+<% if (locked.length) { %><div class="alert alert-info d-flex gap-2"><%- ico('info') %><div>Vai trò quản trị phải luôn giữ quyền <strong><%= locked.join(', ') %></strong> để không tự khoá mình khỏi trang quản trị.</div></div><% } %>
+
+<form method="post" action="/admin/roles/<%= role.RoleId %>/permissions">
+  <div class="row g-3 mb-4">
+    <% groups.forEach(function (g, gi) { %>
+      <div class="col-md-6 col-xl-4">
+        <fieldset class="perm-group h-100">
+          <legend class="perm-title d-flex justify-content-between align-items-center float-none w-100 mb-0 fs-6">
+            <span><%= g.module %></span>
+            <label class="form-check mb-0 small fw-normal"><input class="form-check-input perm-all" type="checkbox" data-group="<%= gi %>" aria-label="Chọn tất cả nhóm <%= g.module %>"> Tất cả</label>
+          </legend>
+          <div class="p-3">
+            <% g.items.forEach(function (p) { var must = locked.indexOf(p.PermCode) !== -1; %>
+              <label class="form-check d-block mb-2">
+                <input class="form-check-input perm-item" data-group="<%= gi %>" type="checkbox" name="permissionIds" value="<%= p.PermissionId %>" <%= p.granted || must ? 'checked' : '' %> <%= must ? 'onclick="return false"' : '' %>>
+                <span class="form-check-label"><%= p.PermName %><br><span class="part-no"><%= p.PermCode %></span></span>
+              </label>
+            <% }) %>
+          </div>
+        </fieldset>
+      </div>
+    <% }) %>
+  </div>
+  <div class="d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('check') %> Lưu phân quyền</button><a class="btn btn-outline-secondary" href="/admin/roles">Huỷ</a></div>
+</form>
+<script>
+(function () {
+  function sync(gi) {
+    var items = document.querySelectorAll('.perm-item[data-group="' + gi + '"]');
+    var all = document.querySelector('.perm-all[data-group="' + gi + '"]');
+    var n = 0; items.forEach(function (i) { if (i.checked) n += 1; });
+    all.checked = n === items.length; all.indeterminate = n > 0 && n < items.length;
+  }
+  document.querySelectorAll('.perm-all').forEach(function (all) {
+    var gi = all.getAttribute('data-group'); sync(gi);
+    all.addEventListener('change', function () {
+      document.querySelectorAll('.perm-item[data-group="' + gi + '"]').forEach(function (i) { if (!i.getAttribute('onclick')) i.checked = all.checked; });
+      sync(gi);
+    });
+  });
+  document.querySelectorAll('.perm-item').forEach(function (i) { i.addEventListener('change', function () { sync(i.getAttribute('data-group')); }); });
+})();
+</script>

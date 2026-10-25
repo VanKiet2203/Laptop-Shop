@@ -6,6 +6,7 @@ const { useLayout } = require('../core/locals');
 router.use(requireRole('SALES'), useLayout('layouts/staff'));
 
 router.use('/', require('./staff-sales.routes'));    // MODULE 4: tổng quan, đơn hàng, hoá đơn, báo cáo, bảo hành
+router.use('/', require('./staff-chat.routes'));     // Chat với khách hàng (+ AI)
 router.use('/', require('./staff-catalog.routes'));  // MODULE 2: sản phẩm, danh mục, thương hiệu, thuộc tính
 
 module.exports = router;

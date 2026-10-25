@@ -1,0 +1,151 @@
+<%
+  var hasCat = typeof activeCategory !== 'undefined' && activeCategory;
+  var basePath = hasCat ? '/category/' + activeCategory.Slug : '/products';
+  var brandIds = filters.brandIds || [];
+  // Dựng URL giữ nguyên các điều kiện lọc hiện tại, chỉ đổi những khoá truyền vào (undefined = bỏ khoá đó)
+  function link(over, path) {
+    var p = Object.assign({ q: filters.q, priceRange: filters.priceRange, brandId: brandIds, sort: filters.sort === 'newest' ? '' : filters.sort }, over || {});
+    var parts = [];
+    Object.keys(p).forEach(function (k) {
+      var v = p[k];
+      if (v === undefined || v === null || v === '') return;
+      (Array.isArray(v) ? v : [v]).forEach(function (x) { parts.push(k + '=' + encodeURIComponent(x)); });
+    });
+    return (path || basePath) + (parts.length ? '?' + parts.join('&') : '');
+  }
+  var tierByValue = {};
+  facets.priceTiers.forEach(function (t) { tierByValue[t.value] = t; });
+  var brandName = {};
+  facets.brands.forEach(function (b) { brandName[b.BrandId] = b.BrandName; });
+  var activeChips = [];
+  if (filters.q) activeChips.push({ label: 'Từ khoá: ' + filters.q, href: link({ q: '' }) });
+  brandIds.forEach(function (id) {
+    activeChips.push({ label: brandName[id] || ('Hãng #' + id), href: link({ brandId: brandIds.filter(function (x) { return x !== id; }) }) });
+  });
+  if (filters.priceRange) {
+    var t = tierByValue[filters.priceRange];
+    activeChips.push({ label: t ? t.label : ('Giá ' + (filters.minPrice != null ? fmtMoneyShort(filters.minPrice) : '0') + ' - ' + (filters.maxPrice != null ? fmtMoneyShort(filters.maxPrice) : '∞')), href: link({ priceRange: '' }) });
+  }
+  var heading = hasCat ? activeCategory.CategoryName : (filters.q ? 'Kết quả cho "' + filters.q + '"' : 'Tất cả sản phẩm');
+  // Danh mục gốc đang mở: chính nó, hoặc danh mục cha nếu đang xem một danh mục con
+  var activeRootId = hasCat ? (activeCategory.ParentId == null ? activeCategory.CategoryId : activeCategory.ParentId) : null;
+%>
+<div class="catalog" id="catalog">
+  <div class="catalog-head">
+    <div>
+      <h1 class="catalog-title"><%= heading %></h1>
+      <p class="catalog-count tabular-nums"><span id="result-count"><%= pg.total %></span> sản phẩm</p>
+    </div>
+    <div class="catalog-tools">
+      <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#filters-panel" aria-expanded="false" aria-controls="filters-panel">
+        <%- ico('filter') %> Bộ lọc<% if (activeChips.length) { %> <span class="count-dot"><%= activeChips.length %></span><% } %>
+      </button>
+      <label class="sort-box" for="f-sort"><span class="d-none d-sm-inline">Sắp xếp</span>
+        <select id="f-sort" name="sort" form="filter-form" class="form-select form-select-sm" data-auto-submit>
+          <option value="newest" <%= filters.sort === 'newest' ? 'selected' : '' %>>Mới nhất</option>
+          <option value="price_asc" <%= filters.sort === 'price_asc' ? 'selected' : '' %>>Giá tăng dần</option>
+          <option value="price_desc" <%= filters.sort === 'price_desc' ? 'selected' : '' %>>Giá giảm dần</option>
+          <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Tên A-Z</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <aside class="col-lg-3">
+      <div class="collapse d-lg-block" id="filters-panel">
+        <form id="filter-form" class="filter-card" method="get" action="<%= basePath %>" data-live-filter>
+          <% if (filters.q) { %><input type="hidden" name="q" value="<%= filters.q %>"><% } %>
+
+          <fieldset class="filter-group">
+            <legend class="filter-title">Danh mục</legend>
+            <ul class="filter-list list-unstyled">
+              <li><a class="filter-cat <%= !hasCat ? 'is-active' : '' %>" href="<%= link({ brandId: [], priceRange: '' }, '/products') %>" data-ajax>Tất cả <span><%= facets.categories.reduce(function (s, c) { return s + c.count; }, 0) %></span></a></li>
+              <% facets.categories.forEach(function (c) {
+                   var rootActive = c.CategoryId === activeRootId; %>
+                <li>
+                  <a class="filter-cat <%= rootActive ? 'is-active' : '' %>" href="<%= link({ brandId: [], priceRange: '' }, '/category/' + c.Slug) %>" data-ajax><%= c.CategoryName %> <span><%= c.count %></span></a>
+                  <% if (rootActive && facets.children.length) { %>
+                    <ul class="filter-sub list-unstyled">
+                      <% facets.children.forEach(function (k) { %>
+                        <li><a class="<%= k.Slug === activeCategory.Slug ? 'is-active' : '' %>" href="<%= link({ brandId: [], priceRange: '' }, '/category/' + k.Slug) %>" data-ajax><%= k.CategoryName %> <span><%= k.count %></span></a></li>
+                      <% }) %>
+                    </ul>
+                  <% } %>
+                </li>
+              <% }) %>
+            </ul>
+          </fieldset>
+
+          <% if (facets.brands.length) { %>
+          <fieldset class="filter-group">
+            <legend class="filter-title">Thương hiệu</legend>
+            <ul class="filter-list list-unstyled">
+              <% facets.brands.forEach(function (b) { %>
+                <li>
+                  <label class="check">
+                    <input type="checkbox" name="brandId" value="<%= b.BrandId %>" <%= brandIds.indexOf(b.BrandId) >= 0 ? 'checked' : '' %>>
+                    <span class="check-box" aria-hidden="true"><%- ico('check') %></span>
+                    <span class="check-label"><%= b.BrandName %></span><span class="check-count"><%= b.count %></span>
+                  </label>
+                </li>
+              <% }) %>
+            </ul>
+          </fieldset>
+          <% } %>
+
+          <% if (facets.priceTiers.length) { %>
+          <fieldset class="filter-group">
+            <legend class="filter-title">Khoảng giá</legend>
+            <ul class="filter-list list-unstyled">
+              <li><label class="check"><input type="radio" name="priceRange" value="" <%= !filters.priceRange ? 'checked' : '' %>><span class="check-box is-radio" aria-hidden="true"></span><span class="check-label">Tất cả mức giá</span></label></li>
+              <% facets.priceTiers.forEach(function (t) { %>
+                <li><label class="check"><input type="radio" name="priceRange" value="<%= t.value %>" <%= filters.priceRange === t.value ? 'checked' : '' %>><span class="check-box is-radio" aria-hidden="true"></span><span class="check-label"><%= t.label %></span><span class="check-count"><%= t.count %></span></label></li>
+              <% }) %>
+            </ul>
+          </fieldset>
+          <% } %>
+
+          <noscript><button class="btn btn-primary w-100 mb-2" type="submit">Áp dụng bộ lọc</button></noscript>
+          <% if (activeChips.length) { %><a class="filter-reset" href="<%= link({ priceRange: '', brandId: [] }) %>" data-ajax><%- ico('x', 'ico-sm') %> Xoá bộ lọc</a><% } %>
+        </form>
+      </div>
+    </aside>
+
+    <section class="col-lg-9" aria-live="polite">
+      <% if (activeChips.length) { %>
+        <div class="chips" aria-label="Điều kiện đang lọc">
+          <% activeChips.forEach(function (c) { %>
+            <a class="chip" href="<%= c.href %>" data-ajax><%= c.label %> <%- ico('x', 'ico-sm') %><span class="visually-hidden"> - bỏ lọc</span></a>
+          <% }) %>
+          <a class="chip chip-clear" href="<%= basePath %>" data-ajax>Xoá tất cả</a>
+        </div>
+      <% } %>
+
+      <% if (!products.length) { %>
+        <div class="empty-card">
+          <%- ico('search') %>
+          <h2 class="h5">Không có sản phẩm phù hợp</h2>
+          <p class="text-muted mb-3">Thử bỏ bớt điều kiện lọc hoặc đổi từ khoá khác.</p>
+          <a class="btn btn-primary" href="<%= hasCat ? basePath : '/products' %>" data-ajax>Xoá tất cả bộ lọc</a>
+        </div>
+      <% } else { %>
+        <div class="pgrid pgrid-list">
+          <% products.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }) %>
+        </div>
+
+        <% if (pg.pages > 1) { %>
+        <nav class="mt-4" aria-label="Phân trang sản phẩm">
+          <ul class="pagination justify-content-center">
+            <li class="page-item <%= pg.page <= 1 ? 'disabled' : '' %>"><a class="page-link" href="<%= link({ page: pg.page - 1 }) %>" data-ajax data-scroll aria-label="Trang trước">&laquo;</a></li>
+            <% for (var i = 1; i <= pg.pages; i++) { %>
+              <li class="page-item <%= i === pg.page ? 'active' : '' %>"><a class="page-link tabular-nums" href="<%= link({ page: i }) %>" data-ajax data-scroll <%= i === pg.page ? 'aria-current=page' : '' %>><%= i %></a></li>
+            <% } %>
+            <li class="page-item <%= pg.page >= pg.pages ? 'disabled' : '' %>"><a class="page-link" href="<%= link({ page: pg.page + 1 }) %>" data-ajax data-scroll aria-label="Trang sau">&raquo;</a></li>
+          </ul>
+        </nav>
+        <% } %>
+      <% } %>
+    </section>
+  </div>
+</div>

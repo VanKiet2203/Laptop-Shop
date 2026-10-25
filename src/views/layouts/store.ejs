@@ -2,48 +2,191 @@
 <html lang="vi">
 <head><%- include('../partials/head') %></head>
 <body class="store">
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-    <div class="container">
-      <a class="navbar-brand fw-bold" href="/"><i class="bi bi-laptop"></i> Laptop Shop</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Mở/đóng menu"><span class="navbar-toggler-icon"></span></button>
-      <div class="collapse navbar-collapse" id="nav">
-        <form class="d-flex mx-lg-4 flex-grow-1" action="/products" method="get">
-          <label for="nav-search-q" class="visually-hidden">Tìm kiếm sản phẩm</label>
-          <input id="nav-search-q" class="form-control" name="q" placeholder="Tìm laptop, RAM, SSD, chuột..." value="<%= typeof q !== 'undefined' ? q : '' %>">
-          <button class="btn btn-warning ms-2" type="submit" aria-label="Tìm kiếm"><i class="bi bi-search"></i></button>
-        </form>
-        <ul class="navbar-nav ms-auto align-items-lg-center">
-          <li class="nav-item"><a class="nav-link" href="/products">Sản phẩm</a></li>
-          <li class="nav-item"><a class="nav-link" href="/cart"><i class="bi bi-cart3"></i> Giỏ hàng <span id="cart-count" class="badge bg-danger"><%= cartCount %></span></a></li>
-          <% if (currentUser) { %>
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> <%= currentUser.fullName %></a>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <% if (currentUser.role === 'CUSTOMER') { %>
-                  <li><a class="dropdown-item" href="/account">Hồ sơ của tôi</a></li>
-                  <li><a class="dropdown-item" href="/orders">Đơn hàng của tôi</a></li>
-                <% } else { %>
-                  <li><a class="dropdown-item" href="<%= { ADMIN: '/admin', SALES: '/staff', WAREHOUSE: '/warehouse' }[currentUser.role] %>">Vào khu quản lý</a></li>
-                <% } %>
-                <li><hr class="dropdown-divider"></li>
-                <li><form action="/auth/logout" method="post"><button class="dropdown-item">Đăng xuất</button></form></li>
-              </ul>
+  <a class="skip-link" href="#main">Bỏ qua điều hướng</a>
+
+  <!-- Dải thông báo trên cùng -->
+  <div class="topstrip">
+    <div class="container d-flex justify-content-between align-items-center gap-3">
+      <span class="topstrip-msg"><%- ico('bolt') %> Mùa tựu trường: nhập mã <strong class="part-no part-no-light">BTS2026</strong> giảm 8% đơn từ 3 triệu</span>
+      <span class="topstrip-links d-none d-md-flex">
+        <a href="/orders/track"><%- ico('search') %> Tra cứu đơn hàng</a>
+        <a href="tel:<%= site.hotline.replace(/\s/g, '') %>"><%- ico('phone') %> Hotline <%= site.hotline %></a>
+      </span>
+    </div>
+  </div>
+
+  <header class="store-nav">
+    <div class="container store-nav-row">
+      <a class="store-brand" href="/" aria-label="<%= site.name %> - trang chủ">
+        <span class="brand-mark"><%- ico('logo') %></span>
+        <span class="store-brand-text">Laptop<b>Shop</b></span>
+      </a>
+
+      <form class="store-search" action="/products" method="get" role="search" autocomplete="off">
+        <label for="nav-search-q" class="visually-hidden">Tìm kiếm sản phẩm</label>
+        <span class="store-search-ico"><%- ico('search') %></span>
+        <input id="nav-search-q" class="store-search-input" name="q" placeholder="Tìm laptop, RAM, SSD, chuột..." value="<%= typeof filters !== 'undefined' && filters && filters.q ? filters.q : (typeof q !== 'undefined' ? q : '') %>"
+               role="combobox" aria-expanded="false" aria-controls="suggest-list" aria-autocomplete="list" maxlength="100">
+        <button class="store-search-btn" type="submit"><span class="d-none d-sm-inline">Tìm</span><span class="d-sm-none" aria-label="Tìm kiếm"><%- ico('search') %></span></button>
+        <div class="suggest" id="suggest-box" hidden>
+          <ul id="suggest-list" role="listbox" class="suggest-list"></ul>
+        </div>
+      </form>
+
+      <nav class="store-actions" aria-label="Tài khoản và giỏ hàng">
+        <a class="nav-action" href="/cart" aria-label="Giỏ hàng, <%= cartCount %> sản phẩm">
+          <%- ico('cart') %><span class="nav-action-text d-none d-lg-inline">Giỏ hàng</span>
+          <span id="cart-count" class="cart-badge <%= cartCount ? '' : 'is-empty' %>"><%= cartCount %></span>
+        </a>
+        <% if (currentUser) { %>
+          <div class="dropdown">
+            <button class="nav-action nav-user" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <% if (currentUser.avatarUrl) { %>
+                <img class="avatar-img" src="<%= currentUser.avatarUrl %>" alt="" referrerpolicy="no-referrer">
+              <% } else { %>
+                <span class="avatar" aria-hidden="true"><%= String(currentUser.fullName || '?').trim().charAt(0).toUpperCase() %></span>
+              <% } %>
+              <span class="nav-action-text d-none d-lg-inline text-truncate" style="max-width: 9rem"><%= currentUser.fullName %></span>
+              <%- ico('chevdown', 'ico-sm d-none d-lg-inline') %>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+              <% if (currentUser.role === 'CUSTOMER') { %>
+                <li><a class="dropdown-item" href="/account"><%- ico('user') %> Hồ sơ &amp; địa chỉ</a></li>
+                <li><a class="dropdown-item" href="/orders"><%- ico('receipt') %> Đơn hàng của tôi</a></li>
+              <% } else { %>
+                <li><a class="dropdown-item" href="<%= { ADMIN: '/admin', SALES: '/staff', WAREHOUSE: '/warehouse' }[currentUser.role] %>"><%- ico('dash') %> Vào khu quản lý</a></li>
+              <% } %>
+              <li><hr class="dropdown-divider"></li>
+              <li><form action="/auth/logout" method="post"><button class="dropdown-item"><%- ico('logout') %> Đăng xuất</button></form></li>
+            </ul>
+          </div>
+        <% } else { %>
+          <a class="nav-action" href="/auth/login"><%- ico('user') %><span class="nav-action-text d-none d-lg-inline">Đăng nhập</span></a>
+          <a class="btn btn-warning btn-sm d-none d-md-inline-flex" href="/register">Đăng ký</a>
+        <% } %>
+      </nav>
+    </div>
+
+    <!-- Thanh danh mục: rê chuột vào mục để thấy danh mục con, hãng và mức giá còn hàng -->
+    <div class="catbar">
+      <div class="container">
+        <ul class="catbar-list" id="catbar">
+          <li class="catbar-item"><a class="catbar-link" href="/products"><%- ico('grid') %> Tất cả</a></li>
+          <% megaMenu.forEach(function (m) { %>
+            <li class="catbar-item has-mega">
+              <a class="catbar-link" href="/category/<%= m.Slug %>" aria-haspopup="true"><%= m.CategoryName %> <%- ico('chevdown', 'ico-sm') %></a>
+              <div class="mega" role="region" aria-label="Gợi ý lọc <%= m.CategoryName %>">
+                <div class="mega-col">
+                  <div class="mega-title">Danh mục</div>
+                  <a class="mega-link mega-all" href="/category/<%= m.Slug %>">Tất cả <%= m.CategoryName %> <span><%= m.count %></span></a>
+                  <% m.children.forEach(function (c) { %>
+                    <a class="mega-link" href="/category/<%= c.Slug %>"><%= c.CategoryName %> <span><%= c.count %></span></a>
+                  <% }) %>
+                </div>
+                <div class="mega-col">
+                  <div class="mega-title">Thương hiệu</div>
+                  <div class="mega-chips">
+                    <% m.brands.forEach(function (b) { %>
+                      <a class="mega-chip" href="/category/<%= m.Slug %>?brandId=<%= b.BrandId %>"><%= b.BrandName %></a>
+                    <% }) %>
+                  </div>
+                </div>
+                <div class="mega-col">
+                  <div class="mega-title">Mức giá</div>
+                  <% m.priceTiers.forEach(function (t) { %>
+                    <a class="mega-link" href="/category/<%= m.Slug %>?priceRange=<%= t.value %>"><%= t.label %> <span><%= t.count %></span></a>
+                  <% }) %>
+                </div>
+              </div>
             </li>
-          <% } else { %>
-            <li class="nav-item"><a class="nav-link" href="/auth/login">Đăng nhập</a></li>
-            <li class="nav-item"><a class="btn btn-outline-light btn-sm ms-lg-2" href="/register">Đăng ký</a></li>
-          <% } %>
+          <% }) %>
+          <li class="catbar-item ms-auto d-none d-lg-block"><a class="catbar-link catbar-hot" href="/products?sort=price_asc"><%- ico('flame') %> Giá tốt</a></li>
         </ul>
       </div>
     </div>
-  </nav>
-  <main class="container py-4">
+  </header>
+
+  <main id="main" class="container py-4">
     <%- include('../partials/flash') %>
     <%- body %>
   </main>
-  <footer class="bg-dark text-white-50 py-4 mt-5">
-    <div class="container small">© 2026 Laptop Shop - Đồ án Phân tích thiết kế HTTT - Đại học Sài Gòn</div>
+
+  <!-- Thông báo nhỏ (toast) cho thao tác không tải lại trang -->
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+  <footer class="site-footer">
+    <div class="footer-perks">
+      <div class="container">
+        <ul class="perks">
+          <li><span class="perk-ico"><%- ico('shieldcheck') %></span><div><strong>Bảo hành điện tử</strong><span>Tra cứu theo số Serial</span></div></li>
+          <li><span class="perk-ico"><%- ico('truck') %></span><div><strong>Miễn phí giao hàng</strong><span>Cho đơn từ 5 triệu</span></div></li>
+          <li><span class="perk-ico"><%- ico('refresh') %></span><div><strong>Đổi trả 7 ngày</strong><span>Lỗi do nhà sản xuất</span></div></li>
+          <li><span class="perk-ico"><%- ico('card') %></span><div><strong>Trả góp 0%</strong><span>Qua thẻ tín dụng</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-main">
+      <div class="container">
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <a class="store-brand store-brand-light mb-3" href="/"><span class="brand-mark"><%- ico('logo') %></span><span class="store-brand-text">Laptop<b>Shop</b></span></a>
+            <p class="footer-about"><%= site.legalName %> · MST <%= site.taxCode %>. Chuyên laptop và linh kiện chính hãng, tư vấn nâng cấp RAM/SSD đúng chuẩn tương thích từ năm <%= site.founded %>.</p>
+            <ul class="footer-contact list-unstyled">
+              <li><%- ico('phone') %><span>Hotline <a href="tel:<%= site.hotline.replace(/\s/g, '') %>"><strong><%= site.hotline %></strong></a><small><%= site.hotlineHours %></small></span></li>
+              <li><%- ico('mail') %><span><a href="mailto:<%= site.email %>"><%= site.email %></a><small>Bảo hành: <%= site.warrantyEmail %></small></span></li>
+              <li><%- ico('pin') %><span><%= site.headOffice %><small>Trụ sở chính</small></span></li>
+            </ul>
+            <div class="footer-social">
+              <% site.socials.forEach(function (s) { %><a href="<%= s.href %>" aria-label="<%= s.name %>" title="<%= s.name %>"><%- ico(s.icon) %></a><% }) %>
+            </div>
+          </div>
+
+          <div class="col-6 col-lg-2">
+            <h2 class="footer-h">Mua sắm</h2>
+            <ul class="footer-links list-unstyled">
+              <li><a href="/products">Tất cả sản phẩm</a></li>
+              <% megaMenu.forEach(function (m) { %><li><a href="/category/<%= m.Slug %>"><%= m.CategoryName %></a></li><% }) %>
+              <li><a href="/products?sort=price_asc">Sản phẩm giá tốt</a></li>
+              <li><a href="/orders/track">Tra cứu đơn hàng</a></li>
+            </ul>
+          </div>
+
+          <div class="col-6 col-lg-3">
+            <h2 class="footer-h">Hỗ trợ khách hàng</h2>
+            <ul class="footer-links list-unstyled">
+              <li><a href="/info/bao-hanh">Chính sách bảo hành</a></li>
+              <li><a href="/info/doi-tra">Chính sách đổi trả</a></li>
+              <li><a href="/info/giao-hang">Chính sách giao hàng</a></li>
+              <li><a href="/info/thanh-toan">Hướng dẫn thanh toán</a></li>
+              <li><a href="/info/bao-mat">Chính sách bảo mật</a></li>
+              <li><a href="/info/ve-chung-toi">Về Laptop Shop</a></li>
+            </ul>
+          </div>
+
+          <div class="col-lg-3">
+            <h2 class="footer-h">Hệ thống cửa hàng</h2>
+            <ul class="footer-branches list-unstyled">
+              <% site.branches.forEach(function (b) { %>
+                <li><strong><%= b.name %></strong><span><%= b.address %></span><a href="tel:<%= b.phone.replace(/[^0-9]/g, '') %>"><%= b.phone %></a></li>
+              <% }) %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>© 2026 <%= site.legalName %>. Mọi quyền được bảo lưu.</span>
+        <span class="pay-badges" aria-label="Phương thức thanh toán">
+          <% site.paymentBadges.forEach(function (b) { %><span class="pay-badge"><%= b %></span><% }) %>
+        </span>
+      </div>
+      <div class="container footer-note">Website phục vụ đồ án môn Phân tích thiết kế HTTT - Đại học Sài Gòn; thông tin doanh nghiệp trên trang là dữ liệu giả lập.</div>
+    </div>
   </footer>
+  <%- include('../partials/chat-widget') %>
   <%- include('../partials/scripts') %>
 </body>
 </html>

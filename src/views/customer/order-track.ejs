@@ -1,0 +1,38 @@
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <div class="auth-card">
+      <div class="text-center mb-4">
+        <span class="auth-ico"><%- ico('search') %></span>
+        <h1 class="h4 mb-1">Tra cứu đơn hàng</h1>
+        <p class="text-muted small mb-0">Dành cho khách đặt hàng không cần đăng nhập — nhập mã đơn và số điện thoại nhận hàng.</p>
+      </div>
+
+      <% if (typeof notFound !== 'undefined' && notFound) { %>
+        <div class="alert alert-warning" role="alert">Không tìm thấy đơn hàng khớp với mã đơn và số điện thoại này. Vui lòng kiểm tra lại.</div>
+      <% } %>
+
+      <form method="get" action="/orders/track" class="row g-3">
+        <div class="col-12">
+          <label class="form-label" for="track-no">Mã đơn hàng</label>
+          <input id="track-no" name="orderNo" class="form-control text-uppercase" required maxlength="30" placeholder="DH2610-00001" value="<%= orderNo %>">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="track-phone">Số điện thoại nhận hàng</label>
+          <input id="track-phone" name="phone" type="tel" class="form-control" required maxlength="20" placeholder="09xxxxxxxx" value="<%= phone %>">
+        </div>
+        <div class="col-12"><button class="btn btn-primary w-100 btn-lg">Tra cứu <%- ico('arrow') %></button></div>
+      </form>
+      <p class="text-center small mt-3 mb-0">Đã có tài khoản? <a href="/auth/login">Đăng nhập</a> để xem tất cả đơn hàng.</p>
+    </div>
+
+    <div class="auth-card resend-card">
+      <h2 class="h6 d-flex align-items-center gap-2"><%- ico('mail') %> Quên mã đơn hàng?</h2>
+      <p class="small text-muted">Nhập số điện thoại và email đã dùng khi đặt hàng, chúng tôi sẽ gửi lại mã đơn vào email đó.</p>
+      <form method="post" action="/orders/track/resend" class="row g-2">
+        <div class="col-sm-6"><label class="visually-hidden" for="resend-phone">Số điện thoại</label><input id="resend-phone" name="phone" type="tel" class="form-control" required maxlength="20" placeholder="Số điện thoại" value="<%= phone %>"></div>
+        <div class="col-sm-6"><label class="visually-hidden" for="resend-email">Email</label><input id="resend-email" name="email" type="email" class="form-control" required maxlength="150" placeholder="Email đã dùng khi đặt"></div>
+        <div class="col-12"><button class="btn btn-outline-primary w-100">Gửi lại mã đơn vào email</button></div>
+      </form>
+    </div>
+  </div>
+</div>

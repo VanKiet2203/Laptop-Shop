@@ -1,0 +1,80 @@
+<% var ord = order; var approved = ord.Status === 'Approved'; %>
+<div class="success-hero <%= approved ? 'is-approved' : 'is-pending' %>">
+  <span class="success-ico"><%- ico(approved ? 'checkcircle' : 'clock') %></span>
+  <div>
+    <h1 class="success-title">Đặt hàng thành công!</h1>
+    <p class="success-sub">Mã đơn <span class="part-no part-no-lg"><%= ord.OrderNo %></span>
+      <button type="button" class="copy-btn" data-copy="<%= ord.OrderNo %>" aria-label="Sao chép mã đơn"><%- ico('copy', 'ico-sm') %></button></p>
+    <p class="success-msg">
+      <% if (approved) { %>
+        Hệ thống đã <strong>xác nhận còn hàng</strong> cho đơn của bạn (đơn 1 sản phẩm được xác nhận ngay).
+      <% } else { %>
+        Đơn có từ 2 sản phẩm nên đang ở trạng thái <strong>"Đang kiểm tra hàng"</strong> — nhân viên sẽ kiểm tra tồn kho và xác nhận với bạn qua số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong>.
+      <% } %>
+    </p>
+  </div>
+</div>
+
+<% if (mail && mail.email) { %>
+  <div class="mail-note <%= mail.mode === 'smtp' ? 'is-sent' : '' %>">
+    <%- ico('mail') %>
+    <div>
+      <% if (mail.mode === 'smtp') { %>
+        <strong>Đã gửi email xác nhận tới <%= mail.email %></strong> — trong email có mã đơn <span class="part-no"><%= ord.OrderNo %></span> và link tra cứu. Nếu không thấy, hãy kiểm tra mục Spam.
+      <% } else { %>
+        <strong>Email xác nhận cho <%= mail.email %></strong> chứa mã đơn <span class="part-no"><%= ord.OrderNo %></span> và link tra cứu.
+        <% if (mail.mode === 'outbox') { %><span class="small text-muted d-block">Máy chủ chưa cấu hình SMTP nên email được lưu trong thư mục <code>outbox/</code> (chế độ thử nghiệm).</span>
+        <% } else { %><span class="small text-muted d-block">Chưa gửi được email, vui lòng lưu lại mã đơn ở trên.</span><% } %>
+      <% } %>
+    </div>
+  </div>
+<% } %>
+
+<%- include('./_order-progress', { ord: ord }) %>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="co-card">
+      <h2 class="co-title"><span class="co-num"><%- ico('card', 'ico-sm') %></span> Thanh toán — <%= PAYMENT_METHOD[ord.PaymentMethod] || ord.PaymentMethod %></h2>
+      <%- include('./_payment-panel', { ord: ord }) %>
+    </section>
+
+    <section class="co-card">
+      <h2 class="co-title"><span class="co-num"><%- ico('pin', 'ico-sm') %></span> Thông tin nhận hàng</h2>
+      <div class="kv"><span>Người nhận</span><strong><%= ord.ReceiverName %></strong></div>
+      <div class="kv"><span>Số điện thoại</span><strong class="tabular-nums"><%= ord.ReceiverPhone %></strong></div>
+      <div class="kv"><span>Địa chỉ</span><strong><%= ord.ShippingAddress %></strong></div>
+      <% if (ord.Note) { %><div class="kv"><span>Ghi chú</span><strong><%= ord.Note %></strong></div><% } %>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="summary-card summary-sticky">
+      <h2 class="summary-title">Sản phẩm đã đặt</h2>
+      <ul class="mini-items list-unstyled">
+        <% ord.items.forEach(function (item) { %>
+          <li>
+            <img src="<%= productImage(item.PrimaryImage, item.CategorySlug) %>" data-fallback="<%= productImage(null, item.CategorySlug) %>" alt="" referrerpolicy="no-referrer">
+            <div class="mini-info"><div class="mini-name"><%= item.ProductName %></div><div class="small text-muted tabular-nums">SL <%= item.Quantity %> × <%= fmtMoney(item.UnitPrice) %></div></div>
+            <div class="mini-total tabular-nums"><%= fmtMoney(item.LineTotal) %></div>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="summary-row"><span>Tạm tính</span><span class="tabular-nums"><%= fmtMoney(ord.Subtotal) %></span></div>
+      <% if (ord.DiscountAmount > 0) { %><div class="summary-row text-success"><span>Giảm giá<%= ord.PromoCode ? ' (' + ord.PromoCode + ')' : '' %></span><span class="tabular-nums">-<%= fmtMoney(ord.DiscountAmount) %></span></div><% } %>
+      <div class="summary-row"><span>Phí vận chuyển</span><span class="tabular-nums"><%= ord.ShippingFee === 0 ? 'Miễn phí' : fmtMoney(ord.ShippingFee) %></span></div>
+      <div class="summary-row"><span>VAT</span><span class="tabular-nums"><%= fmtMoney(ord.VatAmount) %></span></div>
+      <div class="summary-total"><span>Tổng thanh toán</span><strong class="tabular-nums"><%= fmtMoney(ord.TotalAmount) %></strong></div>
+
+      <div class="d-grid gap-2 mt-3">
+        <% if (!isGuest) { %>
+          <a class="btn btn-primary" href="/orders/<%= ord.OrderId %>">Xem chi tiết đơn hàng <%- ico('arrow') %></a>
+        <% } else { %>
+          <div class="guest-track"><%- ico('info', 'ico-sm') %><span>Hãy lưu mã đơn <strong><%= ord.OrderNo %></strong>. Bạn có thể tra cứu đơn tại <a href="/orders/track?orderNo=<%= encodeURIComponent(ord.OrderNo) %>&phone=<%= encodeURIComponent(ord.ReceiverPhone) %>">Tra cứu đơn hàng</a> bằng mã đơn và số điện thoại.</span></div>
+          <a class="btn btn-outline-primary" href="/register"><%- ico('userplus') %> Tạo tài khoản để theo dõi dễ hơn</a>
+        <% } %>
+        <a class="btn btn-outline-secondary" href="/products">Tiếp tục mua sắm</a>
+      </div>
+    </div>
+  </div>
+</div>

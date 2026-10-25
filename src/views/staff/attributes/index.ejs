@@ -1,0 +1,45 @@
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0">Mã thuộc tính được lưu dạng chữ in hoa; chỉ thuộc tính được bật lọc mới dành cho bộ lọc cửa hàng.</p>
+  <a href="/staff/attributes/new" class="btn btn-primary"><%- ico('plus') %> Thêm thuộc tính</a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Mã</th>
+        <th>Tên thuộc tính</th>
+        <th>Đơn vị</th>
+        <th>Cho phép lọc</th>
+        <th class="text-end">Sản phẩm dùng</th>
+        <th class="text-end">Luật tương thích</th>
+        <th class="text-end">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% attributes.forEach(function (attribute) { %>
+        <tr>
+          <td><span class="part-no"><%= attribute.AttrCode %></span></td>
+          <td><%= attribute.AttrName %></td>
+          <td><%= attribute.Unit || '—' %></td>
+          <td><span class="badge text-bg-<%= attribute.IsFilterable ? 'success' : 'secondary' %>"><%= attribute.IsFilterable ? 'Có' : 'Không' %></span></td>
+          <td class="text-end tabular-nums"><%= attribute.ProductCount %></td>
+          <td class="text-end tabular-nums"><%= attribute.RuleCount %></td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/staff/attributes/<%= attribute.AttributeId %>/edit">Sửa</a>
+            <% if (attribute.ProductCount || attribute.RuleCount) { %>
+              <button class="btn btn-sm btn-outline-secondary" type="button" disabled aria-label="Thuộc tính đang được sử dụng, không thể xoá">Đang dùng</button>
+            <% } else { %>
+              <form class="d-inline" method="post" action="/staff/attributes/<%= attribute.AttributeId %>/delete" onsubmit="return confirm('Xoá thuộc tính này?')">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!attributes.length) { %>
+        <tr><td colspan="7" class="text-center text-muted py-4">Chưa có thuộc tính kỹ thuật nào.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>

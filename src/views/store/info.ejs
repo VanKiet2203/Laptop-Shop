@@ -1,0 +1,22 @@
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <nav aria-label="breadcrumb" class="mb-3"><ol class="breadcrumb small"><li class="breadcrumb-item"><a href="/">Trang chủ</a></li><li class="breadcrumb-item active" aria-current="page"><%= page.title %></li></ol></nav>
+    <article class="info-card">
+      <h1 class="info-title"><%= page.title %></h1>
+      <% page.body.forEach(function (para) { %><p><%= para %></p><% }) %>
+
+      <% if (slug === 'lien-he' || slug === 've-chung-toi') { %>
+        <h2 class="h5 mt-4">Hệ thống cửa hàng</h2>
+        <ul class="list-unstyled info-branches">
+          <% site.branches.forEach(function (b) { %>
+            <li><span class="perk-ico"><%- ico('pin') %></span><div><strong><%= b.name %></strong><div><%= b.address %></div><a href="tel:<%= b.phone.replace(/[^0-9]/g, '') %>"><%= b.phone %></a></div></li>
+          <% }) %>
+        </ul>
+      <% } %>
+
+      <div class="info-links">
+        <% Object.keys(site.pages).forEach(function (k) { if (k !== slug) { %><a href="/info/<%= k %>"><%= site.pages[k].title %></a><% } }) %>
+      </div>
+    </article>
+  </div>
+</div>

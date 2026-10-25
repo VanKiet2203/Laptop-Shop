@@ -1,0 +1,148 @@
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0">Phiếu được lưu ở trạng thái <strong>Nháp</strong>. Chỉ khi bấm "Chốt phiếu" thì tồn kho, Serial và giá vốn mới được cập nhật.</p>
+  <a href="/warehouse/receipts" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+<% if (errors.length) { %>
+  <div class="alert alert-danger"><strong>Chưa lưu được phiếu:</strong><ul class="mb-0 mt-1"><% errors.forEach(function (e) { %><li><%= e %></li><% }) %></ul></div>
+<% } %>
+
+<form method="post" action="/warehouse/receipts" id="receipt-form" novalidate>
+  <input type="hidden" name="itemsJson" id="items-json">
+  <div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">Thông tin phiếu</div>
+    <div class="card-body row g-3">
+      <div class="col-12 col-md-5">
+        <label class="form-label" for="rc-supplier">Nhà cung cấp <span class="text-danger">*</span></label>
+        <select id="rc-supplier" name="supplierId" class="form-select" required>
+          <option value="">Chọn nhà cung cấp</option>
+          <% suppliers.forEach(function (s) { %><option value="<%= s.SupplierId %>" <%= String(draft.supplierId) === String(s.SupplierId) ? 'selected' : '' %>><%= s.SupplierName %> (hạn TT <%= s.PaymentTermDays %> ngày)</option><% }) %>
+        </select>
+        <% if (!suppliers.length) { %><div class="form-text text-danger">Chưa có nhà cung cấp nào đang hợp tác. <a href="/warehouse/suppliers/new">Thêm nhà cung cấp</a> trước.</div><% } %>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="rc-paid">Đã thanh toán cho NCC (đ)</label>
+        <input id="rc-paid" name="paidAmount" type="number" min="0" step="1" class="form-control tabular-nums" placeholder="0" value="<%= draft.paidAmount %>">
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="rc-note">Ghi chú</label>
+        <input id="rc-note" name="note" class="form-control" maxlength="255" value="<%= draft.note %>">
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Sản phẩm nhập</span>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="add-line"><%- ico('plus') %> Thêm dòng</button>
+    </div>
+    <div class="card-body">
+      <div id="lines"></div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+        <span class="text-muted small"><span id="line-count">0</span> dòng · <span id="qty-count">0</span> sản phẩm</span>
+        <span class="fs-5">Tổng tiền hàng: <strong class="tabular-nums" id="grand-total">0 ₫</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" type="submit"><%- ico('check') %> Lưu phiếu nháp</button>
+    <a class="btn btn-outline-secondary" href="/warehouse/receipts">Huỷ</a>
+  </div>
+</form>
+
+<script type="application/json" id="products-data"><%- productsJson %></script>
+<script type="application/json" id="draft-data"><%- draftJson %></script>
+<script>
+(function () {
+  var products = JSON.parse(document.getElementById('products-data').textContent);
+  var draft = JSON.parse(document.getElementById('draft-data').textContent);
+  var byId = {}; products.forEach(function (p) { byId[p.ProductId] = p; });
+  var box = document.getElementById('lines');
+  var money = function (n) { return Number(n || 0).toLocaleString('vi-VN') + ' ₫'; };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var optionHtml = '<option value="">Chọn sản phẩm</option>' + products.map(function (p) {
+    return '<option value="' + p.ProductId + '">' + esc(p.Sku + ' — ' + p.ProductName) + (p.IsSerialTracked ? ' [Serial]' : '') + '</option>';
+  }).join('');
+
+  function serialsOf(row) { return row.querySelector('.f-serials').value.split(/[\s,;]+/).filter(Boolean); }
+
+  function refresh() {
+    var rows = box.querySelectorAll('.line-row'); var total = 0; var qtyAll = 0;
+    rows.forEach(function (row, i) {
+      row.querySelector('.line-no').textContent = 'Dòng ' + (i + 1);
+      var p = byId[row.querySelector('.f-product').value];
+      var qty = parseInt(row.querySelector('.f-qty').value, 10) || 0;
+      var cost = parseInt(row.querySelector('.f-cost').value, 10) || 0;
+      var tracked = !!(p && p.IsSerialTracked);
+      row.querySelector('.serial-wrap').classList.toggle('d-none', !tracked);
+      row.querySelector('.f-line-total').textContent = money(qty * cost);
+      if (p) row.querySelector('.stock-hint').textContent = 'Tồn hiện tại: ' + p.QtyOnHand;
+      if (tracked) {
+        var n = serialsOf(row).length; var info = row.querySelector('.serial-count');
+        info.textContent = n + '/' + qty + ' Serial'; info.className = 'serial-count small ' + (n === qty ? 'text-success' : 'text-danger');
+      }
+      total += qty * cost; qtyAll += qty;
+    });
+    document.getElementById('grand-total').textContent = money(total);
+    document.getElementById('line-count').textContent = rows.length;
+    document.getElementById('qty-count').textContent = qtyAll;
+  }
+
+  function addLine(data) {
+    data = data || {};
+    var row = document.createElement('div'); row.className = 'line-row';
+    row.innerHTML =
+      '<div class="d-flex justify-content-between align-items-center mb-2"><strong class="line-no"></strong>' +
+      '<button type="button" class="btn btn-sm btn-outline-danger rm-line" aria-label="Xoá dòng">Xoá dòng</button></div>' +
+      '<div class="row g-2">' +
+      '<div class="col-12 col-lg-6"><label class="form-label small mb-1">Sản phẩm</label><select class="form-select f-product">' + optionHtml + '</select><div class="form-text stock-hint"></div></div>' +
+      '<div class="col-6 col-lg-2"><label class="form-label small mb-1">Số lượng</label><input type="number" min="1" max="10000" step="1" class="form-control f-qty tabular-nums" value="1"></div>' +
+      '<div class="col-6 col-lg-2"><label class="form-label small mb-1">Đơn giá nhập (đ)</label><input type="number" min="0" step="1" class="form-control f-cost tabular-nums" value="0"></div>' +
+      '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Thành tiền</label><div class="form-control-plaintext fw-semibold tabular-nums f-line-total">0 ₫</div></div>' +
+      '<div class="col-12 serial-wrap d-none"><label class="form-label small mb-1">Số Serial (mỗi dòng một Serial hoặc ngăn cách bằng dấu phẩy) <span class="serial-count small"></span></label>' +
+      '<textarea class="form-control serial-box f-serials" rows="3" spellcheck="false"></textarea></div></div>';
+    box.appendChild(row);
+    if (data.productId) row.querySelector('.f-product').value = String(data.productId);
+    if (data.qty) row.querySelector('.f-qty').value = data.qty;
+    if (data.unitCost !== undefined && data.unitCost !== null && data.unitCost !== '') row.querySelector('.f-cost').value = data.unitCost;
+    if (data.serials) row.querySelector('.f-serials').value = data.serials;
+    refresh();
+  }
+
+  box.addEventListener('change', function (e) {
+    if (e.target.classList.contains('f-product')) {
+      var p = byId[e.target.value]; var row = e.target.closest('.line-row');
+      if (p) row.querySelector('.f-cost').value = Math.round(p.CostPrice);
+    }
+    refresh();
+  });
+  box.addEventListener('input', refresh);
+  box.addEventListener('click', function (e) {
+    var btn = e.target.closest('.rm-line'); if (!btn) return;
+    btn.closest('.line-row').remove(); refresh();
+  });
+  document.getElementById('add-line').addEventListener('click', function () { addLine(); });
+
+  document.getElementById('receipt-form').addEventListener('submit', function (e) {
+    var items = []; var seen = {}; var problem = '';
+    box.querySelectorAll('.line-row').forEach(function (row, i) {
+      var pid = row.querySelector('.f-product').value; var p = byId[pid];
+      var qty = parseInt(row.querySelector('.f-qty').value, 10); var cost = parseInt(row.querySelector('.f-cost').value, 10);
+      if (!p) { problem = problem || 'Dòng ' + (i + 1) + ': chưa chọn sản phẩm.'; return; }
+      if (seen[pid]) { problem = problem || 'Sản phẩm ' + p.Sku + ' bị lặp ở nhiều dòng, hãy gộp lại.'; return; }
+      seen[pid] = true;
+      if (!(qty >= 1)) { problem = problem || 'Dòng ' + (i + 1) + ': số lượng phải từ 1 trở lên.'; return; }
+      if (!(cost >= 0)) { problem = problem || 'Dòng ' + (i + 1) + ': đơn giá không hợp lệ.'; return; }
+      var serials = p.IsSerialTracked ? serialsOf(row) : [];
+      if (p.IsSerialTracked && serials.length !== qty) { problem = problem || 'Dòng ' + (i + 1) + ' (' + p.Sku + '): cần đúng ' + qty + ' Serial, đang có ' + serials.length + '.'; return; }
+      items.push({ productId: Number(pid), qty: qty, unitCost: cost, serials: serials });
+    });
+    if (!problem && !items.length) problem = 'Hãy thêm ít nhất một dòng sản phẩm.';
+    if (!document.getElementById('rc-supplier').value) problem = problem || 'Hãy chọn nhà cung cấp.';
+    if (problem) { e.preventDefault(); alert(problem); return; }
+    document.getElementById('items-json').value = JSON.stringify(items);
+  });
+
+  if (draft && draft.items && draft.items.length) draft.items.forEach(addLine); else addLine();
+})();
+</script>

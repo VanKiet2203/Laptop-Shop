@@ -1,16 +1,17 @@
 <%- include('../partials/panel', { body: body, panel: {
-  theme: 'staff', name: 'BÁN HÀNG', subtitle: 'Nhân viên bán hàng', icon: 'bi-bag-check', home: '/staff',
+  theme: 'staff', name: 'BÁN HÀNG', subtitle: 'Nhân viên bán hàng', icon: 'bag', home: '/staff',
   nav: [
-    { href: '/staff', label: 'Tổng quan', icon: 'bi-speedometer2' },
+    { href: '/staff', label: 'Tổng quan', icon: 'dash' },
     { section: 'Bán hàng' },
-    { href: '/staff/orders', label: 'Đơn hàng', icon: 'bi-receipt' },
-    { href: '/staff/invoices', label: 'Hoá đơn', icon: 'bi-file-earmark-text' },
-    { href: '/staff/warranty', label: 'Tra cứu bảo hành', icon: 'bi-shield-check' },
-    { href: '/staff/reports', label: 'Thống kê doanh thu', icon: 'bi-graph-up' },
-    { href: '/staff/reports/products', label: 'Sản phẩm bán chạy', icon: 'bi-trophy' },
+    { href: '/staff/orders', label: 'Đơn hàng', icon: 'receipt' },
+    { href: '/staff/invoices', label: 'Hoá đơn', icon: 'doc' },
+    { href: '/staff/warranty', label: 'Tra cứu bảo hành', icon: 'shieldcheck' },
+    { href: '/staff/chat', label: 'Chat khách hàng', icon: 'chat', badge: 'chat-badge', perm: 'chat.reply' },
+    { href: '/staff/reports', label: 'Thống kê doanh thu', icon: 'chart' },
+    { href: '/staff/reports/products', label: 'Sản phẩm bán chạy', icon: 'trophy' },
     { section: 'Sản phẩm' },
-    { href: '/staff/products', label: 'Sản phẩm', icon: 'bi-laptop' },
-    { href: '/staff/categories', label: 'Danh mục', icon: 'bi-diagram-3' },
-    { href: '/staff/brands', label: 'Thương hiệu', icon: 'bi-tags' },
-    { href: '/staff/attributes', label: 'Thuộc tính kỹ thuật', icon: 'bi-sliders' }
+    { href: '/staff/products', label: 'Sản phẩm', icon: 'laptop' },
+    { href: '/staff/categories', label: 'Danh mục', icon: 'tree' },
+    { href: '/staff/brands', label: 'Thương hiệu', icon: 'tag' },
+    { href: '/staff/attributes', label: 'Thuộc tính kỹ thuật', icon: 'sliders' }
   ] } }) %>

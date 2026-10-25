@@ -1,0 +1,78 @@
+<%
+  var t = data.totals;
+  var maxRev = Math.max.apply(null, data.buckets.map(function (b) { return b.revenue; }).concat([1]));
+  var avg = t.orders ? Math.round(t.revenue / t.orders) : 0;
+  var delta = data.prev.revenue ? Math.round((t.revenue - data.prev.revenue) * 100 / data.prev.revenue) : null;
+  var every = Math.max(1, Math.ceil(data.buckets.length / 8));
+  function preset(days) {
+    var to = new Date(); var from = new Date(Date.now() - (days - 1) * 86400000);
+    var f = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    return '?from=' + f(from) + '&to=' + f(to) + '&group=' + range.group;
+  }
+%>
+<p class="text-muted">Doanh thu tính theo ngày duyệt của các đơn đang hiệu lực (Đã xác nhận + Đã giao), đã gồm VAT, trừ khuyến mãi.</p>
+
+<div class="card mb-4 report-filter">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-6 col-lg-2"><label class="form-label" for="rp-from">Từ ngày</label><input id="rp-from" type="date" name="from" class="form-control" value="<%= range.from %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="rp-to">Đến ngày</label><input id="rp-to" type="date" name="to" class="form-control" value="<%= range.to %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="rp-group">Gộp theo</label>
+        <select id="rp-group" name="group" class="form-select"><option value="day" <%= range.group === 'day' ? 'selected' : '' %>>Ngày</option><option value="month" <%= range.group === 'month' ? 'selected' : '' %>>Tháng</option><option value="year" <%= range.group === 'year' ? 'selected' : '' %>>Năm</option></select>
+      </div>
+      <div class="col-6 col-lg-2"><button class="btn btn-primary w-100" type="submit"><%- ico('chart') %> Xem</button></div>
+      <div class="col-12 col-lg-4"><div class="btn-group w-100" role="group" aria-label="Khoảng nhanh">
+        <a class="btn btn-outline-secondary btn-sm" href="<%= preset(7) %>">7 ngày</a>
+        <a class="btn btn-outline-secondary btn-sm" href="<%= preset(30) %>">30 ngày</a>
+        <a class="btn btn-outline-secondary btn-sm" href="<%= preset(90) %>">90 ngày</a>
+        <a class="btn btn-outline-secondary btn-sm" href="<%= preset(365).replace('group=' + range.group, 'group=month') %>">12 tháng</a>
+      </div></div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="kpi kpi-teal"><span class="kpi-icon"><%- ico('chart') %></span><div class="kpi-label">Doanh thu</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(t.revenue) %></div>
+    <div class="kpi-foot"><% if (delta === null) { %>chưa có kỳ trước để so sánh<% } else { %><strong class="<%= delta >= 0 ? 'text-success' : 'text-danger' %>"><%= delta >= 0 ? '▲' : '▼' %> <%= Math.abs(delta) %>%</strong> so với <%= data.days %> ngày trước<% } %></div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-slate"><span class="kpi-icon"><%- ico('receipt') %></span><div class="kpi-label">Số đơn</div><div class="kpi-value tabular-nums"><%= t.orders %></div><div class="kpi-foot">kỳ trước: <%= data.prev.orders %> đơn</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-ok"><span class="kpi-icon"><%- ico('bag') %></span><div class="kpi-label">Giá trị TB / đơn</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(avg) %></div><div class="kpi-foot">đã gồm VAT</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi kpi-amber"><span class="kpi-icon"><%- ico('percent') %></span><div class="kpi-label">Khuyến mãi đã giảm</div><div class="kpi-value is-money tabular-nums"><%= fmtMoney(t.discount) %></div><div class="kpi-foot">VAT thu hộ: <%= fmtMoney(t.vat) %></div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center"><span>Doanh thu theo <%= range.group === 'month' ? 'tháng' : (range.group === 'year' ? 'năm' : 'ngày') %></span><span class="small fw-normal text-muted"><%= fmtDate(range.from) %> – <%= fmtDate(range.to) %></span></div>
+  <div class="card-body">
+    <% if (!t.revenue) { %>
+      <div class="empty-state"><%- ico('chart') %><p class="mb-0">Chưa có đơn nào được duyệt trong khoảng thời gian này.</p></div>
+    <% } else { %>
+      <div class="bars" role="img" aria-label="Biểu đồ cột doanh thu từ <%= range.from %> đến <%= range.to %>, tổng <%= fmtMoney(t.revenue) %>">
+        <div class="bars-grid" aria-hidden="true"><span><%= fmtAxis(maxRev) %></span><span><%= fmtAxis(maxRev / 2) %></span><span>0</span></div>
+        <div class="bars-plot">
+          <% data.buckets.forEach(function (b, i) { var h = b.revenue ? Math.max(3, Math.round(b.revenue * 100 / maxRev)) : 0; %>
+            <div class="bar-col <%= b.revenue === maxRev ? 'is-peak' : '' %>" tabindex="0" data-tip="<%= b.label %> · <%= fmtMoney(b.revenue) %> · <%= b.orders %> đơn">
+              <span class="bar" style="height: <%= h %>%; animation-delay: <%= Math.min(i * 10, 400) %>ms"></span>
+              <% if (i % every === 0) { %><span class="bar-x"><%= b.label %></span><% } %>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Chi tiết</div>
+  <div class="table-responsive" style="max-height: 28rem">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light" style="position: sticky; top: 0"><tr><th><%= range.group === 'month' ? 'Tháng' : (range.group === 'year' ? 'Năm' : 'Ngày') %></th><th class="text-end">Số đơn</th><th class="text-end">Tiền hàng</th><th class="text-end">Khuyến mãi</th><th class="text-end">VAT</th><th class="text-end">Doanh thu</th></tr></thead>
+      <tbody>
+        <% data.buckets.slice().reverse().forEach(function (b) { if (!b.orders) return; %>
+          <tr><td><%= b.label %></td><td class="text-end tabular-nums"><%= b.orders %></td><td class="text-end tabular-nums"><%= fmtMoney(b.gross) %></td><td class="text-end tabular-nums"><%= b.discount ? '-' + fmtMoney(b.discount) : '—' %></td><td class="text-end tabular-nums"><%= fmtMoney(b.vat) %></td><td class="text-end tabular-nums fw-semibold"><%= fmtMoney(b.revenue) %></td></tr>
+        <% }) %>
+        <% if (!t.orders) { %><tr><td colspan="6" class="text-center text-muted py-3">Không có dữ liệu.</td></tr><% } %>
+      </tbody>
+      <% if (t.orders) { %><tfoot class="table-light"><tr class="fw-bold"><td>Tổng</td><td class="text-end tabular-nums"><%= t.orders %></td><td class="text-end tabular-nums"><%= fmtMoney(t.gross) %></td><td class="text-end tabular-nums">-<%= fmtMoney(t.discount) %></td><td class="text-end tabular-nums"><%= fmtMoney(t.vat) %></td><td class="text-end tabular-nums"><%= fmtMoney(t.revenue) %></td></tr></tfoot><% } %>
+    </table>
+  </div>
+</div>

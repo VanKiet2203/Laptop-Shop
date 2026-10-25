@@ -112,9 +112,32 @@ pattern already used in `brand.controller.js` and inside the stored
 procedures — don't skip it because another part of the same request already
 logged something unrelated.
 
+## Quy ước các màn hình quản trị đã làm (staff / warehouse / admin)
+
+Toàn bộ route của 3 khu vực này đã được triển khai (25/10/2026); khi thêm màn hình mới hãy bắt chước chúng:
+- **Danh sách**: model có `normalizeFilters(query)` (whitelist trạng thái/sắp xếp, cắt độ dài, kiểm tra ngày bằng `parseDateStr`) + `search(filters, page)` trả `{ rows, pg, filters }` dùng `paginate()`; SQL dùng cờ `@x = '' OR ...`, `ORDER BY` lấy từ map cố định (không nối chuỗi từ client); view dùng `partials/pager`.
+- **Id trong URL/form**: luôn qua `parseId()` (core/helpers) → `null` thì 404 hoặc flash lỗi; không bao giờ `Number(req.params.id)` thẳng vào SQL.
+- **Chuyển trạng thái** (duyệt/huỷ/chốt phiếu...) gọi stored procedure; `isBusinessError(e)` → flash `e.message`, lỗi khác ném tiếp. Thủ tục SQL đã tự ghi AuditLogs nên controller KHÔNG ghi thêm; thao tác CRUD thường thì `audit.logInTransaction(tx, ...)` cùng transaction.
+- **Bảo vệ tài khoản/quyền** (`admin/user.controller`, `role.controller`): không tự khoá/xoá/đổi vai trò chính mình; không khoá/xoá/hạ quyền admin hoạt động cuối cùng; tài khoản hệ thống NV000 không đụng được; ADMIN luôn giữ `user.manage` + `role.manage`; xoá user đã phát sinh dữ liệu (lỗi FK 547) thì chuyển sang khoá.
+- **Phiếu nhập kho**: Nháp → Chốt (`sp_PostGoodsReceipt`) hoặc Huỷ (chỉ khi Nháp); Serial nhập kèm phiếu, số Serial phải đúng bằng số lượng; trùng Serial (lỗi 2627) báo thân thiện kèm giá trị trùng.
+- **Địa giới hành chính** lấy từ API (`core/geo.js`, cache 24h, có dự phòng) - không hard-code danh sách phường/xã.
+- **Mọi chỗ đổi mật khẩu** phải đi qua `Account.setPassword` / `completeReset` (đã ghi `PasswordChangedAt`) - session cũ tự hết hiệu lực nhờ `pwv`; nếu sau khi đổi mà phiên hiện tại cần giữ đăng nhập thì cập nhật `req.session.user.pwv = await Account.getPwVersion(id)`. Link/mã đặt lại mật khẩu chỉ lưu bản băm, dùng 1 lần, luôn trả cùng một thông báo dù email có tồn tại hay không.
+- `requireLogin` khi tài khoản bị khoá phải dùng `session.regenerate` (KHÔNG `destroy` rồi ghi `req.session` - sẽ làm sập server; đã từng gặp). Test giả lập session phải giống express-session thật.
+
+## Hạ tầng bảo mật & chat (25/10/2026) - dùng lại, đừng viết lại
+
+- **CSRF**: `core/originCheck.js` chặn mọi POST/PUT/PATCH/DELETE có `Origin`/`Referer` khác host (kèm cookie `SameSite=Lax`). Client không cần gửi token; script/curl không có Origin vẫn qua. Đừng thêm route đổi dữ liệu bằng GET.
+- **Giới hạn tần suất**: `core/rateLimit.js` (`hit/count/reset` + middleware `byIp`) - trong bộ nhớ. Đăng nhập: sai 5 lần/IP+tài khoản → khoá 15 phút, 20 lần/tài khoản → khoá chung; các route nhạy cảm (đăng ký, đặt hàng, tra cứu đơn, quên mật khẩu, chat) đều có `byIp`.
+- **Phiên**: `core/sqlSessionStore.js` (bảng `Sessions`); `SESSION_STORE=memory` để quay về bộ nhớ. Đăng nhập/đăng ký PHẢI qua `session.regenerate(req)`/`startSession` (đổi mã phiên, giữ `returnTo`, `chatConversationId`). Đừng ghi session khi không cần (đã tránh ghi flash rỗng) vì mỗi lần ghi là một lệnh SQL.
+- **Production**: `app.js` bắt buộc `SESSION_SECRET` khác mặc định khi `NODE_ENV=production`; chi tiết lỗi 500 chỉ hiện khi `NODE_ENV=development`; `TRUST_PROXY` cho IP thật + cờ Secure.
+- **Chat**: model `chat.model.js` (SQL), khách `controllers/store/chat.controller.js` (API `/chat/*`: id hội thoại KHÔNG bao giờ lấy từ client, chỉ từ tài khoản/phiên), nhân viên `controllers/staff/chat.controller.js` (+ `routes/staff-chat.routes.js`, quyền `chat.reply`). Tin nhắn là văn bản thuần, hiển thị bằng `textContent`.
+- **AI trả lời** (`core/chatAi.js`): Google **Gemini** qua REST bằng `fetch` (người dùng chọn Gemini free, KHÔNG dùng Claude), khoá `GEMINI_API_KEY` chỉ ở server và chỉ đi trong header `x-goog-api-key`. Chỉ gửi nội dung chat + dữ liệu cửa hàng công khai, không gửi dữ liệu cá nhân từ DB. Có trần theo phút/ngày/hội thoại, nghỉ 60 giây sau lỗi 429, và trả lời dự phòng theo từ khoá khi không có key/lỗi. Vòng quét nền `chatAi.start()` trong `server.js` (AI chỉ trả lời nếu nhân viên chưa trả lời trong `CHAT_AI_DELAY_SECONDS` và không hoạt động trong 15 phút gần nhất). Đổi `GEMINI_BASE_URL` để thử bằng máy chủ giả.
+- **Đơn giữ hàng**: `sp_PlaceOrder` giới hạn 3 đơn chờ + 10 đơn/24 giờ mỗi SĐT (lỗi 50070/50071); `sp_ExpirePendingOrders` tự huỷ đơn chờ quá hạn (bật mặc định 48 giờ chỉ khi production; `PENDING_HOLD_HOURS`).
+- **Tài nguyên tĩnh**: Bootstrap ở `public/vendor/bootstrap` (không CDN); CSP cho phép nguồn `'self'` + ảnh https - thêm CDN/domain mới thì sửa CSP trong `app.js`. Không dùng `bi bi-*` nữa.
+
 ## Placeholder routes (`todo(...)`)
 
-Most routes in this codebase currently render `todo(res, {...})`
+Hiện không còn route nào dùng `todo(...)`; mục này chỉ còn áp dụng nếu bạn dựng khung chức năng mới bằng
 (`src/core/todo.js`) — a scaffold describing the module owner, route, tasks,
 and `"db"` objects to use. When implementing one for real:
 1. Verify the `"db"` hint still matches the actual schema/procs — table names
@@ -132,3 +155,15 @@ and `"db"` objects to use. When implementing one for real:
 placeholder-only. `src/config/db.js` reads `DB_SERVER`/`DB_PORT`/`DB_INSTANCE`/
 `DB_NAME`/`DB_USER`/`DB_PASSWORD`/`DB_ENCRYPT`/`DB_TRUST_CERT` — don't
 hardcode connection details anywhere else.
+
+## Cập nhật 25/10/2026 - mua hàng không cần đăng nhập, Google, email
+
+- **Khách vãng lai**: giỏ lưu trong session (`core/guestCart.js`, chỉ lưu mã + số lượng; giá/tồn luôn đọc lại từ DB). Route giỏ/thanh toán dùng middleware `shopper` (cho khách chưa đăng nhập + khách đã đăng nhập; tài khoản nhân viên bị chuyển đi), KHÔNG dùng `requireRole('CUSTOMER')`. Đăng nhập/đăng ký/Google sẽ gộp giỏ session vào giỏ DB (`core/session.js startSession`, `Cart.mergeEntries`).
+- **Thông tin giao hàng chỉ bắt buộc ở bước chốt đơn** (họ tên, SĐT, tỉnh, địa chỉ; khách vãng lai còn phải có email). Đăng ký / Google không bắt buộc SĐT hay địa chỉ (`Customers.Phone` cho phép NULL).
+- Đặt hàng gọi `sp_PlaceOrder` (xem skill database). Controller KHÔNG tự tính tiền; quy tắc freeship/VAT trong `checkout.model.calculateTotals` phải khớp procedure.
+- **Email**: `core/mailer.js` (nodemailer; chưa cấu hình `SMTP_*` thì ghi file HTML vào `outbox/`), mẫu thư ở `core/mailTemplates.js` (mọi dữ liệu người dùng phải `esc()`). Email xác nhận chứa MÃ ĐƠN + link tra cứu; "Quên mã đơn" (`POST /orders/track/resend`) luôn trả cùng một thông báo và giới hạn 1 lần/phút để không bị dò. Lỗi gửi mail không được làm hỏng đơn hàng (sendMail không throw).
+- **Tra cứu đơn khách vãng lai**: bắt buộc cả mã đơn + SĐT (`CustomerOrder.findByNoAndPhone`).
+- **Google login**: `controllers/auth/google.controller.js` (OAuth code flow thuần fetch, có `state`, chỉ nhận email đã xác minh, KHÔNG liên kết vào tài khoản admin/nhân viên theo email). Cần `GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL` trong `.env`.
+- **Avatar**: `POST /account/avatar` nhận data URL JPEG đã thu nhỏ, kiểm tra magic bytes + dung lượng, lưu `public/uploads/avatars/` (đã gitignore).
+- Bộ lọc danh mục: `Product.facets()` chỉ gợi ý hãng/mức giá có thật trong danh mục (cache 30s); thay đổi sản phẩm nhìn thấy trễ tối đa 30s (gọi `Product.invalidateCatalogCache()` nếu cần ngay).
+- Test controller: mock hàm của model/`mailer` bằng cách gán lại thuộc tính module (đừng destructure khi require trong controller, nếu không test không mock được - google controller dùng `sessionCore.startSession` vì lý do này).

@@ -61,7 +61,13 @@ matching its sidebar accent (teal buttons on staff pages, rust on warehouse,
 slate/graphite on admin — not generic Bootstrap blue everywhere), this reads
 as "a real inventory system" instead of "a Bootstrap starter kit."
 
+**Update 24/10/2026 — user feedback overrides the "restrained" defaults below where they conflict:** stock Bootstrap
+Icons, plain buttons and flat dashboards were called "too simple and AI-looking". The custom icon sprite, keycap buttons,
+angled-corner tiles and the designed dashboard / product-detail pages are now the baseline. See `laptopshop-icons`.
+Still true: one accent per focal action, data stays scannable, motion stays 120–500ms and respects reduced-motion.
+
 **Defaults to reject for this interface type:**
+0. Stock `bi bi-*` icons and Bootstrap's untouched flat buttons.
 1. Generic Bootstrap-blue primary button on every page regardless of role —
    defeats the whole point of the color-coded areas.
 2. Plain black-on-white data tables where status is only a tiny badge buried

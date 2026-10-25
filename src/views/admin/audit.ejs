@@ -1,0 +1,42 @@
+<%
+  var TONE = { LOGIN: 'info', LOGOUT: 'secondary', CREATE: 'success', UPDATE: 'warning', DELETE: 'danger', LOCK: 'danger', UNLOCK: 'success', APPROVE: 'success', CANCEL: 'danger', STOCK_IN: 'success', STOCK_OUT: 'warning', POST: 'success', PAYMENT: 'success', COMPLETE: 'success', REFUND: 'info' };
+%>
+<p class="text-muted">Nhật ký ghi lại ai đã làm gì, lúc nào, từ địa chỉ IP nào. Nhật ký chỉ xem, không thể sửa hoặc xoá.</p>
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-lg-3"><label class="form-label" for="au-q">Người thực hiện, nội dung, mã đối tượng, IP</label><input id="au-q" name="q" class="form-control" maxlength="100" value="<%= filters.q %>"></div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="au-action">Hành động</label>
+        <select id="au-action" name="action" class="form-select"><option value="">Tất cả</option><% facets.actions.forEach(function (a) { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a %></option><% }) %></select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="au-entity">Đối tượng</label>
+        <select id="au-entity" name="entity" class="form-select"><option value="">Tất cả</option><% facets.entities.forEach(function (a) { %><option value="<%= a %>" <%= filters.entity === a ? 'selected' : '' %>><%= a %></option><% }) %></select>
+      </div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="au-from">Từ ngày</label><input id="au-from" type="date" name="from" class="form-control" value="<%= filters.from %>"></div>
+      <div class="col-6 col-lg-2"><label class="form-label" for="au-to">Đến ngày</label><input id="au-to" type="date" name="to" class="form-control" value="<%= filters.to %>"></div>
+      <div class="col-12 col-lg-1 d-flex gap-2"><button class="btn btn-primary" type="submit" aria-label="Lọc nhật ký"><%- ico('search') %></button><a class="btn btn-outline-secondary" href="/admin/audit-logs" aria-label="Xoá lọc"><%- ico('x') %></a></div>
+      <div class="col-12 small text-muted tabular-nums"><%= pg.total %> bản ghi</div>
+    </form>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead><tr><th>Thời điểm</th><th>Người thực hiện</th><th>Hành động</th><th>Đối tượng</th><th>Chi tiết</th><th>IP</th></tr></thead>
+    <tbody>
+      <% logs.forEach(function (l) { %>
+        <tr>
+          <td class="small tabular-nums text-nowrap"><%= fmtDateTime(l.CreatedAt) %></td>
+          <td><%= l.Username || 'Hệ thống' %></td>
+          <td><span class="badge text-bg-<%= TONE[l.Action] || 'secondary' %>"><%= l.Action %></span></td>
+          <td class="small"><%= l.EntityName || '—' %><% if (l.EntityId) { %> <span class="part-no">#<%= l.EntityId %></span><% } %></td>
+          <td class="small text-break"><%= l.Detail || '' %></td>
+          <td class="small text-muted"><%= l.IpAddress || '' %></td>
+        </tr>
+      <% }) %>
+      <% if (!logs.length) { %><tr><td colspan="6" class="text-center text-muted py-4">Không có bản ghi phù hợp.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/pager', { pg: pg, query: filters }) %>

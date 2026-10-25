@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Ảnh minh hoạ sản phẩm">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef1ff"/><stop offset="1" stop-color="#e3e8f5"/></linearGradient>
+  <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b5563"/><stop offset="1" stop-color="#1f2937"/></linearGradient></defs>
+  <rect width="400" height="300" fill="url(#g)"/>
+  <ellipse cx="200" cy="262" rx="120" ry="10" fill="#1f2937" opacity=".12"/>
+  <path d="M120 170v-30a80 80 0 0 1 160 0v30" fill="none" stroke="#374151" stroke-width="14" stroke-linecap="round"/><rect x="98" y="150" width="46" height="80" rx="18" fill="url(#b)"/><rect x="256" y="150" width="46" height="80" rx="18" fill="url(#b)"/><path d="M280 230c0 22-26 30-54 30" fill="none" stroke="#374151" stroke-width="6" stroke-linecap="round"/><circle cx="222" cy="260" r="7" fill="#4f7cff"/>
+</svg>

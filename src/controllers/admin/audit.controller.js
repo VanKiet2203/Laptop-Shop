@@ -1,22 +1,8 @@
-// MODULE 1 - ADMIN
-// Chủ sở hữu: Thành viên 1 - Hệ thống & Kho
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-const { todo } = require('../../core/todo');
-// const Model = require('../../models/...model');
+// MODULE 1 - ADMIN: nhật ký hoạt động hệ thống (chỉ xem, không sửa/xoá)
+const audit = require('../../models/audit.model');
 
 // GET /admin/audit-logs
 exports.index = async (req, res) => {
-  todo(res, {
-    "module": "M1",
-    "owner": "Thành viên 1 - Hệ thống & Kho",
-    "title": "Admin - Nhật ký hệ thống",
-    "route": "GET /admin/audit-logs",
-    "tasks": [
-      "Tìm AuditLogs theo khoảng ngày, người thực hiện, hành động; phân trang"
-    ],
-    "db": "AuditLogs, Accounts",
-    "rubric": "",
-    "controller": "src/controllers/admin/audit.controller.js",
-    "view": "src/views/admin/..."
-  });
+  const [result, facets] = await Promise.all([audit.search(req.query, req.query.page), audit.facets()]);
+  res.render('admin/audit', { title: 'Nhật ký hoạt động', logs: result.rows, pg: result.pg, filters: result.filters, facets });
 };

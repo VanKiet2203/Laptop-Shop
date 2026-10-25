@@ -14,22 +14,32 @@ function goToLogin(req, res) {
 }
 
 /**
- * Không chỉ kiểm tra session còn hay không: đối chiếu lại IsActive/vai trò với DB mỗi request.
- * Nếu tài khoản bị khoá hoặc đổi vai trò sau khi đăng nhập, phiên cũ bị thu hồi ngay (vấn đề #5
- * trong báo cáo rà soát: "quyền và trạng thái tài khoản đã đăng nhập không được kiểm tra lại").
+ * Đối chiếu trạng thái, role và permissions với DB trên mọi request để thay đổi quyền
+ * có hiệu lực ngay mà không phải chờ người dùng đăng nhập lại.
  */
 const requireLogin = wrap(async (req, res, next) => {
   if (!req.session.user) return goToLogin(req, res);
 
   const state = await Account.getAuthState(req.session.user.accountId);
-  if (!state || !state.IsActive) {
-    return req.session.destroy(() => goToLogin(req, res));
+  // Phiên cũ hơn lần đổi mật khẩu gần nhất (đổi ở thiết bị khác / admin đặt lại / quên mật khẩu) cũng bị đăng xuất.
+  // Phiên tạo trước khi có cơ chế này (pwv chưa có) thì nhận phiên bản hiện tại để không đá oan người đang dùng.
+  const user = req.session.user;
+  if (state && state.IsActive && user.pwv === undefined) user.pwv = state.pwv;
+  const staleSecret = state && state.IsActive && state.pwv !== user.pwv;
+  if (!state || !state.IsActive || staleSecret) {
+    // Tài khoản vừa bị khoá/xoá hoặc mật khẩu vừa đổi: đổi sang phiên mới (không còn đăng nhập) rồi mới ghi returnTo + thông báo,
+    // vì sau session.destroy() thì req.session không còn để ghi.
+    const returnTo = req.originalUrl;
+    const message = staleSecret ? 'Mật khẩu tài khoản vừa được thay đổi. Vui lòng đăng nhập lại.' : 'Tài khoản đã bị khoá hoặc không còn tồn tại. Vui lòng đăng nhập lại.';
+    return req.session.regenerate((err) => {
+      if (err) return res.redirect('/auth/login');
+      req.session.returnTo = returnTo;
+      req.flash('warning', message);
+      return res.redirect('/auth/login');
+    });
   }
-  if (state.RoleCode !== req.session.user.role) {
-    // Vai trò đã đổi: nạp lại quyền mới nhất thay vì dùng permissions cũ trong session.
-    req.session.user.role = state.RoleCode;
-    req.session.user.permissions = await Account.getPermissions(state.RoleId);
-  }
+  req.session.user.role = state.RoleCode;
+  req.session.user.permissions = state.permissions;
   return next();
 });
 
@@ -44,4 +54,17 @@ const requirePermission = (...perms) => wrap((req, res, next) => requireLogin(re
 /** Trang chủ theo vai trò sau khi đăng nhập */
 const homeFor = (role) => ({ ADMIN: '/admin', SALES: '/staff', WAREHOUSE: '/warehouse' }[role] || '/');
 
-module.exports = { requireLogin, requireRole, requirePermission, homeFor };
+/**
+ * Giỏ hàng / thanh toán: khách CHƯA đăng nhập được đi tiếp (giỏ lưu session), khách đã đăng nhập thì
+ * vẫn đối chiếu lại trạng thái tài khoản như mọi route khác. Tài khoản nhân viên/admin không dùng để mua hàng.
+ */
+const shopper = wrap((req, res, next) => {
+  if (!req.session.user) return next();
+  return requireLogin(req, res, () => {
+    if (req.session.user.role === 'CUSTOMER') return next();
+    req.flash('warning', 'Tài khoản nhân viên không dùng để mua hàng. Hãy đăng xuất và dùng tài khoản khách hàng (hoặc mua không cần đăng nhập).');
+    return res.redirect(homeFor(req.session.user.role));
+  });
+});
+
+module.exports = { requireLogin, requireRole, requirePermission, homeFor, shopper };

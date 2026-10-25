@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <%- include('../../partials/head') %>
+  <style>
+    body { background: #fff; color: #111; }
+    .sheet { max-width: 800px; margin: 1.5rem auto; padding: 0 1rem; }
+    .sheet h1 { font-size: 1.5rem; text-align: center; letter-spacing: .04em; margin: 0 0 .25rem; }
+    .sheet table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .sheet th, .sheet td { border: 1px solid #999; padding: .4rem .55rem; vertical-align: top; }
+    .sheet th { background: #f1f1f1; }
+    .sheet .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .sign { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; margin-top: 2.5rem; }
+    .sign div { min-height: 5.5rem; }
+    .serials { font-family: ui-monospace, Consolas, monospace; font-size: .8rem; color: #333; word-break: break-all; }
+    @page { size: A4; margin: 12mm; }
+    @media print { .no-print { display: none !important; } .sheet { margin: 0; max-width: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="no-print text-end mb-3"><button class="btn btn-primary" onclick="window.print()">In phiếu</button></div>
+    <div class="d-flex justify-content-between small">
+      <div><strong><%= site.name %></strong><br><%= site.headOffice %></div>
+      <div class="text-end">Số phiếu: <strong><%= receipt.ReceiptNo %></strong><br>Ngày: <%= fmtDate(receipt.ReceiptDate) %></div>
+    </div>
+    <h1>PHIẾU NHẬP KHO</h1>
+    <p class="text-center small mb-3">Trạng thái: <%= RECEIPT_STATUS[receipt.Status].label %></p>
+    <p class="mb-1">Nhà cung cấp: <strong><%= receipt.SupplierName %></strong><% if (receipt.TaxCode) { %> — MST <%= receipt.TaxCode %><% } %></p>
+    <% if (receipt.SupplierAddress) { %><p class="mb-1">Địa chỉ: <%= receipt.SupplierAddress %></p><% } %>
+    <p class="mb-1">Người lập phiếu: <%= receipt.EmployeeName %> (<%= receipt.EmployeeCode %>)</p>
+    <table>
+      <thead><tr><th style="width:2.5rem">STT</th><th>Tên hàng / Serial</th><th class="num">SL</th><th class="num">Đơn giá</th><th class="num">Thành tiền</th></tr></thead>
+      <tbody>
+        <% receipt.lines.forEach(function (l, i) { %>
+          <tr>
+            <td class="num"><%= i + 1 %></td>
+            <td><strong><%= l.ProductName %></strong> <span class="text-muted">(<%= l.Sku %>)</span>
+              <% if (l.serials.length) { %><div class="serials">Serial: <%= l.serials.map(function (s) { return s.SerialNumber; }).join(', ') %></div><% } %></td>
+            <td class="num"><%= l.Quantity %></td>
+            <td class="num"><%= fmtMoney(l.UnitCost) %></td>
+            <td class="num"><%= fmtMoney(l.LineTotal) %></td>
+          </tr>
+        <% }) %>
+        <tr><td colspan="4" class="num"><strong>Tổng cộng</strong></td><td class="num"><strong><%= fmtMoney(receipt.computedTotal) %></strong></td></tr>
+        <tr><td colspan="4" class="num">Đã thanh toán</td><td class="num"><%= fmtMoney(receipt.PaidAmount) %></td></tr>
+        <tr><td colspan="4" class="num">Còn phải trả</td><td class="num"><%= fmtMoney(Math.max(0, receipt.computedTotal - receipt.PaidAmount)) %></td></tr>
+      </tbody>
+    </table>
+    <% if (receipt.Note) { %><p class="mt-2">Ghi chú: <%= receipt.Note %></p><% } %>
+    <div class="sign"><div><strong>Người lập phiếu</strong><br><small>(Ký, ghi rõ họ tên)</small></div><div><strong>Thủ kho</strong><br><small>(Ký, ghi rõ họ tên)</small></div><div><strong>Nhà cung cấp</strong><br><small>(Ký, ghi rõ họ tên)</small></div></div>
+  </div>
+</body>
+</html>

@@ -1,201 +1,67 @@
 // MODULE 4 - NV BÁN HÀNG: ĐƠN, HOÁ ĐƠN, BÁO CÁO
 // Chủ sở hữu: Thành viên 4 - Đơn hàng, hoá đơn, báo cáo
-// Khi làm xong một chức năng: thay todo(...) bằng res.render('<thư mục view>/<tên>', {...}) hoặc res.redirect(...).
-
+// Mọi chuyển trạng thái đều đi qua stored procedure (đã tự ghi AuditLogs) nên controller không gọi audit.log thêm.
 const Order = require('../../models/order.model');
+const { isBusinessError } = require('../../core/helpers');
 
-const getAccountId = (req) => req.session?.user?.accountId;
+const NOT_FOUND = { layout: 'layouts/staff', title: 'Không tìm thấy' };
 
-const getOrderId = (req) => {
-  const id = Number(req.params.id);
-  return Number.isInteger(id) && id > 0 ? id : null;
-};
-
-const getErrorMessage = (err) => {
-  const messages = {
-    50030: 'Không thể duyệt đơn hàng ở trạng thái hiện tại.',
-    50031: 'Đơn hàng chưa đủ điều kiện duyệt.',
-    50032: 'Không đủ tồn kho hoặc không thể gán serial.',
-    50035: 'Không thể hủy đơn hàng ở trạng thái hiện tại.',
-    50036: 'Bạn không có quyền hủy đơn hàng này.',
-    50050: 'Đơn hàng chưa đủ điều kiện xác nhận hoàn tiền.',
-    50053: 'Không thể xác nhận thanh toán đơn hàng.',
-    50055: 'Đơn hàng chưa đủ điều kiện xác nhận thanh toán.',
-    50060: 'Không thể hoàn tất đơn hàng ở trạng thái hiện tại.',
-    50061: 'Đơn trả trước cần được xác nhận thanh toán trước.'
-  };
-
-  return messages[err?.number] ||
-    'Thao tác chưa thành công. Vui lòng kiểm tra trạng thái đơn hàng.';
-};
+function parseId(value) {
+  const id = Number(value);
+  return /^\d+$/.test(String(value)) && Number.isSafeInteger(id) && id > 0 && id <= 2147483647 ? id : null;
+}
 
 // GET /staff/orders
-exports.index = async (req, res, next) => {
-  try {
-    const result = await Order.search({
-      status: req.query.status,
-      from: req.query.from,
-      to: req.query.to,
-      q: req.query.q,
-      page: req.query.page,
-      pageSize: 10
-    });
-
-    return res.render('staff/orders/index', {
-      title: 'Quản lý đơn hàng',
-      orders: result.rows,
-      total: result.total,
-      page: result.page,
-      pageSize: result.pageSize,
-      totalPages: Math.ceil(result.total / result.pageSize),
-      filters: {
-        status: req.query.status || '',
-        from: req.query.from || '',
-        to: req.query.to || '',
-        q: req.query.q || ''
-      },
-      message: req.query.message || '',
-      error: req.query.error || ''
-    });
-  } catch (err) {
-    next(err);
-  }
+exports.index = async (req, res) => {
+  const [result, counts] = await Promise.all([Order.search(req.query, req.query.page), Order.counts()]);
+  res.render('staff/orders/index', { title: 'Đơn hàng', orders: result.rows, pg: result.pg, filters: result.filters, counts });
 };
 
 // GET /staff/orders/:id
-exports.show = async (req, res, next) => {
-  try {
-    const orderId = getOrderId(req);
-
-    if (!orderId) {
-      return res.status(400).send('Mã đơn hàng không hợp lệ.');
-    }
-
-    const order = await Order.findById(orderId);
-
-    if (!order) {
-      return res.status(404).send('Không tìm thấy đơn hàng.');
-    }
-
-    return res.render('staff/orders/form', {
-      title: `Chi tiết đơn hàng ${order.OrderNo}`,
-      order,
-      message: req.query.message || '',
-      error: req.query.error || ''
-    });
-  } catch (err) {
-    next(err);
-  }
+exports.show = async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id == null) return res.status(404).render('errors/404', NOT_FOUND);
+  const order = await Order.findById(id);
+  if (!order) return res.status(404).render('errors/404', NOT_FOUND);
+  const history = await Order.history(id);
+  res.render('staff/orders/show', { title: `Đơn ${order.OrderNo}`, order, history });
 };
 
-// POST /staff/orders/:id/approve
-exports.approve = async (req, res) => {
-  const orderId = getOrderId(req);
-  const accountId = getAccountId(req);
-
-  if (!orderId || !accountId) {
-    return res.status(400).send('Mã đơn hàng hoặc tài khoản không hợp lệ.');
+// chạy một thao tác chuyển trạng thái, lỗi nghiệp vụ (THROW 50xxx) hiện thành flash thay vì trang 500
+async function runAction(req, res, doAction, successMessage) {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    req.flash('danger', 'Mã đơn hàng không hợp lệ.');
+    return res.redirect('/staff/orders');
   }
-
   try {
-    await Order.approve(orderId, accountId);
-    return res.redirect(
-      `/staff/orders/${orderId}?message=${encodeURIComponent('Duyệt đơn thành công.')}`
-    );
-  } catch (err) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent(getErrorMessage(err))}`
-    );
+    await doAction(id, req.session.user.accountId);
+    req.flash('success', successMessage);
+  } catch (e) {
+    if (!isBusinessError(e)) throw e;
+    req.flash('danger', e.message);
   }
-};
+  return res.redirect(`/staff/orders/${id}`);
+}
 
-// POST /staff/orders/:id/cancel
-exports.cancel = async (req, res) => {
-  const orderId = getOrderId(req);
-  const accountId = getAccountId(req);
-  const reason = String(req.body?.reason || '').trim();
+// POST /staff/orders/:id/approve - tồn kho giảm, gán serial, tạo bảo hành, phát hành hoá đơn
+exports.approve = (req, res) => runAction(req, res, Order.approve, 'Đã duyệt đơn: trừ kho, gán Serial, tạo bảo hành và phát hành hoá đơn.');
 
-  if (!orderId || !accountId) {
-    return res.status(400).send('Mã đơn hàng hoặc tài khoản không hợp lệ.');
-  }
-
+// POST /staff/orders/:id/cancel - trả kho; đơn đã thu tiền chuyển sang "Chờ hoàn tiền"
+exports.cancel = (req, res) => {
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim().slice(0, 255) : '';
   if (!reason) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent('Vui lòng nhập lý do hủy đơn.')}`
-    );
+    req.flash('danger', 'Vui lòng nhập lý do huỷ đơn.');
+    return res.redirect(`/staff/orders/${parseId(req.params.id) || ''}`);
   }
-
-  try {
-    await Order.cancel(orderId, reason, accountId);
-    return res.redirect(
-      `/staff/orders/${orderId}?message=${encodeURIComponent('Hủy đơn thành công.')}`
-    );
-  } catch (err) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent(getErrorMessage(err))}`
-    );
-  }
+  return runAction(req, res, (id, accountId) => Order.cancel(id, reason, accountId), 'Đã huỷ đơn và trả tồn kho.');
 };
 
-// POST /staff/orders/:id/confirm-payment
-exports.confirmPayment = async (req, res) => {
-  const orderId = getOrderId(req);
-  const accountId = getAccountId(req);
+// POST /staff/orders/:id/confirm-payment - chỉ cho đơn trả trước đang chờ thanh toán
+exports.confirmPayment = (req, res) => runAction(req, res, Order.confirmPayment, 'Đã xác nhận khách thanh toán.');
 
-  if (!orderId || !accountId) {
-    return res.status(400).send('Mã đơn hàng hoặc tài khoản không hợp lệ.');
-  }
+// POST /staff/orders/:id/complete - giao thành công, đơn COD thu tiền lúc giao, cộng điểm thành viên
+exports.complete = (req, res) => runAction(req, res, Order.complete, 'Đã xác nhận giao hàng thành công.');
 
-  try {
-    await Order.confirmPayment(orderId, accountId);
-    return res.redirect(
-      `/staff/orders/${orderId}?message=${encodeURIComponent('Xác nhận thanh toán thành công.')}`
-    );
-  } catch (err) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent(getErrorMessage(err))}`
-    );
-  }
-};
-
-// POST /staff/orders/:id/complete
-exports.complete = async (req, res) => {
-  const orderId = getOrderId(req);
-  const accountId = getAccountId(req);
-
-  if (!orderId || !accountId) {
-    return res.status(400).send('Mã đơn hàng hoặc tài khoản không hợp lệ.');
-  }
-
-  try {
-    await Order.complete(orderId, accountId);
-    return res.redirect(
-      `/staff/orders/${orderId}?message=${encodeURIComponent('Hoàn tất đơn hàng thành công.')}`
-    );
-  } catch (err) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent(getErrorMessage(err))}`
-    );
-  }
-};
-
-// POST /staff/orders/:id/confirm-refund
-exports.confirmRefund = async (req, res) => {
-  const orderId = getOrderId(req);
-  const accountId = getAccountId(req);
-
-  if (!orderId || !accountId) {
-    return res.status(400).send('Mã đơn hàng hoặc tài khoản không hợp lệ.');
-  }
-
-  try {
-    await Order.confirmRefund(orderId, accountId);
-    return res.redirect(
-      `/staff/orders/${orderId}?message=${encodeURIComponent('Xác nhận hoàn tiền thành công.')}`
-    );
-  } catch (err) {
-    return res.redirect(
-      `/staff/orders/${orderId}?error=${encodeURIComponent(getErrorMessage(err))}`
-    );
-  }
-};
+// POST /staff/orders/:id/confirm-refund - chỉ gọi SAU KHI đã thực sự chuyển tiền lại cho khách
+exports.confirmRefund = (req, res) => runAction(req, res, Order.confirmRefund, 'Đã xác nhận hoàn tiền cho khách.');

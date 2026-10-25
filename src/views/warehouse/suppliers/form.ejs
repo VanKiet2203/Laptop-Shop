@@ -1,0 +1,45 @@
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0">Thông tin nhà cung cấp dùng khi lập phiếu nhập và theo dõi công nợ.</p>
+  <a href="/warehouse/suppliers" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+<% if (typeof errors !== 'undefined' && errors.length) { %>
+  <div class="alert alert-danger"><ul class="mb-0"><% errors.forEach(function (e) { %><li><%= e %></li><% }) %></ul></div>
+<% } %>
+<form method="post" action="<%= action %>">
+  <div class="card mb-4">
+    <div class="card-body row g-3">
+      <div class="col-12 col-md-8">
+        <label class="form-label" for="sup-name">Tên nhà cung cấp <span class="text-danger">*</span></label>
+        <input id="sup-name" name="supplierName" class="form-control" maxlength="200" required value="<%= supplier.SupplierName || '' %>">
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="sup-tax">Mã số thuế</label>
+        <input id="sup-tax" name="taxCode" class="form-control font-monospace" maxlength="14" placeholder="0123456789" value="<%= supplier.TaxCode || '' %>">
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="sup-contact">Người liên hệ</label>
+        <input id="sup-contact" name="contactName" class="form-control" maxlength="100" value="<%= supplier.ContactName || '' %>">
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label" for="sup-phone">Điện thoại</label>
+        <input id="sup-phone" name="phone" type="tel" class="form-control" maxlength="15" value="<%= supplier.Phone || '' %>">
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label" for="sup-email">Email</label>
+        <input id="sup-email" name="email" type="email" class="form-control" maxlength="150" value="<%= supplier.Email || '' %>">
+      </div>
+      <div class="col-12 col-md-8">
+        <label class="form-label" for="sup-address">Địa chỉ</label>
+        <input id="sup-address" name="address" class="form-control" maxlength="255" value="<%= supplier.Address || '' %>">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label" for="sup-term">Hạn thanh toán (ngày)</label>
+        <input id="sup-term" name="paymentTermDays" type="number" min="0" max="365" class="form-control" value="<%= supplier.PaymentTermDays != null ? supplier.PaymentTermDays : 30 %>">
+      </div>
+      <div class="col-6 col-md-2 d-flex align-items-end">
+        <label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="isActive" value="1" <%= supplier.IsActive !== false && supplier.IsActive !== 0 ? 'checked' : '' %>><span class="form-check-label">Đang hợp tác</span></label>
+      </div>
+    </div>
+  </div>
+  <button class="btn btn-primary" type="submit"><%- ico('check') %> Lưu nhà cung cấp</button>
+</form>
