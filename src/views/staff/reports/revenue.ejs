@@ -19,7 +19,7 @@
       <div class="col-6 col-lg-2"><label class="form-label" for="rp-to">Đến ngày</label><input id="rp-to" type="date" name="to" class="form-control" value="<%= range.to %>"></div>
       <div class="col-6 col-lg-2">
         <label class="form-label" for="rp-group">Gộp theo</label>
-        <select id="rp-group" name="group" class="form-select"><option value="day" <%= range.group === 'day' ? 'selected' : '' %>>Ngày</option><option value="month" <%= range.group === 'month' ? 'selected' : '' %>>Tháng</option></select>
+        <select id="rp-group" name="group" class="form-select"><option value="day" <%= range.group === 'day' ? 'selected' : '' %>>Ngày</option><option value="month" <%= range.group === 'month' ? 'selected' : '' %>>Tháng</option><option value="year" <%= range.group === 'year' ? 'selected' : '' %>>Năm</option></select>
       </div>
       <div class="col-6 col-lg-2"><button class="btn btn-primary w-100" type="submit"><%- ico('chart') %> Xem</button></div>
       <div class="col-12 col-lg-4"><div class="btn-group w-100" role="group" aria-label="Khoảng nhanh">
@@ -41,7 +41,7 @@
 </div>
 
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center"><span>Doanh thu theo <%= range.group === 'month' ? 'tháng' : 'ngày' %></span><span class="small fw-normal text-muted"><%= fmtDate(range.from) %> – <%= fmtDate(range.to) %></span></div>
+  <div class="card-header d-flex justify-content-between align-items-center"><span>Doanh thu theo <%= range.group === 'month' ? 'tháng' : (range.group === 'year' ? 'năm' : 'ngày') %></span><span class="small fw-normal text-muted"><%= fmtDate(range.from) %> – <%= fmtDate(range.to) %></span></div>
   <div class="card-body">
     <% if (!t.revenue) { %>
       <div class="empty-state"><%- ico('chart') %><p class="mb-0">Chưa có đơn nào được duyệt trong khoảng thời gian này.</p></div>
@@ -65,7 +65,7 @@
   <div class="card-header">Chi tiết</div>
   <div class="table-responsive" style="max-height: 28rem">
     <table class="table table-sm table-hover align-middle mb-0">
-      <thead class="table-light" style="position: sticky; top: 0"><tr><th><%= range.group === 'month' ? 'Tháng' : 'Ngày' %></th><th class="text-end">Số đơn</th><th class="text-end">Tiền hàng</th><th class="text-end">Khuyến mãi</th><th class="text-end">VAT</th><th class="text-end">Doanh thu</th></tr></thead>
+      <thead class="table-light" style="position: sticky; top: 0"><tr><th><%= range.group === 'month' ? 'Tháng' : (range.group === 'year' ? 'Năm' : 'Ngày') %></th><th class="text-end">Số đơn</th><th class="text-end">Tiền hàng</th><th class="text-end">Khuyến mãi</th><th class="text-end">VAT</th><th class="text-end">Doanh thu</th></tr></thead>
       <tbody>
         <% data.buckets.slice().reverse().forEach(function (b) { if (!b.orders) return; %>
           <tr><td><%= b.label %></td><td class="text-end tabular-nums"><%= b.orders %></td><td class="text-end tabular-nums"><%= fmtMoney(b.gross) %></td><td class="text-end tabular-nums"><%= b.discount ? '-' + fmtMoney(b.discount) : '—' %></td><td class="text-end tabular-nums"><%= fmtMoney(b.vat) %></td><td class="text-end tabular-nums fw-semibold"><%= fmtMoney(b.revenue) %></td></tr>

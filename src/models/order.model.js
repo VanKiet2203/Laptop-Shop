@@ -33,16 +33,18 @@ exports.search = async (filters, page) => {
       AND (@from = '' OR o.CreatedAt >= @from)
       AND (@to = '' OR o.CreatedAt < DATEADD(DAY, 1, CAST(@to AS DATE)))
       AND (@q = '' OR o.OrderNo LIKE '%' + @q + '%'
-           OR o.ReceiverName LIKE '%' + @q + '%'
-           OR (@phone <> '' AND o.ReceiverPhone LIKE '%' + @phone + '%'))`;
+           OR o.ReceiverName LIKE '%' + @q + '%' OR o.ReceiverEmail LIKE '%' + @q + '%'
+           OR c.FullName LIKE '%' + @q + '%' OR c.Email LIKE '%' + @q + '%'      -- tên/email tài khoản khách (có thể khác người nhận)
+           OR (@phone <> '' AND (o.ReceiverPhone LIKE '%' + @phone + '%' OR c.Phone LIKE '%' + @phone + '%')))`;
+  const join = 'LEFT JOIN dbo.Customers c ON c.CustomerId = o.CustomerId';
   const params = { status: f.status, payStatus: f.payStatus, from: f.from, to: f.to, q, phone: phoneDigits.length >= 3 ? phoneDigits : '' };
-  const total = (await db.queryOne(`SELECT COUNT(*) AS n FROM dbo.Orders o ${where}`, params)).n;
+  const total = (await db.queryOne(`SELECT COUNT(*) AS n FROM dbo.Orders o ${join} ${where}`, params)).n;
   const pg = paginate(page, PAGE_SIZE, total);
   const rows = await db.query(
     `SELECT o.OrderId, o.OrderNo, o.CreatedAt, o.Status, o.PaymentMethod, o.PaymentStatus, o.TotalAmount,
             o.ReceiverName, o.ReceiverPhone, o.CustomerId,
             (SELECT ISNULL(SUM(od.Quantity), 0) FROM dbo.OrderDetails od WHERE od.OrderId = o.OrderId) AS TotalQty
-     FROM dbo.Orders o ${where}
+     FROM dbo.Orders o ${join} ${where}
      ORDER BY CASE o.Status WHEN 'Pending' THEN 0 ELSE 1 END, o.OrderId DESC
      OFFSET @offset ROWS FETCH NEXT @size ROWS ONLY`,
     { ...params, offset: pg.offset, size: pg.pageSize }

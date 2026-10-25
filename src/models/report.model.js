@@ -6,15 +6,19 @@ const { parseDateStr } = require('../core/helpers');
 const iso = (d) => d.toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(d.getTime() + n * 86400000);
 
-/** Khoảng ngày của báo cáo: mặc định 30 ngày gần nhất; to >= from; tối đa 366 ngày */
+/**
+ * Khoảng ngày của báo cáo: mặc định 30 ngày gần nhất; to >= from; tối đa 366 ngày (nhóm theo năm: tối đa 10 năm).
+ * group: day | month | year (nhóm theo năm là ý tưởng lấy từ PR #4).
+ */
 exports.normalizeRange = (q = {}, now = new Date()) => {
+  const group = ['month', 'year'].includes(q.group) ? q.group : 'day';
+  const maxDays = group === 'year' ? 3660 : 366;
   const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   let to = parseDateStr(q.to) || iso(today);
   let from = parseDateStr(q.from) || iso(addDays(new Date(`${to}T00:00:00Z`), -29));
   if (from > to) [from, to] = [to, from];
   const days = Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000) + 1;
-  if (days > 366) from = iso(addDays(new Date(`${to}T00:00:00Z`), -365));
-  const group = q.group === 'month' ? 'month' : 'day';
+  if (days > maxDays) from = iso(addDays(new Date(`${to}T00:00:00Z`), -(maxDays - 1)));
   return { from, to, group };
 };
 
@@ -37,7 +41,14 @@ exports.revenue = async ({ from, to, group }) => {
   const buckets = [];
   const start = new Date(`${from}T00:00:00Z`);
   const end = new Date(`${to}T00:00:00Z`);
-  if (group === 'month') {
+  if (group === 'year') {
+    const idx = new Map();
+    for (let y = start.getUTCFullYear(); y <= end.getUTCFullYear(); y += 1) {
+      const b = { key: String(y), label: String(y), ...empty() };
+      idx.set(b.key, b); buckets.push(b);
+    }
+    rows.forEach((r) => add(idx.get(iso(new Date(r.SaleDate)).slice(0, 4)), r));
+  } else if (group === 'month') {
     const idx = new Map();
     for (let d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)); d <= end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
       const key = iso(d).slice(0, 7);
