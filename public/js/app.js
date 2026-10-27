@@ -540,8 +540,48 @@
     });
   }
 
+  // Hàng sản phẩm cuộn ngang: nút trái/phải (chỉ hiện khi tràn), kéo chuột để cuộn
+  function initProductRows() {
+    $$('[data-prow]').forEach(function (row) {
+      var track = row.querySelector('[data-prow-track]');
+      var prev = row.querySelector('[data-prow-prev]');
+      var next = row.querySelector('[data-prow-next]');
+      if (!track || !prev || !next) return;
+      function sync() {
+        var overflow = track.scrollWidth - track.clientWidth > 4;
+        track.classList.toggle('is-scrollable', overflow);
+        prev.hidden = next.hidden = !overflow;
+        prev.disabled = track.scrollLeft <= 4;
+        next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 4;
+      }
+      function step(dir) { track.scrollBy({ left: dir * Math.max(track.clientWidth * 0.85, 200), behavior: 'smooth' }); }
+      prev.addEventListener('click', function () { step(-1); });
+      next.addEventListener('click', function () { step(1); });
+      track.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync);
+      var down = false, startX = 0, startLeft = 0, moved = false;
+      track.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('button')) return;
+        down = true; moved = false; startX = e.clientX; startLeft = track.scrollLeft;
+      });
+      window.addEventListener('pointermove', function (e) {
+        if (!down) return;
+        var dx = e.clientX - startX;
+        if (!moved && Math.abs(dx) > 5) { moved = true; track.classList.add('is-dragging'); }
+        if (moved) track.scrollLeft = startLeft - dx;
+      });
+      window.addEventListener('pointerup', function () { if (!down) return; down = false; track.classList.remove('is-dragging'); });
+      track.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { step(1); e.preventDefault(); } else if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+      });
+      sync();
+      // Ảnh tải xong có thể đổi kích thước -> tính lại
+      window.addEventListener('load', sync);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
-    initGeo();
+    initGeo(); initProductRows();
     var shouldPulse = false;
     try { shouldPulse = sessionStorage.getItem('ls-cart-pulse') === '1'; sessionStorage.removeItem('ls-cart-pulse'); } catch (e) { /* bỏ qua */ }
     if (shouldPulse) setCartCount(Number(($('#cart-count') || {}).textContent) || 0);

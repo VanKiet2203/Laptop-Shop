@@ -342,6 +342,16 @@ exports.findBySlug = (slug) => db.queryOne(
    WHERE p.Slug = @slug AND p.IsActive = 1`,
   { slug });
 
+/** Sản phẩm khác cùng nhóm (laptop xem laptop khác; linh kiện xem cùng danh mục). Còn hàng + cùng hãng lên trước. */
+exports.otherInGroup = (product, limit = 12) => db.query(
+  `SELECT TOP (@limit) ProductId, Sku, ProductName, Slug, SalePrice, BrandName, CategoryName, CategorySlug, QtyAvailable, PrimaryImage
+   FROM dbo.vw_ProductCatalog
+   WHERE IsActive = 1 AND ProductId <> @id
+     AND (CASE WHEN @slug LIKE 'laptop%' THEN CASE WHEN CategorySlug LIKE 'laptop%' THEN 1 ELSE 0 END
+               ELSE CASE WHEN CategorySlug = @slug THEN 1 ELSE 0 END END) = 1
+   ORDER BY CASE WHEN QtyAvailable > 0 THEN 0 ELSE 1 END,
+            CASE WHEN BrandName = @brand THEN 0 ELSE 1 END, ProductId DESC`,
+  { limit, id: product.ProductId, slug: product.CategorySlug, brand: product.BrandName });
 exports.attributesOf = (productId) => db.query(
   `SELECT a.AttrName, a.Unit, pav.AttrValue
    FROM dbo.ProductAttributeValues pav JOIN dbo.Attributes a ON a.AttributeId = pav.AttributeId

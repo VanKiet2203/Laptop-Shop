@@ -1,6 +1,7 @@
 // Thiết lập phiên đăng nhập dùng chung cho đăng nhập thường và đăng nhập Google.
 const Account = require('../models/account.model');
 const Cart = require('../models/cart.model');
+const Customer = require('../models/customer.model');
 const guestCart = require('./guestCart');
 
 /** Đổi sang mã phiên MỚI (chống session fixation) nhưng giữ lại vài giá trị cần thiết xuyên qua bước đăng nhập. */
@@ -24,6 +25,7 @@ exports.regenerate = regenerate;
  */
 exports.startSession = async (req, acc) => {
   const guestEntries = guestCart.entries(req);
+  const guestOrderIds = req.session.guestOrderIds || [];
   await regenerate(req);
   req.session.user = {
     accountId: acc.AccountId,
@@ -41,6 +43,8 @@ exports.startSession = async (req, acc) => {
     if (guestEntries.length) await Cart.mergeEntries(acc.CustomerId, guestEntries);
     delete req.session.cart;
     req.session.cartCount = await Cart.count(acc.CustomerId);
+    // Đơn vừa đặt lúc chưa đăng nhập (cùng phiên trình duyệt) -> chuyển vào tài khoản này để theo dõi
+    try { await Customer.claimGuestOrders(acc.CustomerId, guestOrderIds); } catch (e) { console.error('Không gắn được đơn vãng lai vào tài khoản:', e.message); }
   }
   req.accountForLog = acc;
 };

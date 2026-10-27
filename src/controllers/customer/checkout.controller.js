@@ -226,6 +226,8 @@ exports.place = async (req, res) => {
     await Customer.fillPhoneIfEmpty(customerId, receiver.receiverPhone);
   } else {
     guestCart.clear(req);
+    // Nhớ đơn đã đặt trong phiên này: nếu sau đó khách đăng ký/đăng nhập thì các đơn này được gắn vào tài khoản (xem core/session.js)
+    req.session.guestOrderIds = [...(req.session.guestOrderIds || []), placed.orderId].slice(-20);
   }
   req.session.cartCount = 0;
   req.session.lastOrder = { orderId: placed.orderId };

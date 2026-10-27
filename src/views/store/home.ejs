@@ -113,9 +113,7 @@
     <h2 class="section-title"><span class="section-ico"><%- ico('flame') %></span> Bán chạy nhất</h2>
     <a class="section-more" href="/products">Xem tất cả <%- ico('arrow', 'ico-sm') %></a>
   </div>
-  <div class="pgrid">
-    <% bestSellers.forEach(function (p, i) { %><%- include('../partials/product-card', { p: p, rank: i < 3 ? i + 1 : null }) %><% }) %>
-  </div>
+  <%- include('../partials/product-row', { items: bestSellers, rankTop: true }) %>
 </section>
 
 <% if (gaming.length) { %>
@@ -124,7 +122,7 @@
     <h2 class="section-title"><span class="section-ico"><%- ico('bolt') %></span> Laptop Gaming</h2>
     <a class="section-more" href="/category/laptop-gaming">Xem thêm <%- ico('arrow', 'ico-sm') %></a>
   </div>
-  <div class="pgrid"><% gaming.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }) %></div>
+  <%- include('../partials/product-row', { items: gaming }) %>
 </section>
 <% } %>
 
@@ -134,7 +132,7 @@
     <h2 class="section-title"><span class="section-ico"><%- ico('bag') %></span> Laptop Văn phòng &amp; Học tập</h2>
     <a class="section-more" href="/category/laptop-van-phong">Xem thêm <%- ico('arrow', 'ico-sm') %></a>
   </div>
-  <div class="pgrid"><% office.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }) %></div>
+  <%- include('../partials/product-row', { items: office }) %>
 </section>
 <% } %>
 
@@ -147,7 +145,7 @@
       <p class="mb-3">Chọn linh kiện đúng chuẩn DDR4/DDR5, M.2 NVMe — máy cũ chạy nhanh như mới.</p>
       <a href="/category/linh-kien" class="btn btn-light">Xem linh kiện <%- ico('arrow') %></a>
     </div>
-    <div class="pgrid pgrid-tight"><% upgrade.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }) %></div>
+    <%- include('../partials/product-row', { items: upgrade, tight: true }) %>
   </div>
 </section>
 <% } %>
@@ -167,5 +165,5 @@
     <h2 class="section-title"><span class="section-ico"><%- ico('sparkle') %></span> Sản phẩm mới về</h2>
     <a class="section-more" href="/products?sort=newest">Xem tất cả <%- ico('arrow', 'ico-sm') %></a>
   </div>
-  <div class="pgrid"><% products.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }) %></div>
+  <%- include('../partials/product-row', { items: products }) %>
 </section>

@@ -1,0 +1,11 @@
+<%#
+  Hàng sản phẩm cuộn ngang. Truyền vào: { items: [...], rankTop: true (tuỳ chọn), tight: true (tuỳ chọn) }
+  Ít sản phẩm: thẻ giãn ra lấp đầy hàng. Nhiều sản phẩm: cuộn bằng 2 nút trái/phải hoặc kéo chuột/vuốt (JS ẩn nút khi không cần).
+%>
+<div class="prow<%= typeof tight !== 'undefined' && tight ? ' prow-tight' : '' %>" data-prow>
+  <button type="button" class="prow-nav prow-prev" data-prow-prev aria-label="Cuộn sang trái" hidden><%- ico('arrow') %></button>
+  <div class="prow-track" data-prow-track tabindex="0">
+    <% items.forEach(function (p, i) { %><%- include('product-card', { p: p, rank: (typeof rankTop !== 'undefined' && rankTop && i < 3) ? i + 1 : null }) %><% }) %>
+  </div>
+  <button type="button" class="prow-nav prow-next" data-prow-next aria-label="Cuộn sang phải" hidden><%- ico('arrow') %></button>
+</div>

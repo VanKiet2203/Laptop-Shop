@@ -155,10 +155,11 @@ exports.suggest = async (req, res) => {
 exports.show = async (req, res) => {
   const product = await Product.findBySlug(req.params.slug);
   if (!product) return res.status(404).render('errors/404', { title: 'Không tìm thấy sản phẩm' });
-  const [attributes, images, compatibilityGroups] = await Promise.all([
+  const [attributes, images, compatibilityGroups, otherProducts] = await Promise.all([
     Product.attributesOf(product.ProductId),
     Product.imagesOf(product.ProductId),
     Product.compatibleComponentsOf(product.ProductId),
+    Product.otherInGroup(product),
   ]);
   res.render('store/product-detail', {
     title: product.ProductName,
@@ -166,5 +167,6 @@ exports.show = async (req, res) => {
     attributes,
     images,
     compatibilityGroups,
+    otherProducts,
   });
 };

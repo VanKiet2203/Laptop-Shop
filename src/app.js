@@ -49,6 +49,8 @@ app.use(helmet({
       frameAncestors: ["'none'"],
     },
   },
+  // Mặc định của helmet là 'no-referrer' -> trình duyệt gửi 'Origin: null' cho mọi form POST, originCheck chặn nhầm (403). same-origin: gửi Origin cho trang mình, không lộ gì ra site khác.
+  referrerPolicy: { policy: 'same-origin' },
   hsts: isProd,
   crossOriginEmbedderPolicy: false,
 }));
@@ -67,10 +69,10 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 8, httpOnly: true, sameSite: 'lax', secure: isProd ? 'auto' : false },
 }));
 app.use(require('./core/sessionSync')); // ghi phiên xong rồi mới trả lời (tránh race với kho session SQL)
+app.use(locals); // đặt trước originCheck để trang 403 do originCheck render có đủ ico/fmtMoney...
 app.use(originCheck(() => {
   try { return [new URL(process.env.APP_URL || '').host]; } catch (e) { return []; }
 }));
-app.use(locals);
 app.use(loadMenu);
 
 app.use('/', require('./routes'));
@@ -89,6 +91,10 @@ app.use((err, req, res, next) => {
     return res.redirect(req.get('Referer') || '/');
   }
   console.error(err);
+  // Lỗi xảy ra TRƯỚC middleware gắn biến dùng chung (vd. kho phiên SQL lỗi) -> trang 500 thiếu ico/fmtMoney... và tự lỗi theo.
+  if (!res.locals.ico) {
+    Object.assign(res.locals, require('./core/helpers'), { site: require('./core/siteInfo'), flash: [], currentUser: null, currentPath: req.path, cartCount: 0, megaMenu: [], assetVersion: Date.now() });
+  }
   res.status(500).render('errors/500', { layout: 'layouts/store', title: 'Lỗi hệ thống', error: process.env.NODE_ENV === 'development' ? err : null });
 });
 

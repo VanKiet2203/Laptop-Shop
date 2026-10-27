@@ -33,6 +33,8 @@ exports.register = async (req, res) => {
   const old = { username, email, fullName, phone };
 
   const errors = [];
+  const guestOrderIds = req.session.guestOrderIds || [];
+  let guestPhoneHolder = null;
   if (!username) errors.push('Tên đăng nhập không được trống.');
   else if (username.length > 50) errors.push('Tên đăng nhập không được vượt quá 50 ký tự.');
   if (!fullName) errors.push('Họ tên không được trống.');
@@ -48,7 +50,14 @@ exports.register = async (req, res) => {
   if (!errors.length) {
     if (await Customer.findAccountByUsername(username)) errors.push('Tên đăng nhập đã được sử dụng.');
     if (email && await Customer.findAccountByEmail(email)) errors.push('Email đã được sử dụng.');
-    if (phone && await Customer.findCustomerByPhone(phone)) errors.push('Số điện thoại đã được sử dụng.');
+    if (phone) {
+      const holder = await Customer.findCustomerByPhone(phone);
+      // SĐT đang nằm ở hồ sơ khách vãng lai mà CHÍNH phiên này vừa đặt đơn -> được phép dùng (đơn sẽ được gắn vào tài khoản mới)
+      const ownGuest = holder && holder.AccountId == null
+        && (await Customer.guestCustomersOfOrders(guestOrderIds)).some((g) => g.CustomerId === holder.CustomerId);
+      if (holder && !ownGuest) errors.push('Số điện thoại đã được sử dụng.');
+      else if (ownGuest) guestPhoneHolder = holder.CustomerId;
+    }
   }
 
   if (errors.length) {
@@ -61,9 +70,12 @@ exports.register = async (req, res) => {
     const previousAccountForLog = req.accountForLog;
     try {
       registration = await db.transaction(async (transaction) => {
+        // Nhường SĐT (cột duy nhất) cho tài khoản mới; hồ sơ vãng lai cũ vẫn giữ nguyên đơn chưa được chuyển
+        if (guestPhoneHolder) await transaction.query('UPDATE dbo.Customers SET Phone = NULL WHERE CustomerId = @id AND AccountId IS NULL', { id: guestPhoneHolder });
         const created = await Customer.createWithAccount({
           username, email: email || null, passwordHash, fullName, phone,
         }, transaction);
+        await Customer.claimGuestOrders(created.customerId, guestOrderIds, transaction);
         const permissions = await Account.getPermissions(created.roleId, transaction);
         req.accountForLog = { AccountId: created.accountId };
         await audit.logInTransaction(
