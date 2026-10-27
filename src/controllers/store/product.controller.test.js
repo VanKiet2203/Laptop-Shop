@@ -11,7 +11,7 @@ test.beforeEach(() => {
   calls = [];
   for (const key of [
     'search', 'facets', 'suggest', 'rootCategories', 'allBrands', 'categoryBySlug', 'findBySlug',
-    'attributesOf', 'imagesOf', 'compatibleComponentsOf',
+    'attributesOf', 'imagesOf', 'compatibleComponentsOf', 'otherInGroup',
   ]) {
     originals[key] = Product[key];
   }
@@ -39,6 +39,7 @@ test.beforeEach(() => {
   Product.attributesOf = async () => [];
   Product.imagesOf = async () => [];
   Product.compatibleComponentsOf = async () => [];
+  Product.otherInGroup = async () => [];
 });
 
 test.afterEach(() => {

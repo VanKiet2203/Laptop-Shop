@@ -108,10 +108,18 @@
   <% compatibilityGroups.forEach(function (group) { %>
   <div class="mb-4">
     <h3 class="h6 mb-2 d-flex align-items-center gap-2"><span class="pd-chip"></span><%= group.categoryName %></h3>
-    <div class="pgrid pgrid-tight">
-      <% group.products.forEach(function (component) { %><%- include('../partials/product-card', { p: component }) %><% }) %>
-    </div>
+    <%- include('../partials/product-row', { items: group.products, tight: true }) %>
   </div>
   <% }) %>
+</section>
+<% } %>
+
+<% if (otherProducts && otherProducts.length) { %>
+<section class="pd-section" aria-labelledby="other-products-heading">
+  <div class="section-head">
+    <h2 id="other-products-heading" class="pd-h2 mb-0"><%= /^laptop/.test(product.CategorySlug) ? 'Các laptop khác' : 'Sản phẩm khác cùng loại' %></h2>
+    <a class="section-more" href="<%= /^laptop/.test(product.CategorySlug) ? '/products' : '/category/' + product.CategorySlug %>">Xem tất cả <%- ico('arrow', 'ico-sm') %></a>
+  </div>
+  <%- include('../partials/product-row', { items: otherProducts }) %>
 </section>
 <% } %>

@@ -12,7 +12,43 @@ exports.findAccountByEmail = (email) => db.queryOne(
   'SELECT AccountId FROM dbo.Accounts WHERE Email = @email', { email });
 
 exports.findCustomerByPhone = (phone) => db.queryOne(
-  'SELECT CustomerId FROM dbo.Customers WHERE Phone = @phone', { phone });
+  'SELECT CustomerId, AccountId FROM dbo.Customers WHERE Phone = @phone', { phone });
+
+/**
+ * Khách vãng lai đặt hàng -> đơn nằm ở một hồ sơ "khách vãng lai" (Customers.AccountId IS NULL, khoá theo SĐT).
+ * Khi chính người đó đăng ký/đăng nhập, chuyển các đơn mà PHIÊN này đã đặt (bằng chứng sở hữu) sang hồ sơ tài khoản,
+ * kèm bảo hành của các đơn đó. Chỉ động tới đơn thuộc hồ sơ vãng lai - không bao giờ cướp đơn của tài khoản khác.
+ */
+const guestIdsJson = (orderIds) => JSON.stringify([...new Set(orderIds)].filter(Number.isInteger).slice(0, 50));
+
+/** Hồ sơ khách vãng lai sở hữu các đơn này (để biết SĐT nào là của chính phiên này). */
+exports.guestCustomersOfOrders = (orderIds) => db.query(
+  `SELECT DISTINCT c.CustomerId, c.Phone
+   FROM dbo.Orders o JOIN dbo.Customers c ON c.CustomerId = o.CustomerId
+   WHERE c.AccountId IS NULL AND o.OrderId IN (SELECT CAST([value] AS INT) FROM OPENJSON(@ids))`,
+  { ids: guestIdsJson(orderIds) });
+
+/** transaction (tuỳ chọn): chạy chung giao dịch với việc tạo tài khoản. Trả về số đơn đã chuyển. */
+exports.claimGuestOrders = async (customerId, orderIds, transaction = null) => {
+  if (!orderIds || !orderIds.length) return 0;
+  const run = async (t) => {
+    const ids = guestIdsJson(orderIds);
+    const rows = await t.query(
+      `DECLARE @moved TABLE (OrderId INT);
+       UPDATE o SET o.CustomerId = @customerId
+       OUTPUT INSERTED.OrderId INTO @moved
+       FROM dbo.Orders o JOIN dbo.Customers c ON c.CustomerId = o.CustomerId
+       WHERE c.AccountId IS NULL AND o.CustomerId <> @customerId
+         AND o.OrderId IN (SELECT CAST([value] AS INT) FROM OPENJSON(@ids));
+       UPDATE w SET w.CustomerId = @customerId
+       FROM dbo.Warranties w JOIN dbo.OrderDetails d ON d.OrderDetailId = w.OrderDetailId
+       WHERE d.OrderId IN (SELECT OrderId FROM @moved);
+       SELECT COUNT(*) AS n FROM @moved;`,
+      { customerId, ids });
+    return rows[0] ? rows[0].n : 0;
+  };
+  return transaction ? run(transaction) : db.transaction(run);
+};
 
 /**
  * Transaction: tạo Accounts (role CUSTOMER) + Customers + Carts.
