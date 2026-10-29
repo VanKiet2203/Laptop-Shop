@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMin slice">
+  <defs>
+    <radialGradient id="gi" cx="82%" cy="8%" r="55%"><stop offset="0" stop-color="#6366f1" stop-opacity=".30"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gc" cx="6%" cy="34%" r="45%"><stop offset="0" stop-color="#22d3ee" stop-opacity=".20"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+    <radialGradient id="ga" cx="55%" cy="105%" r="55%"><stop offset="0" stop-color="#f59e0b" stop-opacity=".16"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".55"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".25"/></linearGradient>
+    <linearGradient id="hill1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#818cf8" stop-opacity=".16"/><stop offset="1" stop-color="#818cf8" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".12"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#gi)"/><rect width="1600" height="1000" fill="url(#gc)"/><rect width="1600" height="1000" fill="url(#ga)"/>
+
+  <!-- "mặt chip" đồng tâm ở góc phải, gợi bộ vi xử lý -->
+  <g transform="translate(1290 250)" fill="none" stroke="url(#ring)">
+    <circle r="250" stroke-width="1"/><circle r="205" stroke-width="1" stroke-dasharray="3 9"/>
+    <circle r="160" stroke-width="1.4"/>
+    <rect x="-82" y="-82" width="164" height="164" rx="22" stroke-width="1.6"/>
+    <rect x="-52" y="-52" width="104" height="104" rx="14" stroke-width="1.2" stroke-opacity=".7"/>
+    <g stroke-width="1.4" stroke-linecap="round" stroke-opacity=".8">
+      <path d="M-50-82v-34M-25-82v-34M0-82v-34M25-82v-34M50-82v-34"/>
+      <path d="M-50 82v34M-25 82v34M0 82v34M25 82v34M50 82v34"/>
+      <path d="M-82-50h-34M-82-25h-34M-82 0h-34M-82 25h-34M-82 50h-34"/>
+      <path d="M82-50h34M82-25h34M82 0h34M82 25h34M82 50h34"/>
+    </g>
+    <circle r="9" fill="#6366f1" fill-opacity=".35" stroke="none"/>
+  </g>
+
+  <!-- dải đồi/núi mờ nhiều lớp phía dưới (như tranh thuỷ mặc) -->
+  <path d="M0 720 C160 640 260 700 400 650 S640 560 800 640 S1060 700 1240 620 S1500 600 1600 650 V1000 H0Z" fill="url(#hill1)"/>
+  <path d="M0 820 C200 760 330 830 520 780 S820 720 1000 790 S1380 840 1600 770 V1000 H0Z" fill="url(#hill2)"/>
+
+  <!-- sao / điểm sáng -->
+  <g fill="#6366f1" opacity=".5">
+    <circle cx="120" cy="140" r="2"/><circle cx="310" cy="90" r="1.5"/><circle cx="520" cy="210" r="2"/><circle cx="760" cy="70" r="1.6"/>
+    <circle cx="930" cy="170" r="2.2"/><circle cx="640" cy="420" r="1.6"/><circle cx="210" cy="520" r="2"/><circle cx="1010" cy="540" r="1.8"/>
+    <circle cx="1450" cy="560" r="2"/><circle cx="380" cy="700" r="1.6"/>
+  </g>
+  <g fill="#f59e0b" opacity=".65">
+    <path d="M430 330l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/><path d="M1120 90l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5z"/><path d="M160 780l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5z"/>
+  </g>
+</svg>
