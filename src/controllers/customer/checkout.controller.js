@@ -5,6 +5,7 @@ const Checkout = require('../../models/checkout.model');
 const Customer = require('../../models/customer.model');
 const CustomerOrder = require('../../models/customerOrder.model');
 const Promotion = require('../../models/promotion.model');
+const Cart = require('../../models/cart.model');
 const guestCart = require('../../core/guestCart');
 const mailer = require('../../core/mailer');
 const { orderConfirmation } = require('../../core/mailTemplates');
@@ -16,6 +17,12 @@ const textField = (v) => (typeof v === 'string' ? v.trim() : '');
 const sourceOf = (req) => (isCustomer(req)
   ? { customerId: req.session.user.customerId }
   : { entries: guestCart.entries(req) });
+
+// Chỉ các sản phẩm khách đã chọn ở giỏ hàng (session.checkoutSelection) mới vào đơn; chưa chọn gì thì lấy cả giỏ.
+const loadCheckout = (req) => Checkout.getCheckoutData({
+  ...sourceOf(req),
+  productIds: Array.isArray(req.session.checkoutSelection) ? req.session.checkoutSelection : null,
+});
 
 // Trả góp: các lựa chọn hợp lệ (client chỉ gửi mã, server tự kiểm tra)
 const INSTALL_TERMS = [6, 9, 12, 18, 24];
@@ -35,9 +42,9 @@ function parseInstallment(body) {
 
 // GET /checkout
 exports.show = async (req, res) => {
-  const checkoutData = await Checkout.getCheckoutData(sourceOf(req));
+  const checkoutData = await loadCheckout(req);
   if (checkoutData.items.length === 0) {
-    req.flash('warning', 'Giỏ hàng đang trống.');
+    req.flash('warning', 'Chưa có sản phẩm nào được chọn để đặt hàng.');
     return res.redirect('/cart');
   }
   const draft = req.session.checkoutDraft || {};
@@ -68,7 +75,7 @@ exports.checkPromo = async (req, res) => {
   try {
     // Tự tính subtotal từ giỏ hàng thật, không dùng giá trị client gửi lên
     // (client có thể sửa subtotal để preview sai lệch mức giảm giá/VAT/phí ship).
-    const checkoutData = await Checkout.getCheckoutData(sourceOf(req));
+    const checkoutData = await loadCheckout(req);
     const subtotal = checkoutData.subtotal;
     if (!subtotal) {
       return res.status(400).json({ success: false, message: 'Giỏ hàng đang trống.' });
@@ -182,11 +189,19 @@ exports.place = async (req, res) => {
     return res.redirect('/checkout');
   }
 
+  // Đọc lại phần được chọn từ DB/session ngay lúc đặt (không tin dữ liệu client gửi lên)
+  const selected = (await loadCheckout(req)).items;
+  if (!selected.length) {
+    req.flash('warning', 'Chưa có sản phẩm nào được chọn để đặt hàng.');
+    return res.redirect('/cart');
+  }
+  const entries = selected.map((i) => ({ productId: i.ProductId, qty: i.Quantity }));
+
   let placed;
   try {
     placed = await Checkout.placeOrder({
       customerId: isCustomer(req) ? req.session.user.customerId : null,
-      entries: isCustomer(req) ? null : guestCart.entries(req),
+      entries,
       receiverName: receiver.receiverName,
       receiverPhone: receiver.receiverPhone,
       receiverEmail: receiverEmail || null,
@@ -224,12 +239,15 @@ exports.place = async (req, res) => {
       }
     }
     await Customer.fillPhoneIfEmpty(customerId, receiver.receiverPhone);
+    // Chỉ bỏ phần đã mua; sản phẩm không chọn vẫn nằm trong giỏ
+    await Cart.removeMany(customerId, entries.map((e) => e.productId));
+    req.session.cartCount = await Cart.count(customerId);
   } else {
-    guestCart.clear(req);
+    guestCart.removeMany(req, entries.map((e) => e.productId));
     // Nhớ đơn đã đặt trong phiên này: nếu sau đó khách đăng ký/đăng nhập thì các đơn này được gắn vào tài khoản (xem core/session.js)
     req.session.guestOrderIds = [...(req.session.guestOrderIds || []), placed.orderId].slice(-20);
   }
-  req.session.cartCount = 0;
+  delete req.session.checkoutSelection;
   req.session.lastOrder = { orderId: placed.orderId };
 
   // Gửi email xác nhận kèm MÃ ĐƠN (khách vãng lai cần mã này để tra cứu). Lỗi gửi mail không làm hỏng đơn hàng.

@@ -10,11 +10,18 @@
 <% } else { %>
 <div class="row g-4" id="cart-root" data-free-ship="5000000">
   <div class="col-lg-8">
+    <label class="cart-selectall">
+      <input type="checkbox" class="cart-check" data-select-all aria-label="Chọn tất cả sản phẩm có thể mua">
+      <span>Chọn tất cả</span>
+      <small class="text-muted">Sản phẩm không chọn sẽ ở lại trong giỏ để bạn mua sau.</small>
+    </label>
     <ul class="cart-list list-unstyled" id="cart-list">
       <% items.forEach(function (i) {
            var maxQty = i.IsActive && i.QtyAvailable > 0 ? Math.min(99, i.QtyAvailable) : 99;
-           var over = i.IsActive && i.Quantity > i.QtyAvailable; %>
+           var over = i.IsActive && i.Quantity > i.QtyAvailable;
+           var canBuy = i.IsActive && i.QtyAvailable > 0; %>
         <li class="cart-line <%= !i.IsActive || i.QtyAvailable <= 0 ? 'is-unavailable' : '' %>" data-line data-product-id="<%= i.ProductId %>" data-price="<%= i.SalePrice %>" data-max="<%= maxQty %>">
+          <input type="checkbox" class="cart-check" name="productId" value="<%= i.ProductId %>" form="cart-select-form" data-select <%= selected.includes(i.ProductId) ? 'checked' : '' %> <%= canBuy ? '' : 'disabled' %> aria-label="Chọn mua <%= i.ProductName %>">
           <a class="cart-img" href="/products/<%= i.Slug %>">
             <img src="<%= productImage(i.PrimaryImage, i.CategorySlug) %>" data-fallback="<%= productImage(null, i.CategorySlug) %>" alt="<%= i.ProductName %>" referrerpolicy="no-referrer">
           </a>
@@ -51,13 +58,16 @@
   <div class="col-lg-4">
     <div class="summary-card" id="cart-summary">
       <h2 class="summary-title">Tóm tắt đơn hàng</h2>
+      <div class="summary-row"><span>Đã chọn</span><strong class="tabular-nums"><span data-selected-count>0</span> sản phẩm</strong></div>
       <div class="summary-row"><span>Tạm tính</span><strong class="tabular-nums" data-subtotal><%= fmtMoney(subtotal) %></strong></div>
       <p class="summary-note mt-0"><%- ico('truck', 'ico-sm') %><span>Phí vận chuyển và VAT sẽ được tính ở bước thanh toán.</span></p>
       <div class="ship-progress" data-ship-progress>
         <div class="ship-progress-text" data-ship-text></div>
         <div class="ship-progress-bar"><span data-ship-bar></span></div>
       </div>
-      <a href="/checkout" class="btn btn-primary btn-lg w-100 mt-3">Tiến hành đặt hàng <%- ico('arrow') %></a>
+      <form method="post" action="/cart/checkout" id="cart-select-form">
+        <button class="btn btn-primary btn-lg w-100 mt-3" data-checkout-btn>Mua hàng đã chọn <%- ico('arrow') %></button>
+      </form>
       <% if (!currentUser) { %>
         <p class="summary-note"><%- ico('info', 'ico-sm') %><span>Không cần đăng nhập để đặt hàng. <a href="/auth/login">Đăng nhập</a> để lưu giỏ hàng và địa chỉ.</span></p>
       <% } %>

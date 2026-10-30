@@ -21,6 +21,7 @@ async function syncCartCount(req) {
 }
 
 const subtotalOf = (items) => items.reduce((sum, i) => sum + i.Quantity * i.SalePrice, 0);
+const purchasable = (i) => Boolean(i.IsActive) && i.QtyAvailable > 0;
 
 function parseId(value) {
   if (!/^\d{1,10}$/.test(String(value == null ? '' : value).trim())) return null; // "1e3", "12abc", "-5" không hợp lệ
@@ -31,7 +32,25 @@ function parseId(value) {
 // GET /cart
 exports.show = async (req, res) => {
   const items = await loadItems(req);
-  res.render('customer/cart', { title: 'Giỏ hàng', items, subtotal: subtotalOf(items) });
+  // Mặc định chọn hết sản phẩm còn bán được; nếu khách đã chọn trước đó (rồi quay lại sửa giỏ) thì giữ nguyên lựa chọn
+  const saved = Array.isArray(req.session.checkoutSelection) ? req.session.checkoutSelection : null;
+  const selected = items.filter((i) => purchasable(i) && (!saved || saved.includes(i.ProductId))).map((i) => i.ProductId);
+  const selectedItems = items.filter((i) => selected.includes(i.ProductId));
+  res.render('customer/cart', { title: 'Giỏ hàng', items, selected, subtotal: subtotalOf(selectedItems) });
+};
+
+// POST /cart/checkout - chốt các sản phẩm được chọn để mua, phần còn lại ở nguyên trong giỏ
+exports.selectForCheckout = async (req, res) => {
+  const raw = [].concat((req.body && req.body.productId) || []);
+  const ids = new Set(raw.map(parseId).filter(Boolean));
+  // Chỉ nhận sản phẩm đang có trong giỏ và còn bán được (client không thể chọn món lạ hay đã hết hàng)
+  const chosen = (await loadItems(req)).filter((i) => ids.has(i.ProductId) && purchasable(i)).map((i) => i.ProductId);
+  if (!chosen.length) {
+    req.flash('warning', 'Vui lòng chọn ít nhất một sản phẩm để đặt hàng.');
+    return res.redirect('/cart');
+  }
+  req.session.checkoutSelection = chosen;
+  return res.redirect('/checkout');
 };
 
 // POST /cart/add
@@ -46,6 +65,8 @@ exports.add = async (req, res) => {
       const available = await Cart.assertAddable(productId);
       guestCart.add(req, productId, qty, available);
     }
+    // Sản phẩm vừa thêm mặc định được chọn nếu khách đang giữ một lựa chọn riêng
+    if (Array.isArray(req.session.checkoutSelection) && !req.session.checkoutSelection.includes(productId)) req.session.checkoutSelection.push(productId);
     const count = await syncCartCount(req);
     if (wantsJson(req)) return res.json({ ok: true, message: 'Đã thêm vào giỏ hàng.', count });
     req.flash('success', 'Đã thêm vào giỏ hàng.');

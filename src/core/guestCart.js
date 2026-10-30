@@ -42,8 +42,13 @@ function remove(req, productId) {
   save(req, entries(req).filter((e) => e.productId !== productId));
 }
 
+function removeMany(req, productIds) {
+  const gone = new Set(productIds);
+  save(req, entries(req).filter((e) => !gone.has(e.productId)));
+}
+
 function clear(req) {
   save(req, []);
 }
 
-module.exports = { entries, count, add, setQty, remove, clear, MAX_QTY };
+module.exports = { entries, count, add, setQty, remove, removeMany, clear, MAX_QTY };

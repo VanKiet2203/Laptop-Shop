@@ -4,13 +4,14 @@ const Checkout = require('../../models/checkout.model');
 const Customer = require('../../models/customer.model');
 const CustomerOrder = require('../../models/customerOrder.model');
 const Promotion = require('../../models/promotion.model');
+const Cart = require('../../models/cart.model');
 const mailer = require('../../core/mailer');
 const controller = require('./checkout.controller');
 // Địa giới lấy từ API ngoài: trong test thay bằng bản giả để không gọi mạng
 require('../../core/geo').validate = async (province) => (['TP. Hồ Chí Minh', 'TP. Hà Nội'].includes(province) ? null : 'Tỉnh/Thành phố không hợp lệ.');
 
 const keys = [[Checkout, 'placeOrder'], [Checkout, 'getCheckoutData'], [Customer, 'findAddress'], [Customer, 'addAddress'],
-  [Customer, 'fillPhoneIfEmpty'], [Customer, 'findByAccountId'], [CustomerOrder, 'findAfterPlace'], [Promotion, 'active'], [mailer, 'sendMail']];
+  [Customer, 'fillPhoneIfEmpty'], [Customer, 'findByAccountId'], [CustomerOrder, 'findAfterPlace'], [Promotion, 'active'], [mailer, 'sendMail'], [Cart, 'removeMany'], [Cart, 'count']];
 let mails;
 const saved = [];
 let placed;
@@ -25,6 +26,8 @@ test.beforeEach(() => {
   mailer.sendMail = async (m) => { mails.push(m); return { sent: false, mode: 'outbox' }; };
   Checkout.placeOrder = async (args) => { placed.push(args); return { orderId: 77, status: 'Pending' }; };
   Checkout.getCheckoutData = async () => ({ items: [{ ProductId: 1, Quantity: 1, SalePrice: 100 }], subtotal: 100, totalAmount: 110, addresses: [], paymentMethods: [] });
+  Cart.removeMany = async (id, ids) => { extra.push(['removeMany', id, ids]); };
+  Cart.count = async () => 2;
   Customer.findAddress = async () => null;
   Customer.addAddress = async (id, a) => { extra.push(['addAddress', id, a]); return 5; };
   Customer.fillPhoneIfEmpty = async (id, phone) => { extra.push(['phone', id, phone]); };
@@ -100,7 +103,9 @@ test('a logged-in customer using a saved address orders from the DB cart; new ad
   const saved1 = request({ paymentMethod: 'BankTransfer', addressId: '5' }, { user: { customerId: 7, accountId: 3 } });
   await controller.place(saved1.req, saved1.res);
   assert.equal(placed[0].customerId, 7);
-  assert.equal(placed[0].entries, null);
+  assert.deepEqual(placed[0].entries, [{ productId: 1, qty: 1 }]);
+  assert.deepEqual(extra.find(([k]) => k === 'removeMany').slice(1), [7, [1]], 'chỉ bỏ phần đã mua khỏi giỏ');
+  assert.equal(saved1.req.session.cartCount, 2, 'phần chưa mua vẫn còn trong giỏ');
   assert.equal(placed[0].shippingAddress, '2 Đường B, P1, Q1, TP. Hà Nội');
 
   placed.length = 0;

@@ -132,10 +132,21 @@
   });
 
   /* ---------- Giỏ hàng: cập nhật số lượng/ xoá bằng AJAX ---------- */
-  function refreshCartSummary(subtotal) {
+  // Tóm tắt chỉ tính các dòng đang được tích chọn (phần còn lại ở lại trong giỏ)
+  function refreshCartSummary() {
     var root = $('#cart-root');
     if (!root) return;
+    var subtotal = 0; var picked = 0; var all = 0; var buyable = 0; var pickedLines = 0;
+    $$('[data-line]').forEach(function (l) {
+      var q = parseInt($('input[name="qty"]', l).value, 10) || 0;
+      var box = $('[data-select]', l);
+      all += q;
+      if (box && !box.disabled) buyable++;
+      if (box && box.checked && !box.disabled) { subtotal += Number(l.dataset.price) * q; picked += q; pickedLines++; }
+      l.classList.toggle('is-skipped', !!box && !box.checked);
+    });
     $$('[data-subtotal]').forEach(function (el) { el.textContent = fmtMoney(subtotal); });
+    $$('[data-selected-count]').forEach(function (el) { el.textContent = picked; });
     var free = Number(root.getAttribute('data-free-ship')) || 5000000;
     var text = $('[data-ship-text]');
     var bar = $('[data-ship-bar]');
@@ -145,16 +156,29 @@
         : icon('truck', 'ico-sm') + ' Mua thêm <strong>' + fmtMoney(free - subtotal) + '</strong> để được miễn phí giao hàng';
     }
     if (bar) bar.style.width = Math.min(100, subtotal / free * 100) + '%';
-    var qty = $$('[data-line] input[name="qty"]').reduce(function (s, i) { return s + (parseInt(i.value, 10) || 0); }, 0);
-    $$('[data-cart-count]').forEach(function (el) { el.textContent = qty; });
+    $$('[data-cart-count]').forEach(function (el) { el.textContent = all; });
+    var btn = $('[data-checkout-btn]');
+    if (btn) btn.disabled = pickedLines === 0;
+    var allBox = $('[data-select-all]');
+    if (allBox) {
+      allBox.disabled = buyable === 0;
+      allBox.checked = buyable > 0 && pickedLines === buyable;
+      allBox.indeterminate = pickedLines > 0 && pickedLines < buyable;
+    }
   }
   function initCart() {
-    var root = $('#cart-root');
-    if (!root) return;
-    var subtotal = 0;
-    $$('[data-line]').forEach(function (l) { subtotal += Number(l.dataset.price) * (parseInt($('input[name="qty"]', l).value, 10) || 0); });
-    refreshCartSummary(subtotal);
+    refreshCartSummary();
   }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t.matches) return;
+    if (t.matches('[data-select-all]')) {
+      $$('[data-select]').forEach(function (b) { if (!b.disabled) b.checked = t.checked; });
+      refreshCartSummary();
+    } else if (t.matches('[data-select]')) {
+      refreshCartSummary();
+    }
+  });
   var cartTimers = {};
   document.addEventListener('change', function (e) {
     var input = e.target;
@@ -166,9 +190,7 @@
     input.value = qty;
     // cập nhật tạm ngay trên giao diện cho cảm giác mượt, server xác nhận lại sau
     line.querySelector('[data-line-total]').textContent = fmtMoney(qty * Number(line.dataset.price));
-    var sub = 0;
-    $$('[data-line]').forEach(function (l) { sub += Number(l.dataset.price) * (parseInt($('input[name="qty"]', l).value, 10) || 0); });
-    refreshCartSummary(sub);
+    refreshCartSummary();
     line.classList.add('is-busy');
     clearTimeout(cartTimers[id]);
     cartTimers[id] = setTimeout(function () {
@@ -180,7 +202,7 @@
         if (d.removed) { location.reload(); return; }
         input.value = d.qty;
         line.querySelector('[data-line-total]').textContent = fmtMoney(d.lineTotal);
-        refreshCartSummary(d.subtotal);
+        refreshCartSummary();
         if (d.clamped && d.message) toast(d.message, 'error');
       }).catch(function () { line.classList.remove('is-busy'); toast('Mất kết nối, vui lòng thử lại.', 'error'); });
     }, 350);
@@ -198,7 +220,7 @@
       setTimeout(function () {
         line.remove();
         if (res.data.empty) { location.reload(); return; }
-        refreshCartSummary(res.data.subtotal);
+        refreshCartSummary();
         toast('Đã bỏ sản phẩm khỏi giỏ.');
       }, reduceMotion ? 0 : 240);
     }).catch(function () { toast('Mất kết nối, vui lòng thử lại.', 'error'); });

@@ -65,8 +65,9 @@ exports.previewPromo = async (code, subtotal) => {
 };
 
 /**
- * Đặt hàng qua sp_PlaceOrder. Khách đã đăng nhập: truyền customerId (đọc giỏ trong DB).
- * Khách chưa đăng nhập: truyền entries [{productId, qty}] từ giỏ session (gửi JSON, giá/tồn đọc lại trong DB).
+ * Đặt hàng qua sp_PlaceOrder. entries [{productId, qty}] = các dòng được chọn mua (gửi JSON, giá/tồn đọc lại trong DB);
+ * sp_PlaceOrder khi có ItemsJson thì không đụng tới giỏ trong DB nên phần không chọn vẫn còn - controller tự bỏ phần đã mua.
+ * Khách đã đăng nhập: truyền thêm customerId. Không truyền entries thì mua cả giỏ DB của customerId.
  * Trả về { orderId, status } - status 'Approved' nghĩa là hệ thống đã tự xác nhận (đơn 1 sản phẩm).
  */
 exports.placeOrder = async ({
@@ -83,7 +84,7 @@ exports.placeOrder = async ({
       CustomerId: customerId,
       PromoCode: promoCode ? promoCode.trim() : null,
       Note: note ? note.trim() : null,
-      ItemsJson: customerId ? null : JSON.stringify((entries || []).map((e) => ({ productId: e.productId, qty: e.qty }))),
+      ItemsJson: entries ? JSON.stringify(entries.map((e) => ({ productId: e.productId, qty: e.qty }))) : null,
     },
     { OrderId: db.sql.Int, OrderStatus: db.sql.VarChar(10) }
   );
@@ -101,8 +102,10 @@ exports.PAYMENT_METHODS = [
 /**
  * Dữ liệu trang thanh toán. source = { customerId } (khách đăng nhập) hoặc { entries } (khách vãng lai).
  */
-exports.getCheckoutData = async ({ customerId = null, entries = null }) => {
-  const items = customerId ? await Cart.items(customerId) : await Cart.itemsForEntries(entries);
+exports.getCheckoutData = async ({ customerId = null, entries = null, productIds = null }) => {
+  const all = customerId ? await Cart.items(customerId) : await Cart.itemsForEntries(entries);
+  // productIds = các sản phẩm khách đã chọn ở giỏ hàng; null = lấy cả giỏ
+  const items = Array.isArray(productIds) ? all.filter((i) => productIds.includes(i.ProductId)) : all;
   const addresses = customerId
     ? await db.query(
       `SELECT AddressId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province, IsDefault

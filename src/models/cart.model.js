@@ -112,3 +112,12 @@ exports.updateQty = (customerId, productId, qty) => {
 exports.remove = (customerId, productId) => db.query(
   `DELETE ci FROM dbo.CartItems ci JOIN dbo.Carts c ON c.CartId = ci.CartId
    WHERE c.CustomerId = @customerId AND ci.ProductId = @productId`, { customerId, productId });
+
+/** Bỏ nhiều sản phẩm khỏi giỏ cùng lúc - dùng sau khi đặt hàng xong phần được chọn */
+exports.removeMany = (customerId, productIds) => {
+  if (!productIds.length) return Promise.resolve();
+  return db.query(
+    `DELETE ci FROM dbo.CartItems ci JOIN dbo.Carts c ON c.CartId = ci.CartId
+     WHERE c.CustomerId = @customerId AND ci.ProductId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@ids, ','))`,
+    { customerId, ids: productIds.join(',') });
+};

@@ -33,6 +33,7 @@ router.get('/cart', shopper, wrap(customer_cart.show));
 router.post('/cart/add', shopper, wrap(customer_cart.add));
 router.post('/cart/update', shopper, wrap(customer_cart.update));
 router.post('/cart/remove/:productId', shopper, wrap(customer_cart.remove));
+router.post('/cart/checkout', shopper, wrap(customer_cart.selectForCheckout));
 
 const customer_checkout = require('../controllers/customer/checkout.controller');
 
