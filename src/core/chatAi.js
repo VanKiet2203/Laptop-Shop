@@ -10,7 +10,7 @@ const { fmtMoney } = require('./helpers');
 
 const num = (name, def) => { const v = Number(process.env[name]); return Number.isFinite(v) && v >= 0 ? v : def; };
 const cfg = () => ({
-  delaySec: num('CHAT_AI_DELAY_SECONDS', 45),
+  delaySec: num('CHAT_AI_DELAY_SECONDS', 0),
   staffActiveMin: num('CHAT_STAFF_ACTIVE_MINUTES', 15),
   maxRepliesPerConversation: num('CHAT_AI_MAX_REPLIES', 30),
   maxPerMinute: num('CHAT_AI_MAX_PER_MINUTE', 8),     // Gemini free tier ~10 yêu cầu/phút -> chừa chút dư
@@ -219,11 +219,11 @@ async function tick() {
 exports.tick = tick;
 
 /** Bật vòng quét nền (gọi từ server.js). */
-exports.start = (intervalMs = 4000) => {
+exports.start = (intervalMs = 1000) => {
   const timer = setInterval(tick, intervalMs);
   timer.unref();
   console.log(isConfigured()
-    ? `Chat AI: bật (Gemini ${cfg().model}), trả lời sau ${cfg().delaySec}s nếu nhân viên chưa phản hồi.`
+    ? `Chat AI: bật (Gemini ${cfg().model}), trả lời ${cfg().delaySec ? `sau ${cfg().delaySec}s` : 'ngay'} nếu nhân viên đang tắt/không hoạt động.`
     : 'Chat AI: chưa có GEMINI_API_KEY - dùng bộ trả lời dự phòng theo từ khoá.');
   return timer;
 };

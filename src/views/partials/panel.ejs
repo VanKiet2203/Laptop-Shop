@@ -6,9 +6,19 @@
     <aside class="sidebar d-flex flex-column p-3">
       <a class="sidebar-brand mb-3" href="<%= panel.home %>"><span class="brand-mark"><%- ico(panel.icon) %></span><span class="brand-text"><%= panel.name %></span><small class="d-block"><%= panel.subtitle %></small></a>
       <ul class="nav nav-pills flex-column mb-auto">
+        <%
+          // Chỉ MỘT mục được sáng: khớp chính xác, hoặc mục có href dài nhất là tiền tố của đường dẫn hiện tại
+          // (tránh /staff/reports sáng cùng /staff/reports/products)
+          var activeHref = '';
+          panel.nav.forEach(function (n) {
+            if (!n.href) return;
+            var hit = currentPath === n.href || (n.href !== panel.home && currentPath.indexOf(n.href + '/') === 0);
+            if (hit && n.href.length > activeHref.length) activeHref = n.href;
+          });
+        %>
         <% panel.nav.forEach(function (n) { if (n.perm && !(currentUser && currentUser.permissions.indexOf(n.perm) !== -1)) return; if (n.section) { %>
           <li class="sidebar-section"><%= n.section %></li>
-        <% } else { var active = currentPath === n.href || (n.href !== panel.home && currentPath.indexOf(n.href) === 0); %>
+        <% } else { var active = n.href === activeHref; %>
           <li class="nav-item"><a class="nav-link <%= active ? 'active' : '' %>" href="<%= n.href %>"><%- ico(n.icon) %><span><%= n.label %></span><% if (n.badge) { %><span class="nav-badge" id="<%= n.badge %>" hidden>0</span><% } %></a></li>
         <% } }) %>
       </ul>

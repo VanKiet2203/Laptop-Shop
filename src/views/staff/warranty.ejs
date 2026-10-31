@@ -11,22 +11,17 @@
   <%- chip('active', 'Còn hạn', summary.active) %>
   <%- chip('expiring', 'Sắp hết hạn (30 ngày)', summary.expiring) %>
   <%- chip('expired', 'Hết hạn', summary.expired) %>
-  <%- chip('voided', 'Vô hiệu') %>
+  <%- chip('voided', 'Vô hiệu', summary.voided || 0) %>
 </ul>
 <div class="card mb-4">
   <div class="card-body">
     <form method="get" class="row g-3 align-items-end">
-      <div class="col-12 col-lg-7">
+      <input type="hidden" name="state" value="<%= filters.state %>">
+      <div class="col-12 col-lg-9">
         <label class="form-label" for="wr-q">Serial, IMEI, mã đơn, tên khách, số điện thoại hoặc tên sản phẩm</label>
         <input id="wr-q" name="q" class="form-control" maxlength="60" value="<%= filters.q %>" autofocus>
       </div>
-      <div class="col-6 col-lg-2">
-        <label class="form-label" for="wr-state">Tình trạng</label>
-        <select id="wr-state" name="state" class="form-select"><option value="">Tất cả</option>
-          <% Object.keys(STATE).forEach(function (k) { %><option value="<%= k %>" <%= filters.state === k ? 'selected' : '' %>><%= STATE[k].label %></option><% }) %>
-        </select>
-      </div>
-      <div class="col-6 col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('shieldcheck') %> Tra cứu</button><a class="btn btn-outline-secondary" href="/staff/warranty">Xoá</a></div>
+      <div class="col-12 col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><%- ico('shieldcheck') %> Tra cứu</button><a class="btn btn-outline-secondary" href="/staff/warranty">Xoá</a></div>
     </form>
   </div>
 </div>

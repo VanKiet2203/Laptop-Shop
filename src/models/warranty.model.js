@@ -55,7 +55,8 @@ exports.summary = () => db.queryOne(
   `SELECT COUNT(*) AS total,
           SUM(CASE WHEN Status = 'Active' AND EndDate >= CAST(SYSDATETIME() AS DATE) THEN 1 ELSE 0 END) AS active,
           SUM(CASE WHEN Status = 'Active' AND EndDate >= CAST(SYSDATETIME() AS DATE) AND EndDate < DATEADD(DAY, 30, CAST(SYSDATETIME() AS DATE)) THEN 1 ELSE 0 END) AS expiring,
-          SUM(CASE WHEN Status = 'Active' AND EndDate < CAST(SYSDATETIME() AS DATE) THEN 1 ELSE 0 END) AS expired
+          SUM(CASE WHEN Status = 'Active' AND EndDate < CAST(SYSDATETIME() AS DATE) THEN 1 ELSE 0 END) AS expired,
+          SUM(CASE WHEN Status = 'Voided' THEN 1 ELSE 0 END) AS voided
    FROM dbo.Warranties`);
 
 exports.PAGE_SIZE = PAGE_SIZE;

@@ -53,7 +53,7 @@ exports.show = async (req, res) => {
   // Điền sẵn từ hồ sơ khi khách đã đăng nhập mà chưa có địa chỉ nào lưu
   let profile = null;
   if (isCustomer(req)) profile = await Customer.findByAccountId(req.session.user.accountId);
-  const promotions = await Promotion.active(3);
+  const promotions = await Promotion.active(3, checkoutData.subtotal);
 
   return res.render('customer/checkout', {
     title: 'Thanh toán',

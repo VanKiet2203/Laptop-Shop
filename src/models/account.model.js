@@ -126,6 +126,21 @@ exports.completeReset = (tokenHash, passwordHash) => db.transaction(async (tx) =
   return acc;
 });
 
+/**
+ * Thu hồi (xoá) mọi phiên đăng nhập của tài khoản, trừ `exceptSid` (phiên đang đổi mật khẩu).
+ * Ngoài cơ chế `pwv` kiểm tra ở requireLogin, xoá hẳn hàng trong bảng Sessions để phiên cũ không dùng được nữa.
+ * SESSION_STORE=memory / chưa có bảng Sessions: bỏ qua (vẫn còn `pwv` bảo vệ).
+ */
+exports.revokeSessions = async (accountId, exceptSid = null) => {
+  try {
+    await db.query(
+      `DELETE FROM dbo.Sessions
+       WHERE ISJSON(Data) = 1 AND JSON_VALUE(Data, '$.user.accountId') = CAST(@accountId AS VARCHAR(20))
+         AND (@exceptSid IS NULL OR SessionId <> @exceptSid)`,
+      { accountId, exceptSid });
+  } catch (e) { console.error('[session] Không thu hồi được phiên cũ:', e.message); }
+};
+
 /* ---------- Quản trị người dùng (Admin > Tài khoản) ---------- */
 const { paginate } = require('../core/helpers');
 

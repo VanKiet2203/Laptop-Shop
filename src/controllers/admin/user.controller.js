@@ -6,7 +6,7 @@ const audit = require('../../models/audit.model');
 const db = require('../../config/db');
 const { parseId } = require('../../core/helpers');
 const mailer = require('../../core/mailer');
-const { passwordChanged } = require('../../core/mailTemplates');
+const { passwordTemp } =require('../../core/mailTemplates');
 
 const NOT_FOUND = { layout: 'layouts/admin', title: 'Không tìm thấy' };
 const text = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -170,17 +170,20 @@ exports.toggleActive = async (req, res) => {
   return res.redirect('/admin/users');
 };
 
-// POST /admin/users/:id/reset-password - sinh mật khẩu tạm, hiện MỘT lần cho admin
+// POST /admin/users/:id/reset-password - sinh mật khẩu tạm và gửi THẲNG tới email của người dùng (admin không thấy mật khẩu)
 exports.resetPassword = async (req, res) => {
   const user = await loadTarget(req, res);
   if (!user) return null;
   if (isSystem(user)) { req.flash('danger', 'Không thể đặt lại mật khẩu tài khoản hệ thống.'); return res.redirect('/admin/users'); }
+  if (!user.Email) { req.flash('danger', `Tài khoản ${user.Username} chưa có email nên không thể gửi mật khẩu mới.`); return res.redirect('/admin/users'); }
   const password = tempPassword();
+  // Gửi mail trước: nếu gửi lỗi thì KHÔNG đổi mật khẩu (tránh khoá người dùng ngoài tài khoản mà không ai biết mật khẩu mới)
+  const sent = await mailer.sendMail({ to: user.Email, ...passwordTemp({ name: user.FullName, username: user.Username, password }) });
+  if (sent.mode === 'error') { req.flash('danger', 'Không gửi được email nên chưa đặt lại mật khẩu. Vui lòng thử lại sau.'); return res.redirect('/admin/users'); }
   await Account.setPassword(user.AccountId, await bcrypt.hash(password, 10));
-  await audit.log(req, 'RESET_PASSWORD', 'Account', user.AccountId, `Đặt lại mật khẩu tài khoản ${user.Username}`);
-  // Chỉ báo cho chủ tài khoản biết mật khẩu đã bị đổi (KHÔNG gửi mật khẩu tạm qua email)
-  if (user.Email) await mailer.sendMail({ to: user.Email, ...passwordChanged({ name: user.FullName, when: new Date(), how: 'đặt lại bởi quản trị viên' }) });
-  req.flash('warning', `Mật khẩu tạm của ${user.Username}: ${password} — hãy gửi cho người dùng và yêu cầu đổi lại. Mật khẩu chỉ hiện một lần.`);
+  await Account.revokeSessions(user.AccountId);
+  await audit.log(req, 'RESET_PASSWORD', 'Account', user.AccountId, `Đặt lại mật khẩu tài khoản ${user.Username} và gửi qua email`);
+  req.flash('success', `Đã đặt lại mật khẩu của ${user.Username} và gửi mật khẩu tạm tới email của người dùng. Các phiên đăng nhập cũ đã bị đăng xuất.`);
   return res.redirect('/admin/users');
 };
 

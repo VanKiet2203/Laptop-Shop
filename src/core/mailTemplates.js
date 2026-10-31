@@ -120,4 +120,14 @@ function passwordChanged({ name, when, how }) {
   return { subject: `Mật khẩu của bạn đã được thay đổi - ${site.name}`, html, text };
 }
 
-module.exports = { orderConfirmation, orderCodesReminder, passwordReset, passwordChanged, esc };
+/** Email gửi mật khẩu tạm khi quản trị viên đặt lại mật khẩu: mật khẩu chỉ đi tới email của chủ tài khoản. */
+function passwordTemp({ name, username, password }) {
+  const html = layout('Mật khẩu tạm thời', `<h1 style="margin:0 0 8px;font-size:20px">Mật khẩu tạm thời</h1>
+<p style="margin:0 0 14px;color:#475569">Xin chào <strong>${esc(name)}</strong>, quản trị viên vừa đặt lại mật khẩu tài khoản <strong>${esc(username)}</strong> của bạn tại ${esc(site.name)}.</p>
+<p style="margin:0 0 14px;padding:14px 18px;background:#f1f5f9;border-radius:10px;font-family:Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.06em;text-align:center">${esc(password)}</p>
+<p style="margin:0;font-size:13px;color:#64748b">Hãy đăng nhập bằng mật khẩu này rồi đổi sang mật khẩu của riêng bạn ngay. Các phiên đăng nhập cũ đã bị đăng xuất. Nếu bạn không mong đợi email này, hãy liên hệ ${esc(site.email)} hoặc hotline ${esc(site.hotline)}.</p>`);
+  const text = `Xin chào ${name}, quản trị viên vừa đặt lại mật khẩu tài khoản ${username} tại ${site.name}. Mật khẩu tạm: ${password}. Hãy đăng nhập và đổi mật khẩu ngay.`;
+  return { subject: `Mật khẩu tạm thời - ${site.name}`, html, text };
+}
+
+module.exports = { orderConfirmation, orderCodesReminder, passwordReset, passwordChanged, passwordTemp, esc };

@@ -129,6 +129,7 @@ exports.reset = async (req, res) => {
   const acc = await Account.completeReset(sha256(token), await bcrypt.hash(password, 10));
   if (!acc) return res.status(400).render('auth/reset', { title: 'Link không hợp lệ', invalid: true, token: '', errors: [] });
 
+  await Account.revokeSessions(acc.AccountId);
   req.accountForLog = { AccountId: acc.AccountId };
   await audit.log(req, 'RESET_PASSWORD', 'Account', acc.AccountId, 'Đặt lại mật khẩu bằng link email');
   if (acc.Email) await mailer.sendMail({ to: acc.Email, ...passwordChanged({ name: acc.FullName, when: new Date(), how: 'đặt lại bằng link trong email' }) });
@@ -165,6 +166,7 @@ exports.changePassword = async (req, res) => {
   delete req.session.pwFails;
   // Phiên hiện tại giữ nguyên đăng nhập; các thiết bị/phiên khác sẽ bị đăng xuất ở request kế tiếp
   req.session.user.pwv = await Account.getPwVersion(acc.AccountId);
+  await Account.revokeSessions(acc.AccountId, req.sessionID);
   await audit.log(req, 'CHANGE_PASSWORD', 'Account', acc.AccountId, 'Đổi mật khẩu');
   if (acc.Email) await mailer.sendMail({ to: acc.Email, ...passwordChanged({ name: acc.FullName, when: new Date(), how: 'đổi trong trang tài khoản' }) });
   req.flash('success', `Đã đổi mật khẩu. Các thiết bị khác đang đăng nhập tài khoản này sẽ bị đăng xuất.${acc.Email ? ' Chúng tôi đã gửi email thông báo tới địa chỉ của bạn.' : ''}`);
