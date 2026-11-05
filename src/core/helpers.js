@@ -34,7 +34,7 @@ const RECEIPT_STATUS = {
   Posted: { label: 'Đã nhập kho', cls: 'success' },
   Cancelled: { label: 'Đã huỷ', cls: 'secondary' },
 };
-const PAYMENT_METHOD = { COD: 'Thanh toán khi nhận hàng', BankTransfer: 'Chuyển khoản ngân hàng', Card: 'Thẻ', Installment: 'Trả góp', Cash: 'Tiền mặt' };
+const PAYMENT_METHOD = { COD: 'Thanh toán khi nhận hàng', BankTransfer: 'Chuyển khoản ngân hàng', Card: 'Thẻ', Installment: 'Trả góp', Cash: 'Tiền mặt', Stripe: 'Thẻ qua Stripe' };
 
 /** Tính phân trang: paginate(page, pageSize, total) -> { page, pageSize, total, pages, offset } */
 function paginate(page, pageSize, total) {

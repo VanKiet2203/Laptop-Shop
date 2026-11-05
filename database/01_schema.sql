@@ -443,7 +443,7 @@ CREATE TABLE dbo.Orders (
     SalesEmployeeId INT           NULL,           -- Nhân viên duyệt/xử lý
     PromotionId     INT           NULL,           -- Khuyến mãi đã áp dụng
     Status          VARCHAR(10)   NOT NULL CONSTRAINT DF_Ord_Status DEFAULT 'Pending', -- Pending / Approved / Completed / Cancelled
-    PaymentMethod   VARCHAR(15)   NOT NULL,       -- COD / BankTransfer / Card / Installment / Cash
+    PaymentMethod   VARCHAR(15)   NOT NULL,       -- COD / BankTransfer / Card / Installment / Cash / Stripe
     PaymentStatus   VARCHAR(13)   NOT NULL CONSTRAINT DF_Ord_PayStatus DEFAULT 'Pending', -- Pending / Paid / RefundPending / Refunded (gộp từ bảng Payments cũ)
     PaidAt          DATETIME2(0)  NULL,           -- Thời điểm thanh toán
     ReceiverName    NVARCHAR(100) NOT NULL,       -- Người nhận (snapshot)
@@ -468,7 +468,7 @@ CREATE TABLE dbo.Orders (
     CONSTRAINT FK_Orders_Employee FOREIGN KEY (SalesEmployeeId) REFERENCES dbo.Employees(EmployeeId),
     CONSTRAINT FK_Orders_Promotion FOREIGN KEY (PromotionId) REFERENCES dbo.Promotions(PromotionId),
     CONSTRAINT CK_Orders_Status CHECK (Status IN ('Pending','Approved','Completed','Cancelled')),
-    CONSTRAINT CK_Orders_Payment CHECK (PaymentMethod IN ('COD','BankTransfer','Card','Installment','Cash')),
+    CONSTRAINT CK_Orders_Payment CHECK (PaymentMethod IN ('COD','BankTransfer','Card','Installment','Cash','Stripe')),
     -- RefundPending = đã yêu cầu hoàn tiền cho đơn Paid bị huỷ, chờ xác nhận đã hoàn tiền thực tế (sp_ConfirmRefund)
     CONSTRAINT CK_Orders_PayStatus CHECK (PaymentStatus IN ('Pending','Paid','RefundPending','Refunded')),
     CONSTRAINT CK_Orders_Money CHECK (Subtotal >= 0 AND DiscountAmount >= 0 AND DiscountAmount <= Subtotal AND ShippingFee >= 0),

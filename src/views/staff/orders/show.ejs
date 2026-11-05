@@ -4,7 +4,7 @@
   const can = (p) => currentUser.permissions.includes(p);
   const isCod = order.PaymentMethod === 'COD';
   const showApprove = order.Status === 'Pending' && can('order.approve');
-  const showPayment = ['Pending', 'Approved'].includes(order.Status) && !isCod && order.PaymentStatus === 'Pending' && can('order.approve');
+  const showPayment = ['Pending', 'Approved'].includes(order.Status) && !isCod && order.PaymentMethod !== 'Stripe' && order.PaymentStatus === 'Pending' && can('order.approve');
   const showComplete = order.Status === 'Approved' && (isCod || order.PaymentStatus === 'Paid') && can('order.approve');
   const showCancel = ['Pending', 'Approved'].includes(order.Status) && can('order.cancel');
   const showRefund = order.Status === 'Cancelled' && order.PaymentStatus === 'RefundPending' && can('order.cancel');

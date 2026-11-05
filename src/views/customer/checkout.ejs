@@ -118,8 +118,8 @@
         <div class="pay-panel" data-pay-panel="BankTransfer" <%= pickedMethod === 'BankTransfer' ? '' : 'hidden' %>>
           <%- ico('qr') %><div><strong>Mã QR chuyển khoản sẽ hiện ngay sau khi đặt hàng</strong> (VietQR - quét bằng app ngân hàng, tự điền số tiền và nội dung). Đơn được xử lý khi chúng tôi nhận được tiền.</div>
         </div>
-        <div class="pay-panel" data-pay-panel="Card" <%= pickedMethod === 'Card' ? '' : 'hidden' %>>
-          <%- ico('card') %><div><strong>Thanh toán thẻ Visa / MasterCard / JCB.</strong> Sau khi đặt hàng, nhân viên sẽ gửi link thanh toán an toàn qua số điện thoại của bạn. Chúng tôi không lưu số thẻ.</div>
+        <div class="pay-panel" data-pay-panel="Stripe" <%= pickedMethod === 'Stripe' ? '' : 'hidden' %>>
+          <%- ico('card') %><div><strong>Bạn sẽ được chuyển sang trang thanh toán bảo mật của Stripe</strong> ngay sau khi đặt hàng. Đây là chế độ thử nghiệm: dùng thẻ <span class="part-no">4242 4242 4242 4242</span>, ngày hết hạn và CVC bất kỳ — không trừ tiền thật.</div>
         </div>
         <div class="pay-panel pay-panel-install" data-pay-panel="Installment" <%= pickedMethod === 'Installment' ? '' : 'hidden' %>>
           <div class="install">

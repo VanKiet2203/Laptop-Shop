@@ -42,6 +42,13 @@ function paymentBlock(order, baseUrl) {
     }
     return { html: `<p style="margin:0 0 6px"><strong>Trả góp.</strong> ${detail} Nhân viên sẽ gọi để xác nhận hồ sơ.</p>`, text: 'Trả góp: nhân viên sẽ gọi để xác nhận hồ sơ trả góp.' };
   }
+  if (order.PaymentMethod === 'Stripe') {
+    const trackLink = `${baseUrl}/orders/track?orderNo=${encodeURIComponent(order.OrderNo)}&phone=${encodeURIComponent(order.ReceiverPhone)}`;
+    return order.PaymentStatus === 'Paid'
+      ? { html: `<p style="margin:0"><strong>Đã thanh toán qua Stripe.</strong> Cảm ơn bạn!</p>`, text: 'Đã thanh toán qua Stripe. Cảm ơn bạn!' }
+      : { html: `<p style="margin:0 0 10px"><strong>Thanh toán thẻ qua Stripe</strong> — nếu bạn chưa hoàn tất thanh toán, mở trang đơn hàng và bấm "Thanh toán bằng Stripe" để tiếp tục.</p>${button(trackLink, 'Mở đơn hàng')}`,
+        text: `Thanh toán thẻ qua Stripe: nếu chưa hoàn tất, mở ${trackLink} và bấm "Thanh toán bằng Stripe".` };
+  }
   return { html: `<p style="margin:0">Nhân viên sẽ gửi link thanh toán thẻ an toàn tới số <strong>${esc(order.ReceiverPhone)}</strong>.</p>`, text: `Thanh toán thẻ: nhân viên sẽ gửi link thanh toán tới số ${order.ReceiverPhone}.` };
 }
 

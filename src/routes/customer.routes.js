@@ -42,6 +42,11 @@ router.post('/checkout/promo', shopper, wrap(customer_checkout.checkPromo));
 router.post('/checkout', shopper, rateLimit.byIp('checkout', 20, HOUR, 'Bạn đặt hàng quá nhiều lần trong một giờ. Vui lòng liên hệ hotline nếu cần đặt số lượng lớn.'), wrap(customer_checkout.place));
 router.get('/checkout/success', shopper, wrap(customer_checkout.success));
 
+const customer_stripe = require('../controllers/customer/stripe.controller');
+
+router.get('/checkout/stripe/return', shopper, wrap(customer_stripe.returnFromStripe));
+router.post('/checkout/stripe/pay', shopper, rateLimit.byIp('stripepay', 30, HOUR), wrap(customer_stripe.pay));
+
 const customer_order = require('../controllers/customer/order.controller');
 
 router.get('/orders/track', rateLimit.byIp('track', 40, 10 * 60 * 1000, 'Bạn tra cứu quá nhiều lần. Vui lòng thử lại sau vài phút.'), wrap(customer_order.track));   // tra cứu bằng mã đơn + SĐT, không cần đăng nhập
