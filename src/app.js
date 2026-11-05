@@ -45,7 +45,7 @@ app.use(helmet({
       connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"],
+      formAction: ["'self'", 'https://checkout.stripe.com'], // đặt hàng (POST) rồi chuyển hướng sang trang thanh toán Stripe
       frameAncestors: ["'none'"],
     },
   },
@@ -55,6 +55,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
+
+// Webhook Stripe: cần body THÔ để kiểm tra chữ ký, nên đặt trước các parser và trước session/originCheck (Stripe gọi từ máy chủ, không có cookie/Origin).
+app.post('/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), require('./core/asyncHandler')(require('./controllers/customer/stripe.controller').webhook));
 
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 app.use(express.json({ limit: '200kb' }));

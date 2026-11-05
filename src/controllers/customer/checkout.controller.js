@@ -9,6 +9,7 @@ const Cart = require('../../models/cart.model');
 const guestCart = require('../../core/guestCart');
 const mailer = require('../../core/mailer');
 const { orderConfirmation } = require('../../core/mailTemplates');
+const stripeCtrl = require('./stripe.controller');
 const geo = require('../../core/geo');
 const { isBusinessError } = require('../../core/helpers');
 
@@ -151,7 +152,7 @@ exports.place = async (req, res) => {
   if (!receiverEmail && !isCustomer(req)) errors.push('Vui lòng nhập email để nhận mã đơn hàng.');
   // Cột Orders.ReceiverEmail là VARCHAR nên chỉ nhận email ký tự ASCII (tránh lưu sai rồi không tra lại được)
   else if (receiverEmail && (receiverEmail.length > 150 || !/^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(receiverEmail))) errors.push('Email không hợp lệ (chỉ dùng chữ không dấu, số và ký tự . _ - +).');
-  if (!Checkout.PAYMENT_METHODS.some((m) => m.code === paymentMethod)) errors.push('Vui lòng chọn phương thức thanh toán.');
+  if (!Checkout.availablePaymentMethods().some((m) => m.code === paymentMethod)) errors.push('Vui lòng chọn phương thức thanh toán.');
 
   let noteText = textField(body.note);
   if (paymentMethod === 'Installment') {
@@ -251,12 +252,21 @@ exports.place = async (req, res) => {
   req.session.lastOrder = { orderId: placed.orderId };
 
   // Gửi email xác nhận kèm MÃ ĐƠN (khách vãng lai cần mã này để tra cứu). Lỗi gửi mail không làm hỏng đơn hàng.
-  if (receiverEmail) {
-    const order = await CustomerOrder.findAfterPlace(placed.orderId);
-    if (order) {
-      const message = orderConfirmation({ ...order, ReceiverEmail: receiverEmail }, mailer.baseUrl());
-      const result = await mailer.sendMail({ to: receiverEmail, ...message });
-      req.session.lastOrder.mail = { email: receiverEmail, mode: result.mode };
+  const order = (receiverEmail || paymentMethod === 'Stripe') ? await CustomerOrder.findAfterPlace(placed.orderId) : null;
+  if (receiverEmail && order) {
+    const message = orderConfirmation({ ...order, ReceiverEmail: receiverEmail }, mailer.baseUrl());
+    const result = await mailer.sendMail({ to: receiverEmail, ...message });
+    req.session.lastOrder.mail = { email: receiverEmail, mode: result.mode };
+  }
+
+  // Thanh toán thẻ qua Stripe: chuyển khách sang trang thanh toán. Không tạo được phiên thì đơn vẫn còn,
+  // trang cảm ơn có nút "Thanh toán lại".
+  if (paymentMethod === 'Stripe' && order) {
+    try {
+      return res.redirect(await stripeCtrl.startSession({ ...order, ReceiverEmail: receiverEmail || null }));
+    } catch (e) {
+      console.error('[stripe] không tạo được phiên thanh toán:', e.message);
+      req.flash('warning', 'Chưa kết nối được Stripe. Đơn đã được ghi nhận — bấm "Thanh toán bằng Stripe" để thử lại.');
     }
   }
   return res.redirect('/checkout/success');

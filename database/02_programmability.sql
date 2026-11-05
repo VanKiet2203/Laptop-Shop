@@ -197,7 +197,7 @@ BEGIN
     SET @ShippingAddress = LTRIM(RTRIM(ISNULL(@ShippingAddress, N'')));
     IF LEN(@ReceiverName) = 0 OR LEN(@ReceiverPhone) = 0 OR LEN(@ShippingAddress) = 0
         THROW 50025, N'Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.', 1;
-    IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment')
+    IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment', 'Stripe')
         THROW 50026, N'Phương thức thanh toán không hợp lệ.', 1;
 
     -- Chống đặt hàng ảo để "giữ" tồn kho (khách vãng lai đặt không cần đăng nhập):
@@ -618,6 +618,43 @@ BEGIN
 
     INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
     VALUES (@AccountId, 'PAYMENT', 'Order', CAST(@OrderId AS VARCHAR(50)), N'Xác nhận đã thanh toán (Pending -> Paid)');
+
+    COMMIT TRAN;
+END
+GO
+
+/* ---------- STORED PROCEDURE: CỔNG THANH TOÁN BÁO ĐÃ THU TIỀN (STRIPE) ---------- */
+-- Gọi từ webhook / trang quay về của Stripe (không có nhân viên). Chạy lại nhiều lần vẫn an toàn (idempotent):
+-- đơn đã Paid thì bỏ qua. Đơn đã bị huỷ mà khách vẫn trả tiền -> RefundPending để nhân viên hoàn tiền.
+CREATE PROCEDURE dbo.sp_MarkPaidByGateway
+    @OrderId    INT,
+    @GatewayRef VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRAN;
+
+    DECLARE @Status VARCHAR(10), @PayStatus VARCHAR(13), @Method VARCHAR(15);
+
+    SELECT @Status = Status, @PayStatus = PaymentStatus, @Method = PaymentMethod
+    FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE OrderId = @OrderId;
+    IF @Status IS NULL THROW 50054, N'Đơn hàng không tồn tại.', 1;
+    IF @Method <> 'Stripe' THROW 50056, N'Đơn hàng không thanh toán qua Stripe.', 1;
+
+    IF @PayStatus = 'Pending'
+    BEGIN
+        UPDATE dbo.Orders
+        SET PaymentStatus = CASE WHEN Status = 'Cancelled' THEN 'RefundPending' ELSE 'Paid' END,
+            PaidAt = SYSDATETIME()
+        WHERE OrderId = @OrderId;
+
+        INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
+        VALUES (NULL, 'PAYMENT', 'Order', CAST(@OrderId AS VARCHAR(50)),
+                CASE WHEN @Status = 'Cancelled'
+                     THEN N'Stripe đã thu tiền nhưng đơn đã huỷ (Pending -> RefundPending). Mã giao dịch: '
+                     ELSE N'Stripe đã thu tiền (Pending -> Paid). Mã giao dịch: ' END + @GatewayRef);
+    END
 
     COMMIT TRAN;
 END

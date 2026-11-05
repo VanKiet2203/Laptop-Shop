@@ -60,6 +60,12 @@
     </table>
     <div class="small text-muted p-2">Trả trước <%= planPrepay %>% = <strong class="tabular-nums"><%= fmtMoney(installmentPlan(total, 12, planPrepay, 0).prepay) %></strong>.</div>
   </div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'Stripe') { %>
+  <div class="pay-note"><%- ico('card') %><div><strong>Chưa hoàn tất thanh toán thẻ.</strong> Bấm nút bên dưới để thanh toán <strong class="tabular-nums"><%= fmtMoney(total) %></strong> trên trang bảo mật của Stripe (chế độ thử: thẻ <span class="part-no">4242 4242 4242 4242</span>, ngày hết hạn và CVC bất kỳ). Chúng tôi không lưu số thẻ của bạn.</div></div>
+  <form method="post" action="/checkout/stripe/pay" class="mt-3">
+    <input type="hidden" name="orderId" value="<%= ord.OrderId %>">
+    <button type="submit" class="btn btn-primary"><%- ico('card') %> Thanh toán bằng Stripe</button>
+  </form>
 <% } else if (!isCancelled && ord.PaymentMethod === 'Card') { %>
   <div class="pay-note"><%- ico('card') %><div><strong>Thanh toán thẻ.</strong> Nhân viên sẽ gửi link thanh toán an toàn tới số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong>. Chúng tôi không lưu số thẻ của bạn.</div></div>
 <% } %>

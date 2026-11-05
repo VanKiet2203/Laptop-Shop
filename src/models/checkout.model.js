@@ -5,6 +5,7 @@
 
 const db = require('../config/db');
 const Cart = require('./cart.model');
+const stripe = require('../core/stripe');
 
 // Quy tắc tính tiền - PHẢI khớp sp_PlaceOrder: freeship từ 5 triệu (tính trên tiền hàng TRƯỚC giảm giá), VAT 10% trên tiền sau giảm.
 const FREE_SHIPPING_FROM = 5000000;
@@ -96,8 +97,13 @@ exports.PAYMENT_METHODS = [
   { code: 'COD', name: 'Thanh toán khi nhận hàng (COD)', desc: 'Nhân viên gọi xác nhận, bạn kiểm tra hàng rồi trả tiền mặt', icon: 'truck' },
   { code: 'BankTransfer', name: 'Chuyển khoản ngân hàng', desc: 'Hiện mã QR VietQR ngay sau khi đặt hàng', icon: 'qr' },
   { code: 'Installment', name: 'Trả góp', desc: 'Thẻ tín dụng 0% hoặc công ty tài chính - ước tính tiền góp mỗi tháng', icon: 'percent' },
-  { code: 'Card', name: 'Thẻ tín dụng / Ghi nợ', desc: 'Visa, MasterCard, JCB - nhân viên gửi link thanh toán an toàn', icon: 'card' },
+  // Thanh toán thẻ = Stripe (thay cho 'Card' cũ - nhân viên gửi link; mã 'Card' chỉ còn để hiển thị các đơn cũ).
+  // Chỉ hiện khi đã điền STRIPE_SECRET_KEY trong .env (xem availablePaymentMethods)
+  { code: 'Stripe', name: 'Thẻ tín dụng / Ghi nợ', desc: 'Visa, MasterCard, JCB - thanh toán ngay trên trang bảo mật của Stripe', icon: 'card', enabled: () => stripe.enabled() },
 ];
+
+/** Các phương thức khách được chọn lúc này (ẩn những cổng chưa cấu hình). */
+exports.availablePaymentMethods = () => exports.PAYMENT_METHODS.filter((m) => !m.enabled || m.enabled());
 
 /**
  * Dữ liệu trang thanh toán. source = { customerId } (khách đăng nhập) hoặc { entries } (khách vãng lai).
@@ -120,6 +126,6 @@ exports.getCheckoutData = async ({ customerId = null, entries = null, productIds
     addresses,
     items,
     ...totals, // Gồm: subtotal, discountAmount (0), shippingFee, vatRate (10), vatAmount, totalAmount
-    paymentMethods: exports.PAYMENT_METHODS,
+    paymentMethods: exports.availablePaymentMethods(),
   };
 };

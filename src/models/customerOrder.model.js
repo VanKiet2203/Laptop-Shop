@@ -97,5 +97,7 @@ exports.findAfterPlace = async (orderId) => withItems(await db.queryOne(
 
 // cancel đơn hàng của khách (Pending, hoặc Approved chưa thanh toán) - sp_CancelOrder kiểm tra lại quyền + trạng thái
 exports.cancelPending = (orderId, accountId, reason) => db.exec('sp_CancelOrder', { OrderId: orderId, AccountId: accountId, Reason: reason });
+// Stripe báo đã thu tiền -> Paid (sp_MarkPaidByGateway chạy lại nhiều lần vẫn an toàn)
+exports.markPaidByGateway = (orderId, gatewayRef) => db.exec('sp_MarkPaidByGateway', { OrderId: orderId, GatewayRef: String(gatewayRef).slice(0, 100) });
 // tìm order bằng mã order
 exports.findById = (orderId) => db.queryOne('SELECT * FROM dbo.Orders WHERE OrderId = @orderId', { orderId });
