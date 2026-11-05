@@ -108,7 +108,15 @@ exports.history = (orderId) => db.query(
 
 exports.approve = (orderId, accountId) => db.exec('sp_ApproveOrder', { OrderId: orderId, AccountId: accountId });
 exports.cancel = (orderId, reason, accountId) => db.exec('sp_CancelOrder', { OrderId: orderId, Reason: reason, AccountId: accountId });
-exports.confirmPayment = (orderId, accountId) => db.exec('sp_ConfirmPayment', { OrderId: orderId, AccountId: accountId });
+// Đơn Stripe chỉ được đánh dấu Paid khi chính Stripe báo đã thu tiền (sp_MarkPaidByGateway) - nhân viên không xác nhận tay được.
+// Chặn ở đây (tức thì cho mọi DB) và trong sp_ConfirmPayment (xem 05_migration_stripe_confirm_guard.sql).
+exports.confirmPayment = async (orderId, accountId) => {
+  const order = await db.queryOne('SELECT PaymentMethod FROM dbo.Orders WHERE OrderId = @orderId', { orderId });
+  if (order && order.PaymentMethod === 'Stripe') {
+    throw Object.assign(new Error('Đơn thanh toán thẻ qua Stripe được xác nhận tự động khi Stripe thu tiền, nhân viên không xác nhận thủ công.'), { number: 50058 });
+  }
+  return db.exec('sp_ConfirmPayment', { OrderId: orderId, AccountId: accountId });
+};
 exports.complete = (orderId, accountId) => db.exec('sp_CompleteOrder', { OrderId: orderId, AccountId: accountId });
 exports.confirmRefund = (orderId, accountId) => db.exec('sp_ConfirmRefund', { OrderId: orderId, AccountId: accountId });
 

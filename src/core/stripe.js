@@ -17,7 +17,6 @@ const amountOf = (order) => Math.round(Number(order.TotalAmount));
 /** Tạo phiên thanh toán cho đơn; trả về Checkout Session (có .url để chuyển khách sang trang Stripe). */
 const createCheckoutSession = (order, baseUrl) => api().checkout.sessions.create({
   mode: 'payment',
-  payment_method_types: ['card'],
   line_items: [{
     quantity: 1,
     price_data: { currency: 'vnd', unit_amount: amountOf(order), product_data: { name: `Đơn hàng ${order.OrderNo}` } },

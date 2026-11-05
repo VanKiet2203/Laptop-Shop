@@ -612,6 +612,7 @@ BEGIN
     IF @Status IS NULL THROW 50054, N'Đơn hàng không tồn tại.', 1;
     IF @Status NOT IN ('Pending', 'Approved') THROW 50055, N'Đơn hàng không ở trạng thái có thể xác nhận thanh toán.', 1;
     IF @Method = 'COD' THROW 50056, N'Đơn COD không xác nhận thanh toán trước; chỉ xác nhận khi giao hàng.', 1;
+    IF @Method = 'Stripe' THROW 50058, N'Đơn thanh toán qua Stripe được xác nhận tự động khi Stripe thu tiền, nhân viên không xác nhận thủ công.', 1;
     IF @PayStatus <> 'Pending' THROW 50057, N'Đơn hàng không ở trạng thái chờ thanh toán.', 1;
 
     UPDATE dbo.Orders SET PaymentStatus = 'Paid', PaidAt = SYSDATETIME() WHERE OrderId = @OrderId;

@@ -40,3 +40,10 @@ public/uploads/avatars/*
 
 # Email thử nghiệm khi chưa cấu hình SMTP
 outbox/
+
+# Ảnh chụp giao diện cho báo cáo (tạo lại bằng: node tools/shoot.mjs) - không commit
+report/shots/
+
+# Cache Python của tools/
+__pycache__/
+*.pyc
