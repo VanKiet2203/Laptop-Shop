@@ -3,8 +3,9 @@
   const ps = PAYMENT_STATUS[order.PaymentStatus] || { label: order.PaymentStatus, cls: 'secondary' };
   const can = (p) => currentUser.permissions.includes(p);
   const isCod = order.PaymentMethod === 'COD';
-  const showApprove = order.Status === 'Pending' && can('order.approve');
-  const showPayment = ['Pending', 'Approved'].includes(order.Status) && !isCod && order.PaymentStatus === 'Pending' && can('order.approve');
+  const awaitingPay = ['BankTransfer', 'Stripe'].includes(order.PaymentMethod) && order.PaymentStatus !== 'Paid';
+  const showApprove = order.Status === 'Pending' && !awaitingPay && can('order.approve');
+  const showPayment = ['Pending', 'Approved'].includes(order.Status) && !isCod && order.PaymentMethod !== 'Stripe' && order.PaymentStatus === 'Pending' && can('order.approve');
   const showComplete = order.Status === 'Approved' && (isCod || order.PaymentStatus === 'Paid') && can('order.approve');
   const showCancel = ['Pending', 'Approved'].includes(order.Status) && can('order.cancel');
   const showRefund = order.Status === 'Cancelled' && order.PaymentStatus === 'RefundPending' && can('order.cancel');
@@ -26,7 +27,7 @@
   <div class="alert alert-warning d-flex gap-2 align-items-start">
     <%- ico('alert') %>
     <div>
-      Đơn đang chờ nhân viên kiểm tra tồn kho.
+      <% if (awaitingPay) { %>Đơn chuyển khoản / thẻ đang <strong>chờ khách thanh toán</strong>: hệ thống tự ghi nhận khi nhận được tiền, chỉ duyệt được sau đó.<% } else { %>Đơn đang chờ nhân viên kiểm tra tồn kho.<% } %>
       <% if (isCod) { %> Đơn COD: gọi điện xác nhận với khách trước khi duyệt.<% } %>
       <% if (lowStock.length) { %><strong>Cảnh báo:</strong> <%= lowStock.map((i) => i.ProductName).join(', ') %> không đủ tồn thực tế, duyệt sẽ bị từ chối.<% } %>
     </div>

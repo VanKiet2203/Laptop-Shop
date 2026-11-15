@@ -118,8 +118,8 @@
         <div class="pay-panel" data-pay-panel="BankTransfer" <%= pickedMethod === 'BankTransfer' ? '' : 'hidden' %>>
           <%- ico('qr') %><div><strong>Mã QR chuyển khoản sẽ hiện ngay sau khi đặt hàng</strong> (VietQR - quét bằng app ngân hàng, tự điền số tiền và nội dung). Đơn được xử lý khi chúng tôi nhận được tiền.</div>
         </div>
-        <div class="pay-panel" data-pay-panel="Card" <%= pickedMethod === 'Card' ? '' : 'hidden' %>>
-          <%- ico('card') %><div><strong>Thanh toán thẻ Visa / MasterCard / JCB.</strong> Sau khi đặt hàng, nhân viên sẽ gửi link thanh toán an toàn qua số điện thoại của bạn. Chúng tôi không lưu số thẻ.</div>
+        <div class="pay-panel" data-pay-panel="Stripe" <%= pickedMethod === 'Stripe' ? '' : 'hidden' %>>
+          <%- ico('card') %><div><strong>Bạn sẽ được chuyển sang trang thanh toán bảo mật của Stripe</strong> ngay sau khi đặt hàng. Chúng tôi không lưu số thẻ của bạn.</div>
         </div>
         <div class="pay-panel pay-panel-install" data-pay-panel="Installment" <%= pickedMethod === 'Installment' ? '' : 'hidden' %>>
           <div class="install">
@@ -199,7 +199,7 @@
         <div class="summary-total"><span>Tổng thanh toán</span><strong class="tabular-nums" id="summary-total" data-total="<%= checkoutData.totalAmount %>"><%= fmtMoney(checkoutData.totalAmount) %></strong></div>
 
         <p class="checkout-rule small text-muted" id="confirm-rule">
-          <%- ico('bolt', 'ico-sm') %><span><% if (qtyTotal === 1) { %>Đơn chỉ có 1 sản phẩm: hệ thống <strong>xác nhận ngay</strong> nếu còn hàng.<% } else { %>Đơn từ 2 sản phẩm: nhân viên sẽ <strong>kiểm tra hàng</strong> rồi xác nhận (thường trong 30 phút giờ hành chính).<% } %></span>
+          <%- ico('bolt', 'ico-sm') %><span><% if (qtyTotal === 1) { %>Đơn chỉ có 1 sản phẩm: hệ thống <strong>xác nhận ngay</strong> nếu còn hàng (chuyển khoản / thẻ: ngay sau khi thanh toán).<% } else { %>Đơn từ 2 sản phẩm: nhân viên sẽ <strong>kiểm tra hàng</strong> rồi xác nhận (thường trong 30 phút giờ hành chính).<% } %></span>
         </p>
 
         <button type="submit" class="btn btn-primary btn-lg w-100 btn-submit" id="btn-place"><span>Xác nhận đặt hàng</span> <%- ico('arrow') %></button>

@@ -32,7 +32,7 @@
 <% } else { %>
   <div class="order-cards">
     <% orders.forEach(function (o) {
-         var st = ORDER_STATUS[o.Status] || { label: o.Status, cls: 'secondary' };
+         var st = orderBadge(o);
          var pay = PAYMENT_STATUS[o.PaymentStatus] || { label: o.PaymentStatus, cls: 'secondary' };
          var canCancel = o.Status === 'Pending' || (o.Status === 'Approved' && o.PaymentStatus !== 'Paid'); %>
       <article class="order-card">
@@ -45,7 +45,7 @@
           <div class="order-meta small text-muted">
             <span><%- ico('clock', 'ico-sm') %> <%= fmtDateTime(o.CreatedAt) %></span>
             <span><%- ico('box', 'ico-sm') %> <%= o.TotalQty %> sản phẩm</span>
-            <span><%- ico('card', 'ico-sm') %> <%= PAYMENT_METHOD[o.PaymentMethod] || o.PaymentMethod %> · <span class="status-text-<%= pay.cls %>"><%= pay.label %></span></span>
+            <span><%- ico('card', 'ico-sm') %> <%= PAYMENT_METHOD[o.PaymentMethod] || o.PaymentMethod %><% if (!(o.Status === 'Cancelled' && o.PaymentStatus === 'Pending')) { %> · <span class="status-text-<%= pay.cls %>"><%= pay.label %></span><% } %></span>
           </div>
         </div>
         <div class="order-side">

@@ -34,7 +34,75 @@ const RECEIPT_STATUS = {
   Posted: { label: 'Đã nhập kho', cls: 'success' },
   Cancelled: { label: 'Đã huỷ', cls: 'secondary' },
 };
-const PAYMENT_METHOD = { COD: 'Thanh toán khi nhận hàng', BankTransfer: 'Chuyển khoản ngân hàng', Card: 'Thẻ', Installment: 'Trả góp', Cash: 'Tiền mặt' };
+const PAYMENT_METHOD = { COD: 'Thanh toán khi nhận hàng', BankTransfer: 'Chuyển khoản ngân hàng', Card: 'Thẻ', Installment: 'Trả góp', Cash: 'Tiền mặt', Stripe: 'Thẻ qua Stripe' };
+
+// Phương thức khách trả tiền NGAY sau khi đặt (QR / thẻ). COD trả khi nhận hàng; Trả góp / Thẻ do nhân viên xác nhận thanh toán.
+const PAY_NOW = ['BankTransfer', 'Stripe'];
+
+/**
+ * Giai đoạn của đơn cho khách, gộp trạng thái xử lý (Orders.Status) và trạng thái thanh toán (Orders.PaymentStatus)
+ * theo từng phương thức: tiêu đề + mô tả cho trang "đặt hàng thành công" và dòng gợi ý dưới thanh tiến độ.
+ * Trả { tone: 'ok'|'pending'|'cancel', icon, title, message, hint }.
+ */
+function orderStage(ord) {
+  const money = fmtMoney(ord.TotalAmount);
+  const approved = ord.Status === 'Approved' || ord.Status === 'Completed';
+  const paid = ord.PaymentStatus === 'Paid';
+  const payNow = PAY_NOW.includes(ord.PaymentMethod);
+  const checking = `Nhân viên sẽ kiểm tra tồn kho và xác nhận với bạn qua số ${ord.ReceiverPhone}.`;
+  if (ord.Status === 'Cancelled') return { tone: 'cancel', icon: 'x', title: 'Đơn hàng đã huỷ', message: ord.CancelReason || '', hint: '' };
+  if (ord.Status === 'Completed') return { tone: 'ok', icon: 'checkcircle', title: 'Đơn hàng đã giao', message: 'Cảm ơn bạn đã mua hàng.', hint: ORDER_STATUS.Completed.hint };
+  if (payNow && !paid) {
+    return {
+      tone: 'pending', icon: 'clock', title: 'Đã ghi nhận đơn — chờ thanh toán',
+      message: `Vui lòng hoàn tất thanh toán ${money} để chúng tôi xử lý đơn.${approved ? ' Đơn đã được xác nhận còn hàng.' : ''}`,
+      hint: 'Đơn sẽ được xử lý ngay khi chúng tôi nhận được thanh toán.',
+    };
+  }
+  if (payNow && paid) {
+    return approved
+      ? { tone: 'ok', icon: 'checkcircle', title: 'Thanh toán thành công!', message: `Đã nhận ${money}. Đơn đã được xác nhận còn hàng và đang chuẩn bị giao.`, hint: ORDER_STATUS.Approved.hint }
+      : { tone: 'ok', icon: 'checkcircle', title: 'Thanh toán thành công!', message: `Đã nhận ${money}. ${checking}`, hint: 'Đã nhận thanh toán. Nhân viên đang kiểm tra tồn kho cho đơn của bạn.' };
+  }
+  if (!approved) return { tone: 'pending', icon: 'clock', title: 'Đặt hàng thành công!', message: checking, hint: ORDER_STATUS.Pending.hint };
+  const later = ord.PaymentMethod === 'COD' ? 'Bạn thanh toán khi nhận hàng.'
+    : paid ? 'Đã nhận thanh toán.'
+      : ord.PaymentMethod === 'Installment' ? 'Nhân viên sẽ gọi hướng dẫn hồ sơ trả góp.' : 'Nhân viên sẽ gửi link thanh toán cho bạn.';
+  return { tone: 'ok', icon: 'checkcircle', title: 'Đặt hàng thành công!', message: `Đơn đã được xác nhận còn hàng. ${later}`, hint: `${ORDER_STATUS.Approved.hint} ${later}` };
+}
+
+/** Một huy hiệu duy nhất cho danh sách / chi tiết đơn của khách, gộp trạng thái xử lý và thanh toán: { label, cls }. */
+function orderBadge(ord) {
+  const paid = ord.PaymentStatus === 'Paid';
+  const payNow = PAY_NOW.includes(ord.PaymentMethod);
+  if (ord.Status === 'Cancelled') {
+    if (ord.PaymentStatus === 'RefundPending') return { label: 'Đã huỷ · chờ hoàn tiền', cls: 'secondary' };
+    if (ord.PaymentStatus === 'Refunded') return { label: 'Đã huỷ · đã hoàn tiền', cls: 'secondary' };
+    return ORDER_STATUS.Cancelled;
+  }
+  if (ord.Status === 'Completed') return ORDER_STATUS.Completed;
+  if (payNow && !paid) return { label: ord.Status === 'Approved' ? 'Đã xác nhận · chờ thanh toán' : 'Chờ thanh toán', cls: 'warning' };
+  if (ord.Status === 'Pending') return paid ? { label: 'Đã thanh toán · đang kiểm tra hàng', cls: 'warning' } : ORDER_STATUS.Pending;
+  if (paid && payNow) return { label: 'Đã thanh toán · đã xác nhận', cls: 'primary' };
+  if (!paid && ord.PaymentMethod !== 'COD') return { label: 'Đã xác nhận · chờ thanh toán', cls: 'primary' };
+  return ORDER_STATUS.Approved;
+}
+
+/** Các bước tiến độ đơn (có bước thanh toán với mọi phương thức trừ COD). Bước đầu tiên chưa xong là bước hiện tại. */
+function orderSteps(ord) {
+  const approved = ord.Status === 'Approved' || ord.Status === 'Completed';
+  const paid = ord.PaymentStatus === 'Paid';
+  const check = { key: 'check', label: approved ? 'Đã xác nhận' : 'Đang kiểm tra hàng', done: approved, time: ord.ApprovedAt };
+  const pay = { key: 'pay', label: paid ? 'Đã thanh toán' : 'Chờ thanh toán', done: paid, time: ord.PaidAt };
+  const steps = [{ key: 'placed', label: 'Đã đặt hàng', done: true, time: ord.CreatedAt }];
+  if (ord.PaymentMethod === 'COD') steps.push(check);
+  else if (PAY_NOW.includes(ord.PaymentMethod)) steps.push(pay, check);
+  else steps.push(check, pay);
+  steps.push({ key: 'done', label: 'Đã giao', done: ord.Status === 'Completed', time: ord.CompletedAt });
+  const cur = steps.find((s) => !s.done);
+  if (cur) cur.current = true;
+  return steps;
+}
 
 /** Tính phân trang: paginate(page, pageSize, total) -> { page, pageSize, total, pages, offset } */
 function paginate(page, pageSize, total) {
@@ -118,5 +186,5 @@ const parseDateStr = (s) => {
 module.exports = {
   parseId, parseDateStr, SERIAL_STATUS, RECEIPT_STATUS, fmtAxis,
   ico, fmtMoney, fmtMoneyShort, fmtDate, fmtDateTime, ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD,
-  paginate, isBusinessError, slugify, productImage, installmentPlan,
+  paginate, isBusinessError, slugify, productImage, installmentPlan, orderStage, orderSteps, orderBadge,
 };

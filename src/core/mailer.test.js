@@ -28,7 +28,10 @@ test('confirmation email shows the order code prominently, a tracking link, QR p
 test('payment instructions follow the payment method (COD / installment)', () => {
   const cod = orderConfirmation({ ...order, PaymentMethod: 'COD', Status: 'Pending' }, 'http://x');
   assert.match(cod.html, /Nhân viên sẽ gọi xác nhận/);
-  assert.match(cod.html, /Đang kiểm tra hàng/);
+  assert.match(cod.html, /kiểm tra tồn kho/);
+  const qr = orderConfirmation({ ...order, PaymentMethod: 'BankTransfer', Status: 'Pending', PaymentStatus: 'Pending' }, 'http://x');
+  assert.match(qr.html, /chờ thanh toán/);
+  assert.match(qr.text, /Trạng thái: Đã ghi nhận đơn — chờ thanh toán/);
   const inst = orderConfirmation({ ...order, PaymentMethod: 'Installment', Note: '[TRẢ GÓP] 12 tháng · trả trước 30% · thẻ tín dụng (0%)' }, 'http://x');
   assert.match(inst.html, /trả góp 12 tháng, trả trước 30%/);
 });

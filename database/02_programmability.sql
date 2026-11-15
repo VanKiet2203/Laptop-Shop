@@ -197,12 +197,12 @@ BEGIN
     SET @ShippingAddress = LTRIM(RTRIM(ISNULL(@ShippingAddress, N'')));
     IF LEN(@ReceiverName) = 0 OR LEN(@ReceiverPhone) = 0 OR LEN(@ShippingAddress) = 0
         THROW 50025, N'Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.', 1;
-    IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment')
+    IF @PaymentMethod NOT IN ('COD', 'BankTransfer', 'Card', 'Installment', 'Stripe')
         THROW 50026, N'Phương thức thanh toán không hợp lệ.', 1;
 
     -- Chống đặt hàng ảo để "giữ" tồn kho (khách vãng lai đặt không cần đăng nhập):
     -- mỗi SĐT tối đa 3 đơn đang chờ kiểm tra hàng và 10 đơn trong 24 giờ.
-    IF (SELECT COUNT(*) FROM dbo.Orders WHERE ReceiverPhone = @ReceiverPhone AND Status = 'Pending') >= 3
+    IF (SELECT COUNT(*) FROM dbo.Orders WHERE ReceiverPhone = @ReceiverPhone AND Status = 'Pending' AND PaymentStatus <> 'Paid') >= 3
         THROW 50070, N'Số điện thoại này đang có 3 đơn chờ kiểm tra hàng. Vui lòng đợi nhân viên xác nhận hoặc huỷ bớt đơn cũ trước khi đặt thêm.', 1;
     IF (SELECT COUNT(*) FROM dbo.Orders WHERE ReceiverPhone = @ReceiverPhone AND CreatedAt >= DATEADD(HOUR, -24, SYSDATETIME())) >= 10
         THROW 50071, N'Số điện thoại này đã đặt quá 10 đơn trong 24 giờ. Vui lòng liên hệ hotline nếu bạn cần đặt số lượng lớn.', 1;
@@ -317,7 +317,7 @@ BEGIN
 
     SET @OrderStatus = 'Pending';
     -- Tự xác nhận đơn 1 sản phẩm: chỉ khi hệ thống còn đủ Serial "Trong kho" cho dòng hàng đó (nếu thiếu, để nhân viên kiểm tra).
-    IF @AutoApprove = 1 AND @TotalQty = 1
+    IF @AutoApprove = 1 AND @TotalQty = 1 AND @PaymentMethod NOT IN ('BankTransfer', 'Stripe')
        AND EXISTS (SELECT 1 FROM dbo.Employees WHERE EmployeeCode = 'NV000')
        AND NOT EXISTS (
             SELECT 1 FROM #Cart c JOIN dbo.Products p ON p.ProductId = c.ProductId
@@ -387,6 +387,8 @@ BEGIN
 
     SELECT @Status = Status FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE OrderId = @OrderId;
     IF @Status IS NULL THROW 50031, N'Đơn hàng không tồn tại.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.Orders WHERE OrderId = @OrderId AND PaymentMethod IN ('BankTransfer', 'Stripe') AND PaymentStatus <> 'Paid')
+        THROW 50059, N'Đơn thanh toán trước (chuyển khoản / thẻ) phải được thanh toán xong mới duyệt được.', 1;
     IF @Status <> 'Pending' THROW 50032, N'Chỉ duyệt được đơn ở trạng thái Đang kiểm tra hàng.', 1;
 
     -- 1) Trừ tồn thực tế + bỏ giữ chỗ
@@ -612,6 +614,7 @@ BEGIN
     IF @Status IS NULL THROW 50054, N'Đơn hàng không tồn tại.', 1;
     IF @Status NOT IN ('Pending', 'Approved') THROW 50055, N'Đơn hàng không ở trạng thái có thể xác nhận thanh toán.', 1;
     IF @Method = 'COD' THROW 50056, N'Đơn COD không xác nhận thanh toán trước; chỉ xác nhận khi giao hàng.', 1;
+    IF @Method = 'Stripe' THROW 50058, N'Đơn thanh toán qua Stripe được xác nhận tự động khi Stripe thu tiền, nhân viên không xác nhận thủ công.', 1;
     IF @PayStatus <> 'Pending' THROW 50057, N'Đơn hàng không ở trạng thái chờ thanh toán.', 1;
 
     UPDATE dbo.Orders SET PaymentStatus = 'Paid', PaidAt = SYSDATETIME() WHERE OrderId = @OrderId;
@@ -620,6 +623,144 @@ BEGIN
     VALUES (@AccountId, 'PAYMENT', 'Order', CAST(@OrderId AS VARCHAR(50)), N'Xác nhận đã thanh toán (Pending -> Paid)');
 
     COMMIT TRAN;
+
+    -- Nhân viên xác nhận tay đã nhận tiền: đơn 1 sản phẩm còn đủ serial được duyệt ngay, giống khi cổng thanh toán báo về
+    BEGIN TRY
+        EXEC dbo.sp_AutoApproveIfEligible @OrderId = @OrderId;
+    END TRY
+    BEGIN CATCH
+        SET NOCOUNT ON; -- đơn vẫn Paid; nhân viên duyệt tay nếu tự duyệt không được
+    END CATCH
+END
+GO
+
+/* ---------- STORED PROCEDURE: TỰ XÁC NHẬN ĐƠN 1 SẢN PHẨM SAU KHI ĐÃ THANH TOÁN ---------- */
+-- Đơn trả trước (chuyển khoản / Stripe) không tự duyệt lúc đặt; khi có tiền, đơn 1 sản phẩm còn đủ Serial thì được duyệt ngay.
+-- Đơn từ 2 sản phẩm hoặc thiếu serial giữ Pending để nhân viên kiểm tra. Gọi SAU khi ghi nhận thanh toán, ngoài transaction thanh toán.
+CREATE PROCEDURE dbo.sp_AutoApproveIfEligible
+    @OrderId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM dbo.Orders WHERE OrderId = @OrderId AND Status = 'Pending' AND PaymentStatus = 'Paid')
+       AND (SELECT ISNULL(SUM(Quantity), 0) FROM dbo.OrderDetails WHERE OrderId = @OrderId) = 1
+       AND EXISTS (SELECT 1 FROM dbo.Employees WHERE EmployeeCode = 'NV000')
+       AND NOT EXISTS (
+            SELECT 1 FROM dbo.OrderDetails d JOIN dbo.Products p ON p.ProductId = d.ProductId
+            WHERE d.OrderId = @OrderId AND p.IsSerialTracked = 1
+              AND (SELECT COUNT(*) FROM dbo.ProductSerials s WHERE s.ProductId = d.ProductId AND s.Status = 'InStock') < d.Quantity)
+        EXEC dbo.sp_ApproveOrder @OrderId = @OrderId, @AccountId = NULL, @Auto = 1;
+END
+GO
+
+/* ---------- STORED PROCEDURE: CỔNG THANH TOÁN BÁO ĐÃ THU TIỀN (STRIPE) ---------- */
+-- Gọi từ webhook / trang quay về của Stripe (không có nhân viên). Chạy lại nhiều lần vẫn an toàn (idempotent):
+-- đơn đã Paid thì bỏ qua. Đơn đã bị huỷ mà khách vẫn trả tiền -> RefundPending để nhân viên hoàn tiền.
+CREATE PROCEDURE dbo.sp_MarkPaidByGateway
+    @OrderId    INT,
+    @GatewayRef VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRAN;
+
+    DECLARE @Status VARCHAR(10), @PayStatus VARCHAR(13), @Method VARCHAR(15), @AutoApprove BIT = 0;
+
+    SELECT @Status = Status, @PayStatus = PaymentStatus, @Method = PaymentMethod
+    FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE OrderId = @OrderId;
+    IF @Status IS NULL THROW 50054, N'Đơn hàng không tồn tại.', 1;
+    IF @Method <> 'Stripe' THROW 50056, N'Đơn hàng không thanh toán qua Stripe.', 1;
+
+    IF @PayStatus = 'Pending'
+    BEGIN
+        UPDATE dbo.Orders
+        SET PaymentStatus = CASE WHEN Status = 'Cancelled' THEN 'RefundPending' ELSE 'Paid' END,
+            PaidAt = SYSDATETIME()
+        WHERE OrderId = @OrderId;
+
+        SET @AutoApprove = CASE WHEN @Status = 'Cancelled' THEN 0 ELSE 1 END;
+
+        INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
+        VALUES (NULL, 'PAYMENT', 'Order', CAST(@OrderId AS VARCHAR(50)),
+                CASE WHEN @Status = 'Cancelled'
+                     THEN N'Stripe đã thu tiền nhưng đơn đã huỷ (Pending -> RefundPending). Mã giao dịch: '
+                     ELSE N'Stripe đã thu tiền (Pending -> Paid). Mã giao dịch: ' END + @GatewayRef);
+    END
+
+    COMMIT TRAN;
+
+    BEGIN TRY
+        IF @AutoApprove = 1 EXEC dbo.sp_AutoApproveIfEligible @OrderId = @OrderId;
+    END TRY
+    BEGIN CATCH
+        SET NOCOUNT ON; -- đơn vẫn Paid; nhân viên duyệt tay nếu tự duyệt không được
+    END CATCH
+END
+GO
+
+/* ---------- STORED PROCEDURE: SEPAY BÁO ĐÃ NHẬN CHUYỂN KHOẢN ---------- */
+-- Gọi từ webhook SePay. Ghi giao dịch (chống trùng theo SepayId) rồi đối soát với đơn BankTransfer:
+-- đủ tiền -> Paid; thiếu tiền -> chỉ ghi nhận (Underpaid); đơn đã huỷ -> RefundPending; không khớp đơn -> NoOrder.
+CREATE PROCEDURE dbo.sp_MarkPaidBySepay
+    @SepayId         VARCHAR(64),
+    @Gateway         NVARCHAR(50),
+    @AccountNumber   VARCHAR(30),
+    @Amount          DECIMAL(18,0),
+    @Content         NVARCHAR(500),
+    @ReferenceCode   VARCHAR(100),
+    @TransactionDate DATETIME2(0),
+    @OrderNo         VARCHAR(20)      -- đã tách từ nội dung chuyển khoản; NULL nếu không tìm thấy mã đơn
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRAN;
+
+    IF EXISTS (SELECT 1 FROM dbo.SepayTransactions WITH (UPDLOCK, HOLDLOCK) WHERE SepayId = @SepayId)
+    BEGIN
+        COMMIT TRAN;
+        SELECT CAST('Duplicate' AS VARCHAR(13)) AS Result, CAST(NULL AS INT) AS OrderId;
+        RETURN;
+    END
+
+    DECLARE @OrderId INT, @Status VARCHAR(10), @PayStatus VARCHAR(13), @Method VARCHAR(15), @Total DECIMAL(18,0), @Result VARCHAR(13);
+
+    SELECT @OrderId = OrderId, @Status = Status, @PayStatus = PaymentStatus, @Method = PaymentMethod, @Total = TotalAmount
+    FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE OrderNo = @OrderNo;
+
+    SET @Result = CASE
+        WHEN @OrderId IS NULL THEN 'NoOrder'
+        WHEN @Method <> 'BankTransfer' THEN 'WrongMethod'
+        WHEN @PayStatus <> 'Pending' THEN 'AlreadyPaid'
+        WHEN @Amount < @Total THEN 'Underpaid'
+        WHEN @Status = 'Cancelled' THEN 'RefundPending'
+        ELSE 'Paid' END;
+
+    INSERT INTO dbo.SepayTransactions (SepayId, OrderId, Gateway, AccountNumber, Amount, Content, ReferenceCode, TransactionDate, MatchStatus)
+    VALUES (@SepayId, @OrderId, @Gateway, @AccountNumber, @Amount, @Content, @ReferenceCode, @TransactionDate, @Result);
+
+    IF @Result IN ('Paid', 'RefundPending')
+    BEGIN
+        UPDATE dbo.Orders SET PaymentStatus = @Result, PaidAt = SYSDATETIME() WHERE OrderId = @OrderId;
+
+        INSERT INTO dbo.AuditLogs (AccountId, Action, EntityName, EntityId, Detail)
+        VALUES (NULL, 'PAYMENT', 'Order', CAST(@OrderId AS VARCHAR(50)),
+                CASE WHEN @Result = 'RefundPending'
+                     THEN N'SePay nhận tiền nhưng đơn đã huỷ (Pending -> RefundPending). Mã giao dịch: '
+                     ELSE N'SePay nhận chuyển khoản (Pending -> Paid). Mã giao dịch: ' END + @SepayId);
+    END
+
+    COMMIT TRAN;
+
+    BEGIN TRY
+        IF @Result = 'Paid' EXEC dbo.sp_AutoApproveIfEligible @OrderId = @OrderId;
+    END TRY
+    BEGIN CATCH
+        SET NOCOUNT ON; -- đơn vẫn Paid; nhân viên duyệt tay nếu tự duyệt không được
+    END CATCH
+
+    SELECT @Result AS Result, @OrderId AS OrderId;
 END
 GO
 

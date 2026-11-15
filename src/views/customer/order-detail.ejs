@@ -1,8 +1,7 @@
 <%
   var ord = typeof order !== 'undefined' ? order : orderDetails;
   var isGuestView = typeof guestView !== 'undefined' && guestView;
-  var st = ORDER_STATUS[ord.Status] || { label: ord.Status, cls: 'secondary' };
-  var pay = PAYMENT_STATUS[ord.PaymentStatus] || { label: ord.PaymentStatus, cls: 'secondary' };
+  var st = orderBadge(ord);
   // Khách tự huỷ: đang kiểm tra hàng, hoặc đã xác nhận nhưng chưa thanh toán (khớp sp_CancelOrder)
   var canCancel = !isGuestView && (ord.Status === 'Pending' || (ord.Status === 'Approved' && ord.PaymentStatus !== 'Paid'));
 %>
@@ -16,7 +15,6 @@
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">
     <span class="status-pill status-<%= st.cls %>"><%= st.label %></span>
-    <span class="status-pill status-<%= pay.cls %> status-soft"><%= pay.label %></span>
     <% if (canCancel) { %>
       <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalCancelOrder"><%- ico('x', 'ico-sm') %> Huỷ đơn</button>
     <% } %>

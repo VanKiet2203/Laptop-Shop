@@ -57,6 +57,22 @@
     }
   }, true);
 
+  /* ---------- Trang QR chuyển khoản: hỏi server định kỳ, nhận tiền xong thì tải lại trang ---------- */
+  var poll = document.querySelector('[data-pay-poll]');
+  if (poll && window.fetch) {
+    var pollMsg = document.querySelector('[data-pay-poll-msg]');
+    if (pollMsg) pollMsg.hidden = false;
+    var tries = 0;
+    var timer = setInterval(function () {
+      if (document.hidden) return;
+      if (++tries > 450) return clearInterval(timer); // ~30 phút
+      fetch('/checkout/sepay/status?orderId=' + encodeURIComponent(poll.getAttribute('data-pay-poll')), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.paid) { clearInterval(timer); location.reload(); } })
+        .catch(function () {});
+    }, 4000);
+  }
+
   /* ---------- Xác nhận trước khi gửi form (data-confirm) ---------- */
   document.addEventListener('submit', function (e) {
     var form = e.target;

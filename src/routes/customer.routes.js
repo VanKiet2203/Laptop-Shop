@@ -39,8 +39,17 @@ const customer_checkout = require('../controllers/customer/checkout.controller')
 
 router.get('/checkout', shopper, wrap(customer_checkout.show));
 router.post('/checkout/promo', shopper, wrap(customer_checkout.checkPromo));
-router.post('/checkout', shopper, rateLimit.byIp('checkout', 20, HOUR, 'Bạn đặt hàng quá nhiều lần trong một giờ. Vui lòng liên hệ hotline nếu cần đặt số lượng lớn.'), wrap(customer_checkout.place));
+router.post('/checkout', shopper, rateLimit.byIp('checkout', 20, HOUR, 'Bạn đặt hàng quá nhiều lần trong một giờ. Vui lòng liên hệ hotline nếu cần đặt số lượng lớn.', true), wrap(customer_checkout.place)); // true = chỉ kiểm tra; lượt chỉ được tính khi đặt đơn thành công (xem checkout.controller)
 router.get('/checkout/success', shopper, wrap(customer_checkout.success));
+
+const customer_stripe = require('../controllers/customer/stripe.controller');
+
+router.get('/checkout/stripe/return', shopper, wrap(customer_stripe.returnFromStripe));
+router.post('/checkout/stripe/pay', shopper, rateLimit.byIp('stripepay', 30, HOUR), wrap(customer_stripe.pay));
+
+const customer_sepay = require('../controllers/customer/sepay.controller');
+
+router.get('/checkout/sepay/status', shopper, wrap(customer_sepay.status));
 
 const customer_order = require('../controllers/customer/order.controller');
 

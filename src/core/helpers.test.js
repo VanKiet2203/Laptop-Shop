@@ -41,3 +41,39 @@ test('fmtMoneyShort and ORDER_STATUS use shop wording', () => {
   assert.equal(h.fmtMoneyShort(750000), '750 nghìn');
   assert.equal(h.ORDER_STATUS.Pending.label, 'Đang kiểm tra hàng');
 });
+
+test('orderStage/orderSteps follow payment AND processing state per payment method', () => {
+  const { orderStage, orderSteps } = require('./helpers');
+  const base = { OrderNo: 'DH2611-00001', TotalAmount: 1000000, ReceiverPhone: '0912000001', CreatedAt: new Date() };
+  const qrPending = { ...base, PaymentMethod: 'BankTransfer', Status: 'Pending', PaymentStatus: 'Pending' };
+  assert.match(orderStage(qrPending).title, /chờ thanh toán/);
+  assert.deepEqual(orderSteps(qrPending).map((s) => s.key), ['placed', 'pay', 'check', 'done']);
+  assert.equal(orderSteps(qrPending).find((s) => s.current).key, 'pay');
+
+  const qrPaid = { ...qrPending, PaymentStatus: 'Paid' };
+  assert.equal(orderStage(qrPaid).title, 'Thanh toán thành công!');
+  assert.equal(orderSteps(qrPaid).find((s) => s.current).key, 'check');
+  assert.match(orderStage({ ...qrPaid, Status: 'Approved' }).message, /xác nhận còn hàng/);
+
+  const cod = { ...base, PaymentMethod: 'COD', Status: 'Approved', PaymentStatus: 'Pending' };
+  assert.deepEqual(orderSteps(cod).map((s) => s.key), ['placed', 'check', 'done']);
+  assert.match(orderStage(cod).message, /thanh toán khi nhận hàng/);
+
+  const inst = { ...base, PaymentMethod: 'Installment', Status: 'Approved', PaymentStatus: 'Pending' };
+  assert.deepEqual(orderSteps(inst).map((s) => s.key), ['placed', 'check', 'pay', 'done']);
+  assert.equal(orderStage({ ...base, PaymentMethod: 'Stripe', Status: 'Cancelled', PaymentStatus: 'Pending' }).tone, 'cancel');
+});
+
+test('orderBadge merges processing and payment state into one label', () => {
+  const { orderBadge } = require('./helpers');
+  const o = (PaymentMethod, Status, PaymentStatus) => orderBadge({ PaymentMethod, Status, PaymentStatus }).label;
+  assert.equal(o('BankTransfer', 'Pending', 'Pending'), 'Chờ thanh toán');
+  assert.equal(o('Stripe', 'Approved', 'Pending'), 'Đã xác nhận · chờ thanh toán');
+  assert.equal(o('BankTransfer', 'Pending', 'Paid'), 'Đã thanh toán · đang kiểm tra hàng');
+  assert.equal(o('BankTransfer', 'Approved', 'Paid'), 'Đã thanh toán · đã xác nhận');
+  assert.equal(o('COD', 'Pending', 'Pending'), 'Đang kiểm tra hàng');
+  assert.equal(o('COD', 'Approved', 'Pending'), 'Đã xác nhận');
+  assert.equal(o('Installment', 'Approved', 'Pending'), 'Đã xác nhận · chờ thanh toán');
+  assert.equal(o('Stripe', 'Cancelled', 'RefundPending'), 'Đã huỷ · chờ hoàn tiền');
+  assert.equal(o('COD', 'Completed', 'Paid'), 'Đã giao');
+});

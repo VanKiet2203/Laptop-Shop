@@ -1,17 +1,11 @@
-<% var ord = order; var approved = ord.Status === 'Approved'; %>
-<div class="success-hero <%= approved ? 'is-approved' : 'is-pending' %>">
-  <span class="success-ico"><%- ico(approved ? 'checkcircle' : 'clock') %></span>
+<% var ord = order; var stage = orderStage(ord); %>
+<div class="success-hero <%= stage.tone === 'ok' ? 'is-approved' : 'is-pending' %>">
+  <span class="success-ico"><%- ico(stage.icon) %></span>
   <div>
-    <h1 class="success-title">Đặt hàng thành công!</h1>
+    <h1 class="success-title"><%= stage.title %></h1>
     <p class="success-sub">Mã đơn <span class="part-no part-no-lg"><%= ord.OrderNo %></span>
       <button type="button" class="copy-btn" data-copy="<%= ord.OrderNo %>" aria-label="Sao chép mã đơn"><%- ico('copy', 'ico-sm') %></button></p>
-    <p class="success-msg">
-      <% if (approved) { %>
-        Hệ thống đã <strong>xác nhận còn hàng</strong> cho đơn của bạn (đơn 1 sản phẩm được xác nhận ngay).
-      <% } else { %>
-        Đơn có từ 2 sản phẩm nên đang ở trạng thái <strong>"Đang kiểm tra hàng"</strong> — nhân viên sẽ kiểm tra tồn kho và xác nhận với bạn qua số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong>.
-      <% } %>
-    </p>
+    <% if (stage.message) { %><p class="success-msg"><%= stage.message %></p><% } %>
   </div>
 </div>
 
@@ -23,8 +17,7 @@
         <strong>Đã gửi email xác nhận tới <%= mail.email %></strong> — trong email có mã đơn <span class="part-no"><%= ord.OrderNo %></span> và link tra cứu. Nếu không thấy, hãy kiểm tra mục Spam.
       <% } else { %>
         <strong>Email xác nhận cho <%= mail.email %></strong> chứa mã đơn <span class="part-no"><%= ord.OrderNo %></span> và link tra cứu.
-        <% if (mail.mode === 'outbox') { %><span class="small text-muted d-block">Máy chủ chưa cấu hình SMTP nên email được lưu trong thư mục <code>outbox/</code> (chế độ thử nghiệm).</span>
-        <% } else { %><span class="small text-muted d-block">Chưa gửi được email, vui lòng lưu lại mã đơn ở trên.</span><% } %>
+        <% if (mail.mode !== 'outbox') { %><span class="small text-muted d-block">Chưa gửi được email, vui lòng lưu lại mã đơn ở trên.</span><% } %>
       <% } %>
     </div>
   </div>

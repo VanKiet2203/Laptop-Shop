@@ -21,7 +21,7 @@
 <% } else if (!isCancelled && ord.PaymentMethod === 'COD') { %>
   <div class="pay-note"><%- ico('phone') %><div><strong>Nhân viên sẽ gọi xác nhận đơn</strong> qua số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong> (<%= site.hotlineHours %>). Bạn kiểm tra hàng khi nhận rồi thanh toán <strong class="tabular-nums"><%= fmtMoney(total) %></strong> bằng tiền mặt.</div></div>
 <% } else if (!isCancelled && ord.PaymentMethod === 'BankTransfer') { %>
-  <div class="qr-card">
+  <div class="qr-card" data-pay-poll="<%= ord.OrderId %>">
     <div class="qr-img">
       <img src="<%= qrUrl %>" alt="Mã QR chuyển khoản VietQR cho đơn <%= ord.OrderNo %>" width="220" height="220" referrerpolicy="no-referrer" data-qr>
       <div class="qr-fallback" hidden><%- ico('qr') %><span>Không tải được mã QR — hãy chuyển khoản theo thông tin bên cạnh.</span></div>
@@ -36,6 +36,7 @@
         <div><dt>Nội dung</dt><dd><span class="part-no"><%= ord.OrderNo %></span> <button type="button" class="copy-btn" data-copy="<%= ord.OrderNo %>" aria-label="Sao chép nội dung chuyển khoản"><%- ico('copy', 'ico-sm') %></button></dd></div>
       </dl>
       <p class="small text-muted mb-0"><%- ico('info', 'ico-sm') %> Vui lòng ghi đúng nội dung <strong><%= ord.OrderNo %></strong>. Đơn được xử lý ngay khi chúng tôi nhận được tiền.</p>
+      <p class="small text-muted mt-1 mb-0" data-pay-poll-msg hidden>Đang chờ nhận tiền — trang sẽ tự cập nhật khi chuyển khoản thành công.</p>
     </div>
   </div>
 <% } else if (!isCancelled && ord.PaymentMethod === 'Installment') { %>
@@ -60,6 +61,12 @@
     </table>
     <div class="small text-muted p-2">Trả trước <%= planPrepay %>% = <strong class="tabular-nums"><%= fmtMoney(installmentPlan(total, 12, planPrepay, 0).prepay) %></strong>.</div>
   </div>
+<% } else if (!isCancelled && ord.PaymentMethod === 'Stripe') { %>
+  <div class="pay-note"><%- ico('card') %><div><strong>Chưa hoàn tất thanh toán thẻ.</strong> Bấm nút bên dưới để thanh toán <strong class="tabular-nums"><%= fmtMoney(total) %></strong> trên trang bảo mật của Stripe. Chúng tôi không lưu số thẻ của bạn.</div></div>
+  <form method="post" action="/checkout/stripe/pay" class="mt-3">
+    <input type="hidden" name="orderId" value="<%= ord.OrderId %>">
+    <button type="submit" class="btn btn-primary"><%- ico('card') %> Thanh toán bằng Stripe</button>
+  </form>
 <% } else if (!isCancelled && ord.PaymentMethod === 'Card') { %>
   <div class="pay-note"><%- ico('card') %><div><strong>Thanh toán thẻ.</strong> Nhân viên sẽ gửi link thanh toán an toàn tới số <strong class="tabular-nums"><%= ord.ReceiverPhone %></strong>. Chúng tôi không lưu số thẻ của bạn.</div></div>
 <% } %>

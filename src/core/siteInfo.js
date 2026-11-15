@@ -22,7 +22,13 @@ module.exports = {
     { name: 'Zalo', icon: 'zalo', href: '#' },
   ],
   // Tài khoản nhận chuyển khoản (giả lập) - dùng tạo mã VietQR ở trang đơn hàng
-  bank: { code: 'VCB', name: 'Vietcombank', account: '0071001234567', holder: 'CONG TY TNHH CONG NGHE LAPTOP SHOP' },
+  // Dùng tài khoản thật đã liên kết SePay: đặt SEPAY_BANK_CODE / SEPAY_BANK_NAME / SEPAY_ACCOUNT / SEPAY_ACCOUNT_HOLDER trong .env
+  bank: {
+    code: process.env.SEPAY_BANK_CODE || 'VCB',
+    name: process.env.SEPAY_BANK_NAME || 'Vietcombank',
+    account: process.env.SEPAY_ACCOUNT || '0071001234567',
+    holder: process.env.SEPAY_ACCOUNT_HOLDER || 'CONG TY TNHH CONG NGHE LAPTOP SHOP',
+  },
   paymentBadges: ['Visa', 'Mastercard', 'JCB', 'VietQR', 'COD'],
   // Trang thông tin tĩnh: /info/:slug
   pages: {

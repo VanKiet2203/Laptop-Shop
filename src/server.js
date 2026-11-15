@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const db = require('./config/db');
 const chatAi = require('./core/chatAi');
+const sepaySync = require('./core/sepaySync');
 
 const PORT = process.env.PORT || 3000;
 
@@ -27,6 +28,7 @@ app.listen(PORT, async () => {
     expirePendingOrders();
     setInterval(expirePendingOrders, 30 * 60 * 1000).unref();
     chatAi.start();
+    sepaySync.startPolling();
   } catch (e) {
     console.error('Kết nối SQL Server THẤT BẠI:', e.message);
     console.error('-> Kiểm tra file .env và đã chạy 3 file SQL trong thư mục database/ chưa.');

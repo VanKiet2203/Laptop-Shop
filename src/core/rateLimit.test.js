@@ -58,3 +58,11 @@ test('byIp middleware: 429 page for normal requests, JSON for fetch/API requests
   assert.equal(api.res.statusCode, 429);
   assert.equal(api.res.body.ok, false);
 });
+
+test('hit(..., peek) checks the limit without consuming an attempt', () => {
+  rateLimit._clear();
+  for (let i = 0; i < 5; i++) assert.equal(rateLimit.hit('peek:k', 2, 60000, true).allowed, true);
+  assert.equal(rateLimit.count('peek:k', 60000), 0);
+  rateLimit.hit('peek:k', 2, 60000); rateLimit.hit('peek:k', 2, 60000);
+  assert.equal(rateLimit.hit('peek:k', 2, 60000, true).allowed, false);
+});

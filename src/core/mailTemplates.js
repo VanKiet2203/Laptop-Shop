@@ -1,6 +1,6 @@
 // Nội dung email (HTML + văn bản thuần). MỌI giá trị từ khách/DB đều được escape trước khi chèn vào HTML.
 const site = require('./siteInfo');
-const { fmtMoney, fmtDateTime, ORDER_STATUS, PAYMENT_METHOD, installmentPlan } = require('./helpers');
+const { fmtMoney, fmtDateTime, ORDER_STATUS, PAYMENT_METHOD, installmentPlan, orderStage } = require('./helpers');
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -42,12 +42,19 @@ function paymentBlock(order, baseUrl) {
     }
     return { html: `<p style="margin:0 0 6px"><strong>Trả góp.</strong> ${detail} Nhân viên sẽ gọi để xác nhận hồ sơ.</p>`, text: 'Trả góp: nhân viên sẽ gọi để xác nhận hồ sơ trả góp.' };
   }
+  if (order.PaymentMethod === 'Stripe') {
+    const trackLink = `${baseUrl}/orders/track?orderNo=${encodeURIComponent(order.OrderNo)}&phone=${encodeURIComponent(order.ReceiverPhone)}`;
+    return order.PaymentStatus === 'Paid'
+      ? { html: `<p style="margin:0"><strong>Đã thanh toán qua Stripe.</strong> Cảm ơn bạn!</p>`, text: 'Đã thanh toán qua Stripe. Cảm ơn bạn!' }
+      : { html: `<p style="margin:0 0 10px"><strong>Thanh toán thẻ qua Stripe</strong> — nếu bạn chưa hoàn tất thanh toán, mở trang đơn hàng và bấm "Thanh toán bằng Stripe" để tiếp tục.</p>${button(trackLink, 'Mở đơn hàng')}`,
+        text: `Thanh toán thẻ qua Stripe: nếu chưa hoàn tất, mở ${trackLink} và bấm "Thanh toán bằng Stripe".` };
+  }
   return { html: `<p style="margin:0">Nhân viên sẽ gửi link thanh toán thẻ an toàn tới số <strong>${esc(order.ReceiverPhone)}</strong>.</p>`, text: `Thanh toán thẻ: nhân viên sẽ gửi link thanh toán tới số ${order.ReceiverPhone}.` };
 }
 
 /** Email xác nhận đơn hàng: chứa MÃ ĐƠN + link tra cứu để khách (kể cả không đăng nhập) tìm lại đơn. */
 function orderConfirmation(order, baseUrl) {
-  const status = ORDER_STATUS[order.Status] || { label: order.Status };
+  const stage = orderStage(order);
   const trackUrl = `${baseUrl}/orders/track?orderNo=${encodeURIComponent(order.OrderNo)}&phone=${encodeURIComponent(order.ReceiverPhone)}`;
   const pay = paymentBlock(order, baseUrl) || { html: '', text: '' };
   const rows = (order.items || []).map((i) => `<tr><td style="padding:8px 0;border-bottom:1px solid #eef0f6;font-size:14px">${esc(i.ProductName)}<br><span style="color:#64748b;font-size:12px">SL ${esc(i.Quantity)} × ${esc(fmtMoney(i.UnitPrice))}</span></td><td align="right" style="padding:8px 0;border-bottom:1px solid #eef0f6;font-size:14px;white-space:nowrap"><strong>${esc(fmtMoney(i.LineTotal))}</strong></td></tr>`).join('');
@@ -57,7 +64,7 @@ function orderConfirmation(order, baseUrl) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ff;border-radius:12px;margin-bottom:18px"><tr><td style="padding:16px 20px">
 <div style="font-size:12px;color:#4338ca;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Mã đơn hàng của bạn</div>
 <div style="font-size:26px;font-weight:800;letter-spacing:.04em;font-family:Consolas,monospace;color:#1e1b4b">${esc(order.OrderNo)}</div>
-<div style="font-size:13px;color:#475569;margin-top:4px">Đặt lúc ${esc(fmtDateTime(order.CreatedAt))} · Trạng thái: <strong>${esc(status.label)}</strong></div></td></tr></table>
+<div style="font-size:13px;color:#475569;margin-top:4px">Đặt lúc ${esc(fmtDateTime(order.CreatedAt))} · Trạng thái: <strong>${esc(stage.title)}</strong></div></td></tr></table>
 <p style="margin:0 0 18px">${button(trackUrl, 'Xem / tra cứu đơn hàng')}</p>
 <p style="margin:0 0 16px;font-size:13px;color:#64748b">Lưu lại mã đơn này. Bạn có thể tra cứu đơn bất cứ lúc nào tại <a href="${esc(baseUrl)}/orders/track">${esc(baseUrl)}/orders/track</a> bằng <strong>mã đơn</strong> và <strong>số điện thoại nhận hàng</strong> (${esc(order.ReceiverPhone)}).</p>
 <h2 style="font-size:15px;margin:22px 0 6px">Sản phẩm</h2>
@@ -71,11 +78,11 @@ ${order.DiscountAmount > 0 ? `<tr><td style="font-size:14px;color:#15803d">Giả
 <p style="margin:0;font-size:14px;line-height:1.6">${esc(order.ReceiverName)} · ${esc(order.ReceiverPhone)}<br>${esc(order.ShippingAddress)}</p>
 <h2 style="font-size:15px;margin:22px 0 6px">Thanh toán — ${esc(PAYMENT_METHOD[order.PaymentMethod] || order.PaymentMethod)}</h2>
 <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.6">${pay.html}</div>
-<p style="margin:22px 0 0;font-size:13px;color:#64748b">${order.Status === 'Pending' ? 'Đơn có từ 2 sản phẩm nên đang ở trạng thái <strong>Đang kiểm tra hàng</strong>; nhân viên sẽ liên hệ xác nhận tồn kho.' : 'Đơn đã được hệ thống <strong>xác nhận còn hàng</strong>.'}</p>`);
+<p style="margin:22px 0 0;font-size:13px;color:#64748b"><strong>${esc(stage.title)}</strong> ${esc(stage.message)}</p>`);
   const text = [
     `Cảm ơn bạn đã đặt hàng tại ${site.name}!`,
     `Mã đơn hàng: ${order.OrderNo}`,
-    `Trạng thái: ${status.label}`,
+    `Trạng thái: ${stage.title}${stage.message ? ` - ${stage.message}` : ''}`,
     `Tổng thanh toán: ${fmtMoney(order.TotalAmount)}`,
     pay.text,
     `Tra cứu đơn: ${trackUrl}`,

@@ -40,3 +40,27 @@ public/uploads/avatars/*
 
 # Email thử nghiệm khi chưa cấu hình SMTP
 outbox/
+
+# Ảnh chụp giao diện cho báo cáo (tạo lại bằng: node tools/shoot.mjs) - không commit
+report/shots/
+
+# Cache Python của tools/
+__pycache__/
+*.pyc
+
+# Tài liệu báo cáo đồ án (Word) và thư mục báo cáo - không đưa lên GitHub
+*.docx
+report/
+
+# Slide / tài liệu môn học (PDF, Word) - không đưa lên GitHub
+/1. slide-*/
+
+# Script Python dùng để dựng báo cáo / sơ đồ (không cần cho ứng dụng). Giữ lại tools/gen_dictionary.py vì đã có trong repo
+tools/add_chapters_user_docx.py
+tools/fix_headings_user_docx.py
+tools/front_matter_user_docx.py
+tools/patch_user_docx.py
+tools/diagram_lib.py
+tools/gen_diagrams.py
+tools/gen_erd.py
+tools/gen_schema.py
