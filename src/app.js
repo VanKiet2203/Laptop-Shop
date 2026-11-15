@@ -59,6 +59,9 @@ app.use(compression());
 // Webhook Stripe: cần body THÔ để kiểm tra chữ ký, nên đặt trước các parser và trước session/originCheck (Stripe gọi từ máy chủ, không có cookie/Origin).
 app.post('/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), require('./core/asyncHandler')(require('./controllers/customer/stripe.controller').webhook));
 
+// Webhook SePay: gọi từ máy chủ SePay (không cookie/Origin), xác thực bằng header Authorization: Apikey.
+app.post('/sepay/webhook', express.json({ limit: '100kb' }), require('./core/asyncHandler')(require('./controllers/customer/sepay.controller').webhook));
+
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 app.use(express.json({ limit: '200kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: isProd ? '7d' : 0 }));

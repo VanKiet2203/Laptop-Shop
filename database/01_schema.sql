@@ -478,6 +478,24 @@ CREATE INDEX IX_Orders_Customer ON dbo.Orders(CustomerId, CreatedAt DESC);
 CREATE INDEX IX_Orders_ReceiverPhone ON dbo.Orders(ReceiverPhone) INCLUDE (ReceiverEmail, OrderNo);  -- tra cứu đơn của khách vãng lai (mã đơn + SĐT) và gửi lại mã đơn
 CREATE INDEX IX_Orders_StatusDate ON dbo.Orders(Status, CreatedAt DESC) INCLUDE (Subtotal, DiscountAmount, ShippingFee, VatRate);
 
+-- [Table] SepayTransactions: giao dịch chuyển khoản ngân hàng do SePay báo về qua webhook (đối soát đơn BankTransfer)
+CREATE TABLE dbo.SepayTransactions (
+    SepayId         VARCHAR(64)   NOT NULL,       -- Mã giao dịch phía SePay (số của webhook, UUID của API v2) - khoá chống xử lý trùng
+    OrderId         INT           NULL,           -- Đơn khớp theo nội dung chuyển khoản (NULL = không khớp đơn nào)
+    Gateway         NVARCHAR(50)  NULL,           -- Ngân hàng (Vietcombank, MBBank...)
+    AccountNumber   VARCHAR(30)   NULL,           -- Số tài khoản nhận
+    Amount          DECIMAL(18,0) NOT NULL,       -- Số tiền vào tài khoản
+    Content         NVARCHAR(500) NULL,           -- Nội dung chuyển khoản gốc
+    ReferenceCode   VARCHAR(100)  NULL,           -- Mã tham chiếu của ngân hàng
+    TransactionDate DATETIME2(0)  NULL,           -- Thời điểm giao dịch tại ngân hàng
+    MatchStatus     VARCHAR(13)   NOT NULL,       -- Paid / RefundPending / Underpaid / AlreadyPaid / WrongMethod / NoOrder
+    ReceivedAt      DATETIME2(0)  NOT NULL CONSTRAINT DF_Sepay_Received DEFAULT SYSDATETIME(), -- Lúc hệ thống nhận webhook
+    CONSTRAINT PK_SepayTransactions PRIMARY KEY (SepayId),
+    CONSTRAINT FK_Sepay_Order FOREIGN KEY (OrderId) REFERENCES dbo.Orders(OrderId),
+    CONSTRAINT CK_Sepay_Match CHECK (MatchStatus IN ('Paid','RefundPending','Underpaid','AlreadyPaid','WrongMethod','NoOrder'))
+);
+CREATE INDEX IX_Sepay_Order ON dbo.SepayTransactions(OrderId);
+
 -- [Table] OrderDetails: Chi tiết đơn hàng
 CREATE TABLE dbo.OrderDetails (
     OrderDetailId   INT IDENTITY(1,1) NOT NULL,   -- Mã dòng chi tiết

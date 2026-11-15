@@ -813,7 +813,7 @@ DECLARE @emp INT = (SELECT EmployeeId FROM dbo.Employees WHERE EmployeeCode = 'N
 DECLARE @s1 INT = (SELECT SupplierId FROM dbo.Suppliers WHERE TaxCode = '0301234567');
 DECLARE @s2 INT = (SELECT SupplierId FROM dbo.Suppliers WHERE TaxCode = '0302345678');
 DECLARE @s3 INT = (SELECT SupplierId FROM dbo.Suppliers WHERE TaxCode = '0303456789');
-DECLARE @d DATETIME2(0) = DATEADD(DAY,-30,SYSDATETIME());
+DECLARE @d DATETIME2(0) = DATEADD(DAY,-95,SYSDATETIME());
 DECLARE @g1 INT, @g2 INT, @g3 INT, @n INT;
 
 -- Đệm 0 tới tối thiểu 5 ký tự, KHÔNG BAO GIỜ cắt bớt số (tránh trùng mã khi sequence vượt 99999 trong cùng kỳ yyMM).
@@ -834,10 +834,10 @@ SET @g3 = SCOPE_IDENTITY();
 
 INSERT INTO dbo.GoodsReceiptDetails (ReceiptId, ProductId, Quantity, UnitCost)
 SELECT CASE v.g WHEN 1 THEN @g1 WHEN 2 THEN @g2 ELSE @g3 END, p.ProductId, v.qty, p.CostPrice FROM (VALUES
- (1,'ASUS-TUF-F15',6),(1,'MSI-KATANA-15',5),(1,'LENOVO-LOQ-15',6),(1,'DELL-INS-15',8),(1,'HP-15S',8),(1,'LENOVO-IDEA5',6),(1,'MBA-M2',5),
- (1,'MSI-MODERN-14-C11M-011VN',5),(1,'MSI-MODERN-15-F1MG-1225VN',5),(1,'MSI-MODERN-14-H1M-014VN',5),(1,'MSI-CYBORG-15-BLACK-EDITION-A13VEO-2',5),(1,'MSI-CYBORG-15-BLACK-EDITION-A13VEO-2-1',5),(1,'MSI-CYBORG-15-C13WEO-418VN',5),(1,'MSI-MODERN-16S-G3MG-016VN',5),(1,'MSI-MODERN-16S-AI-G3MG-058VN',5),(1,'MSI-PRESTIGE-14-AI-D3MG-022VN',5),(1,'MSI-PRESTIGE-13-AI-EVO-A2VMG-040VN',5),(1,'MSI-CYBORG-15-MAX-C13WE-422VN',5),(1,'LEN-IDEAPAD-1-PENTIUM-SILVER-N5030',5),(1,'LEN-IDEAPAD-SLIM-3-14IWC11-83RQ00DBV',5),(1,'LEN-IDEAPAD-SLIM-3-16AHP10-83KB005YV',5),(1,'LEN-IDEAPAD-SLIM-3-16AHP10-83KB0060V',5),(1,'LEN-LOQ-15ARP10E-83S0006RVN',5),(1,'LEN-IDEAPAD-SLIM-5-14AKP10-OLED-83HX',5),(1,'LEN-IDEAPAD-SLIM-5-14AGP11-OLED-83S1',5),(1,'LEN-LOQ-15IRX10-83JE01AGVN',5),(1,'LEN-YOGA-SLIM-7-14IPH11-OLED-83QM007',5),(1,'LEN-LEGION-5-15IAX11-83VK00A3VN',5),(1,'LEN-LEGION-PRO-7-16IAX10H-83F500JGVN',5),
- (1,'DELL-15-PRO-ESSENTIAL-PV15250-VKVKD',5),(1,'DELL-15-PRO-ESSENTIAL-PV15250-VKVKD-1',5),(1,'DELL-16-DC16251-I5-120U',5),(1,'DELL-DC15250-7982BLK-H5YXJ',5),(1,'DELL-15-DC15255-X9YM41',5),(1,'DELL-INSPIRON-5441-5MNK1',5),(1,'DELL-15-DC15250-CPH991',5),(1,'DELL-14-DC14250-F0FTK5',5),(1,'DELL-PRO-14-ESSENTIAL-PV14250-120U-1',5),(1,'DELL-16-DC16251-DC6C7557W1',5),(1,'DELL-PRO-14-PLUS-PB14250-235U-16512W',5),(1,'DELL-16-PLUS-DB16250-X65NW7',5),(1,'DELL-XPS-13-DX13260-DX3C5376W1',5),(1,'ASUS-D515DA-EJ845T',5),(1,'ASUS-EXPERTBOOK-P1-P1403CVA-C3U08-50',5),(1,'ASUS-VIVOBOOK-14-X1404V',5),(1,'ASUS-EXPERTBOOK-P1403CVA-C5H08-50W',5),(1,'ASUS-EXPERTBOOK-B1-BM1403CDA-S61611W',5),(1,'ASUS-EXPERTBOOK-P1403CVA-C5H16-50W',5),(1,'ASUS-EXPERTBOOK-P1503CVA-S72922W',5),(1,'ASUS-VIVOBOOK-14-X1404VA-EB355W',5),(1,'ASUS-VIVOBOOK-GO-14-E1404FA-EB935W',5),(1,'ASUS-TUF-GAMING-A15-FA506NCG-HN329W',5),(1,'ASUS-EXPERTBOOK-P3-G1-P3406CCAP-U516',5),(1,'ASUS-ZENBOOK-14-UX3405CA-ST1713W',5),(1,'ASUS-EXPERTBOOK-P3-P3406CCAP-U716W',5),(1,'ASUS-ZENBOOK-S-14-UX5406AA-SU348W',5),(1,'ASUS-ROG-ZEPHYRUS-G14-GA403GM-SY201W',5),
- (1,'ACER-ASPIRE-LITE-14-AL14-2025-N305',5),(1,'ACER-ASPIRE-LITE-15-AL15-410P-R1W8',5),(1,'ACER-ASPIRE-LITE-14-AL14-47P-R0TR',5),(1,'ACER-ASPIRE-LITE-15-AL15-53P-56QH',5),(1,'ACER-ASPIRE-LITE-14-AL14-53M-53E8',5),(1,'ACER-ASPIRE-GO-15-AG15-72P-776J',5),(1,'ACER-SWIFT-AIR-14-SFA14-I31-52BV',5),(1,'ACER-ASPIRE-7-A715-59G-59RD',5),(1,'ACER-NITRO-PROPANEL-ANV15-52-50VA',5),(1,'ACER-ASPIRE-7-A715-59G-53RH',5),(1,'ACER-NITRO-PROPANEL-ANV15-42-R5EF',5),(1,'ACER-SWIFT-X-SFX14-71G-78SY',5),(1,'ACER-SWIFT-GO-AI-OLED-SFG14-75-765M',5),(1,'ACER-NITRO-PROPANEL-ANV16-72-71T9',5),(1,'ACER-PREDATOR-HELIOS-18-AI-PH18-I71',5),
+ (1,'ASUS-TUF-F15',10),(1,'MSI-KATANA-15',8),(1,'LENOVO-LOQ-15',8),(1,'DELL-INS-15',10),(1,'HP-15S',12),(1,'LENOVO-IDEA5',9),(1,'MBA-M2',5),
+ (1,'MSI-MODERN-14-C11M-011VN',2),(1,'MSI-MODERN-15-F1MG-1225VN',9),(1,'MSI-MODERN-14-H1M-014VN',14),(1,'MSI-CYBORG-15-BLACK-EDITION-A13VEO-2',1),(1,'MSI-CYBORG-15-BLACK-EDITION-A13VEO-2-1',6),(1,'MSI-MODERN-16S-G3MG-016VN',4),(1,'MSI-MODERN-16S-AI-G3MG-058VN',12),(1,'MSI-PRESTIGE-14-AI-D3MG-022VN',3),(1,'MSI-PRESTIGE-13-AI-EVO-A2VMG-040VN',7),(1,'MSI-CYBORG-15-MAX-C13WE-422VN',18),(1,'LEN-IDEAPAD-1-PENTIUM-SILVER-N5030',2),(1,'LEN-IDEAPAD-SLIM-3-14IWC11-83RQ00DBV',9),(1,'LEN-IDEAPAD-SLIM-3-16AHP10-83KB005YV',14),(1,'LEN-IDEAPAD-SLIM-3-16AHP10-83KB0060V',1),(1,'LEN-LOQ-15ARP10E-83S0006RVN',6),(1,'LEN-IDEAPAD-SLIM-5-14AGP11-OLED-83S1',4),(1,'LEN-LOQ-15IRX10-83JE01AGVN',12),(1,'LEN-YOGA-SLIM-7-14IPH11-OLED-83QM007',3),(1,'LEN-LEGION-5-15IAX11-83VK00A3VN',7),(1,'LEN-LEGION-PRO-7-16IAX10H-83F500JGVN',18),
+ (1,'DELL-15-PRO-ESSENTIAL-PV15250-VKVKD',2),(1,'DELL-15-PRO-ESSENTIAL-PV15250-VKVKD-1',9),(1,'DELL-16-DC16251-I5-120U',14),(1,'DELL-DC15250-7982BLK-H5YXJ',1),(1,'DELL-15-DC15255-X9YM41',6),(1,'DELL-15-DC15250-CPH991',4),(1,'DELL-14-DC14250-F0FTK5',12),(1,'DELL-PRO-14-ESSENTIAL-PV14250-120U-1',3),(1,'DELL-16-DC16251-DC6C7557W1',7),(1,'DELL-PRO-14-PLUS-PB14250-235U-16512W',18),(1,'DELL-16-PLUS-DB16250-X65NW7',2),(1,'DELL-XPS-13-DX13260-DX3C5376W1',9),(1,'ASUS-D515DA-EJ845T',14),(1,'ASUS-EXPERTBOOK-P1-P1403CVA-C3U08-50',1),(1,'ASUS-VIVOBOOK-14-X1404V',6),(1,'ASUS-EXPERTBOOK-B1-BM1403CDA-S61611W',4),(1,'ASUS-EXPERTBOOK-P1403CVA-C5H16-50W',12),(1,'ASUS-EXPERTBOOK-P1503CVA-S72922W',3),(1,'ASUS-VIVOBOOK-14-X1404VA-EB355W',7),(1,'ASUS-VIVOBOOK-GO-14-E1404FA-EB935W',18),(1,'ASUS-TUF-GAMING-A15-FA506NCG-HN329W',2),(1,'ASUS-EXPERTBOOK-P3-G1-P3406CCAP-U516',9),(1,'ASUS-ZENBOOK-14-UX3405CA-ST1713W',14),(1,'ASUS-EXPERTBOOK-P3-P3406CCAP-U716W',1),(1,'ASUS-ZENBOOK-S-14-UX5406AA-SU348W',6),
+ (1,'ACER-ASPIRE-LITE-14-AL14-2025-N305',4),(1,'ACER-ASPIRE-LITE-15-AL15-410P-R1W8',12),(1,'ACER-ASPIRE-LITE-14-AL14-47P-R0TR',3),(1,'ACER-ASPIRE-LITE-15-AL15-53P-56QH',7),(1,'ACER-ASPIRE-LITE-14-AL14-53M-53E8',18),(1,'ACER-ASPIRE-GO-15-AG15-72P-776J',2),(1,'ACER-SWIFT-AIR-14-SFA14-I31-52BV',9),(1,'ACER-ASPIRE-7-A715-59G-59RD',14),(1,'ACER-NITRO-PROPANEL-ANV15-52-50VA',1),(1,'ACER-ASPIRE-7-A715-59G-53RH',6),(1,'ACER-SWIFT-X-SFX14-71G-78SY',4),(1,'ACER-SWIFT-GO-AI-OLED-SFG14-75-765M',12),(1,'ACER-NITRO-PROPANEL-ANV16-72-71T9',3),(1,'ACER-PREDATOR-HELIOS-18-AI-PH18-I71',7),
  (2,'ASUS-VIVO-PRO',4),(2,'DELL-XPS-15',3),(2,'KVR-D4-8',10),(2,'KVR-D5-16',10),(2,'CRU-D5-8',8),(2,'SAM-980-500',10),(2,'SAM-980P-1TB',8),(2,'KIN-A400-480',10),
  (3,'LOGI-G102',30),(3,'LOGI-MXM3S',12),(3,'RAZER-DAV3',10),(3,'CORSAIR-K70',8),(3,'LOGI-K380',15),(3,'RAZER-BSV2X',10),(3,'ASUS-ROG-BP',15),(3,'ANKER-737',10),(3,'ANKER-PL3',40)
 ) v(g,sku,qty) JOIN dbo.Products p ON p.Sku = v.sku;
@@ -860,54 +860,230 @@ EXEC dbo.sp_PostGoodsReceipt @ReceiptId = @g3, @AccountId = @empAcc;
 -- Nhà cung cấp đã thanh toán một phần
 UPDATE dbo.GoodsReceipts SET PaidAmount = TotalAmount WHERE ReceiptId = @g1;
 UPDATE dbo.GoodsReceipts SET PaidAmount = TotalAmount / 2 WHERE ReceiptId = @g2;
-UPDATE dbo.GoodsReceipts SET DueDate = DATEADD(DAY, 15, CAST(ReceiptDate AS DATE)) WHERE ReceiptId = @g3;
+UPDATE dbo.GoodsReceipts SET DueDate = DATEADD(DAY, 10, CAST(SYSDATETIME() AS DATE)) WHERE ReceiptId = @g3;  -- sắp đến hạn trả nhà cung cấp
 -- Sắp hết hàng để demo cảnh báo (ReorderLevel cao hơn tồn)
 UPDATE dbo.Products SET ReorderLevel = 4 WHERE Sku IN ('DELL-XPS-15','MBA-M2','ASUS-VIVO-PRO');
 GO
 
-/* ---------- 7. Đơn hàng mẫu (qua Stored Procedure -> đúng nghiệp vụ) ---------- */
-CREATE PROCEDURE #QuickOrder
-    @Phone VARCHAR(15), @Sku1 VARCHAR(40), @Qty1 INT, @Sku2 VARCHAR(40) = NULL, @Qty2 INT = 1,
-    @Promo VARCHAR(30) = NULL, @Action VARCHAR(20) = 'Pending', @DaysAgo INT = 0, @Method VARCHAR(15) = 'COD'
+/* ---------- 6b. Dữ liệu bổ sung: khách hàng, nhà cung cấp, khuyến mãi, linh kiện / phụ kiện ---------- */
+DECLARE @pw VARCHAR(100) = '$2a$10$aIj0Aka6.Kx51wcOrJBjv./ehFPfPSB/LpdLQ3qCXOhxsEPXDfxRq';  -- bcrypt("123456")
+INSERT INTO dbo.Accounts (Username, Email, PasswordHash, RoleId)
+SELECT v.u, v.e, @pw, r.RoleId FROM (VALUES
+ ('khach4',  'khach4@gmail.com'),  ('khach5',  'khach5@gmail.com'),  ('khach6',  'khach6@gmail.com'),
+ ('khach7',  'khach7@gmail.com'),  ('khach8',  'khach8@gmail.com'),  ('khach9',  'khach9@gmail.com'),
+ ('khach10', 'khach10@gmail.com')) v(u,e)
+CROSS JOIN dbo.Roles r WHERE r.RoleCode = 'CUSTOMER';
+
+INSERT INTO dbo.Customers (AccountId, FullName, Phone, Email, CompanyName, TaxCode)
+SELECT a.AccountId, v.fn, v.ph, v.em, v.co, v.tx FROM (VALUES
+ ('khach4', N'Võ Thị Mai',        '0912000004','khach4@gmail.com', NULL, NULL),
+ ('khach5', N'Đặng Quốc Bảo',     '0912000005','khach5@gmail.com', NULL, NULL),
+ ('khach6', N'Bùi Anh Thư',       '0912000006','khach6@gmail.com', NULL, NULL),
+ ('khach7', N'Hoàng Gia Huy',     '0912000007','khach7@gmail.com', N'Công ty CP Công nghệ Gia Huy','0109876543'),
+ ('khach8', N'Ngô Thanh Tâm',     '0912000008','khach8@gmail.com', NULL, NULL),
+ ('khach9', N'Đỗ Minh Châu',      '0912000009','khach9@gmail.com', NULL, NULL),
+ ('khach10',N'Lý Hải Đăng',       '0912000010','khach10@gmail.com',NULL, NULL)) v(u,fn,ph,em,co,tx)
+JOIN dbo.Accounts a ON a.Username = v.u;
+
+INSERT INTO dbo.CustomerAddresses (CustomerId, ReceiverName, ReceiverPhone, AddressLine, Ward, District, Province, IsDefault)
+SELECT c.CustomerId, v.rn, v.rp, v.al, v.w, v.d, v.p, v.def FROM (VALUES
+ ('0912000004',N'Võ Thị Mai','0912000004',N'25 Lý Thường Kiệt',N'Phường 7',N'Quận 10',N'TP. Hồ Chí Minh',1),
+ ('0912000005',N'Đặng Quốc Bảo','0912000005',N'102 Nguyễn Trãi',N'Thanh Xuân Trung',N'Thanh Xuân',N'Hà Nội',1),
+ ('0912000006',N'Bùi Anh Thư','0912000006',N'7 Bạch Đằng',N'Hải Châu 1',N'Hải Châu',N'Đà Nẵng',1),
+ ('0912000007',N'Hoàng Gia Huy','0912000007',N'360 Nguyễn Văn Linh',N'Tân Thuận Tây',N'Quận 7',N'TP. Hồ Chí Minh',1),
+ ('0912000007',N'Văn phòng Gia Huy','0912888777',N'18 Trần Phú',N'Mỗ Lao',N'Hà Đông',N'Hà Nội',0),
+ ('0912000008',N'Ngô Thanh Tâm','0912000008',N'51 Đường 30/4',N'Xuân Khánh',N'Ninh Kiều',N'Cần Thơ',1),
+ ('0912000009',N'Đỗ Minh Châu','0912000009',N'14 Lê Lợi',N'Phường 1',N'TP. Biên Hòa',N'Đồng Nai',1),
+ ('0912000010',N'Lý Hải Đăng','0912000010',N'33 Điện Biên Phủ',N'Máy Tơ',N'Ngô Quyền',N'Hải Phòng',1))
+ v(ph,rn,rp,al,w,d,p,def) JOIN dbo.Customers c ON c.Phone = v.ph;
+
+INSERT INTO dbo.Suppliers (SupplierName, TaxCode, ContactName, Phone, Email, Address, PaymentTermDays) VALUES
+ (N'Công ty TNHH Thế Giới Laptop', '0304567890', N'Phạm Hồng Quân',  '0284444444','sales@thegioilaptop.vn', N'Quận Tân Bình, TP.HCM', 30),
+ (N'Công ty TNHH Thiết Bị Số An Phát','0305678901', N'Đinh Thị Lan',   '0285555555','sales@anphatdigital.vn', N'Quận Gò Vấp, TP.HCM', 7);
+
+INSERT INTO dbo.Promotions (Code, PromoName, DiscountType, DiscountValue, MinOrderAmount, MaxDiscount, StartDate, EndDate, UsageLimit) VALUES
+ ('LAPTOP5',  N'Laptop giảm 5% cho đơn từ 15 triệu',  'Percent', 5,      15000000, 3000000, DATEADD(WEEK,-2,SYSDATETIME()),  DATEADD(MONTH,4,SYSDATETIME()), 200),
+ ('SAVE200K', N'Giảm 200.000đ cho đơn từ 2 triệu',    'Amount',  200000, 2000000,  NULL,    DATEADD(MONTH,-1,SYSDATETIME()), DATEADD(MONTH,2,SYSDATETIME()), 20),
+ ('FLASH20',  N'Flash sale 20% (đã kết thúc)',        'Percent', 20,     0,        3000000, DATEADD(MONTH,-2,SYSDATETIME()), DATEADD(MONTH,-1,SYSDATETIME()), 30),
+ ('NOEL2026', N'Giáng sinh - sắp diễn ra',            'Percent', 12,     5000000,  2000000, DATEADD(DAY,40,SYSDATETIME()),   DATEADD(DAY,70,SYSDATETIME()), NULL);
+
+INSERT INTO dbo.Brands (BrandName, Country) VALUES
+ (N'Western Digital', N'Mỹ'), (N'SteelSeries', N'Đan Mạch'), (N'Baseus', N'Trung Quốc');
+
+-- Linh kiện / phụ kiện bổ sung (mỗi danh mục có vài mức giá và thương hiệu để lọc, sắp xếp cho khác nhau)
+INSERT INTO dbo.Products (Sku, ProductName, Slug, CategoryId, BrandId, ShortDesc, CostPrice, SalePrice, WarrantyMonths, IsSerialTracked)
+SELECT v.sku, v.n, v.slug, c.CategoryId, b.BrandId, v.sd, v.cost, v.price, v.war, v.ser
+FROM (VALUES
+ ('KIN-FURY-D5-32', N'Kingston Fury Impact 32GB DDR5 5600 SODIMM','kingston-fury-32gb-ddr5','ram',N'Kingston',N'RAM laptop DDR5 32GB',2450000,3190000,36,1),
+ ('CRU-D4-16',      N'Crucial 16GB DDR4 3200 SODIMM',             'crucial-16gb-ddr4',      'ram',N'Crucial', N'RAM laptop DDR4 16GB',980000,1350000,36,1),
+ ('WD-SN770-1TB',   N'WD Black SN770 1TB NVMe PCIe 4.0',          'wd-black-sn770-1tb',     'ssd',N'Western Digital',N'SSD NVMe PCIe 4.0 1TB',1900000,2490000,36,1),
+ ('SAM-870EVO-1TB', N'Samsung 870 EVO 1TB SATA',                  'samsung-870-evo-1tb',    'ssd',N'Samsung', N'SSD SATA 2.5 inch 1TB',2000000,2590000,36,1),
+ ('KIN-NV2-500',    N'Kingston NV2 500GB NVMe PCIe 4.0',          'kingston-nv2-500gb',     'ssd',N'Kingston',N'SSD NVMe PCIe 4.0 500GB',950000,1250000,36,1),
+ ('RAZER-VIPER-V2', N'Chuột Razer Viper V2 Pro',                  'razer-viper-v2-pro',     'chuot',N'Razer', N'Chuột gaming không dây siêu nhẹ 58g',3100000,3990000,24,0),
+ ('LOGI-M331',      N'Chuột Logitech M331 Silent',                'logitech-m331-silent',   'chuot',N'Logitech',N'Chuột không dây yên tĩnh',250000,359000,12,0),
+ ('LOGI-G512',      N'Bàn phím cơ Logitech G512 Carbon',          'logitech-g512',          'ban-phim',N'Logitech',N'Bàn phím cơ RGB, switch GX',1750000,2290000,24,0),
+ ('STEEL-APEX5',    N'Bàn phím cơ SteelSeries Apex 5',            'steelseries-apex-5',     'ban-phim',N'SteelSeries',N'Bàn phím cơ lai, đèn RGB',2100000,2790000,24,0),
+ ('STEEL-ARCTIS5',  N'Tai nghe SteelSeries Arctis Nova 5',        'steelseries-arctis-nova-5','tai-nghe',N'SteelSeries',N'Tai nghe gaming không dây',3200000,4190000,12,0),
+ ('LOGI-G435',      N'Tai nghe Logitech G435 Lightspeed',         'logitech-g435',          'tai-nghe',N'Logitech',N'Tai nghe không dây nhẹ',1200000,1590000,12,0),
+ ('ASUS-TUF-BP',    N'Balo Asus TUF Gaming BP1500G',              'asus-tuf-bp1500g',       'balo',N'Asus',   N'Balo laptop 15.6 inch chống nước',600000,850000,12,0),
+ ('BASEUS-65W',     N'Sạc Baseus GaN5 Pro 65W',                   'baseus-gan5-pro-65w',    'sac-cap',N'Baseus',N'Sạc nhanh 65W 2 cổng USB-C',550000,790000,18,0),
+ ('ANKER-622',      N'Pin dự phòng Anker 622 MagGo 5000mAh',      'anker-622-maggo',        'sac-cap',N'Anker',N'Pin dự phòng từ tính',650000,899000,12,0)
+) v(sku,n,slug,cat,brand,sd,cost,price,war,ser)
+JOIN dbo.Categories c ON c.Slug = v.cat
+JOIN dbo.Brands b ON b.BrandName = v.brand;
+
+INSERT INTO dbo.ProductImages (ProductId, ImageUrl, IsPrimary, SortOrder)
+SELECT p.ProductId, '/images/placeholder.svg', 1, 0 FROM dbo.Products p
+WHERE NOT EXISTS (SELECT 1 FROM dbo.ProductImages i WHERE i.ProductId = p.ProductId);
+
+INSERT INTO dbo.ProductAttributeValues (ProductId, AttributeId, AttrValue)
+SELECT p.ProductId, a.AttributeId, v.val FROM (VALUES
+ ('KIN-FURY-D5-32','RAM_SIZE',N'32'),('KIN-FURY-D5-32','RAM_TYPE',N'DDR5'),
+ ('CRU-D4-16','RAM_SIZE',N'16'),('CRU-D4-16','RAM_TYPE',N'DDR4'),
+ ('WD-SN770-1TB','CAPACITY',N'1000'),('WD-SN770-1TB','SSD_INTERFACE',N'M.2 NVMe'),
+ ('SAM-870EVO-1TB','CAPACITY',N'1000'),('SAM-870EVO-1TB','SSD_INTERFACE',N'SATA 2.5'),
+ ('KIN-NV2-500','CAPACITY',N'500'),('KIN-NV2-500','SSD_INTERFACE',N'M.2 NVMe'),
+ ('RAZER-VIPER-V2','CONNECTION',N'Không dây'),('RAZER-VIPER-V2','DPI',N'30000'),
+ ('LOGI-M331','CONNECTION',N'Không dây'),('LOGI-M331','DPI',N'1000'),
+ ('LOGI-G512','CONNECTION',N'Có dây'),('STEEL-APEX5','CONNECTION',N'Có dây'),
+ ('STEEL-ARCTIS5','CONNECTION',N'Không dây'),('LOGI-G435','CONNECTION',N'Không dây')
+) v(sku,code,val)
+JOIN dbo.Products p ON p.Sku = v.sku JOIN dbo.Attributes a ON a.AttrCode = v.code;
+GO
+
+/* ---------- 6c. Nhập kho bổ sung (nhiều phiếu, nhiều nhà cung cấp, đủ trạng thái Nháp / Đã nhập / Đã huỷ) ---------- */
+CREATE PROCEDURE #QuickReceipt
+    @SupplierTax VARCHAR(20), @DaysAgo INT, @Note NVARCHAR(255),
+    @Lines NVARCHAR(MAX),                 -- 'SKU:SL,SKU:SL,...'
+    @Action VARCHAR(10) = 'Posted',       -- Posted (đã nhập kho) | Draft (nháp) | Cancelled (nháp đã huỷ)
+    @PaidPct INT = 0                      -- % tiền hàng đã trả nhà cung cấp (chỉ phiếu Posted)
 AS
 BEGIN
-    DECLARE @CustId INT, @CartId INT, @Addr INT, @OrderId INT, @Acc INT;
-    SELECT @CustId = CustomerId FROM dbo.Customers WHERE Phone = @Phone;
-    SELECT @CartId = CartId FROM dbo.Carts WHERE CustomerId = @CustId;
-    IF @CartId IS NULL
+    SET NOCOUNT ON;
+    DECLARE @emp INT, @acc INT, @sup INT, @n INT, @nStr VARCHAR(10), @g INT;
+    SELECT @emp = EmployeeId, @acc = AccountId FROM dbo.Employees WHERE EmployeeCode = 'NV003';
+    SELECT @sup = SupplierId FROM dbo.Suppliers WHERE TaxCode = @SupplierTax;
+
+    SELECT @n = NEXT VALUE FOR dbo.sq_ReceiptNo; SET @nStr = CAST(@n AS VARCHAR(10));
+    INSERT INTO dbo.GoodsReceipts (ReceiptNo, SupplierId, EmployeeId, ReceiptDate, Note)
+    VALUES ('PN' + FORMAT(SYSDATETIME(),'yyMM') + '-' + RIGHT(REPLICATE('0',5)+@nStr, CASE WHEN LEN(@nStr)>5 THEN LEN(@nStr) ELSE 5 END),
+            @sup, @emp, DATEADD(DAY, -@DaysAgo, SYSDATETIME()), @Note);
+    SET @g = SCOPE_IDENTITY();
+
+    INSERT INTO dbo.GoodsReceiptDetails (ReceiptId, ProductId, Quantity, UnitCost)
+    SELECT @g, p.ProductId, CAST(SUBSTRING(s.value, CHARINDEX(':', s.value) + 1, 10) AS INT), p.CostPrice
+    FROM STRING_SPLIT(@Lines, ',') s
+    JOIN dbo.Products p ON p.Sku = LEFT(s.value, CHARINDEX(':', s.value) - 1);
+
+    INSERT INTO dbo.ProductSerials (ProductId, SerialNumber, ReceiptDetailId, Status)
+    SELECT d.ProductId,
+           CONCAT(p.Sku, '-', RIGHT('000' + CAST(d.ReceiptDetailId AS VARCHAR(10)), 3), '-', RIGHT('000' + CAST(t.n AS VARCHAR(10)), 3)),
+           d.ReceiptDetailId, 'Pending'
+    FROM dbo.GoodsReceiptDetails d
+    JOIN dbo.Products p ON p.ProductId = d.ProductId AND p.IsSerialTracked = 1
+    JOIN (SELECT TOP 100 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_objects) t ON t.n <= d.Quantity
+    WHERE d.ReceiptId = @g;
+
+    IF @Action = 'Posted'
     BEGIN
-        INSERT INTO dbo.Carts (CustomerId) VALUES (@CustId);
-        SET @CartId = SCOPE_IDENTITY();
+        EXEC dbo.sp_PostGoodsReceipt @ReceiptId = @g, @AccountId = @acc;
+        UPDATE dbo.GoodsReceipts SET PaidAmount = CAST(ROUND(TotalAmount * @PaidPct / 100.0, 0) AS DECIMAL(18,0)) WHERE ReceiptId = @g;
     END
-    DELETE FROM dbo.CartItems WHERE CartId = @CartId;
-    INSERT INTO dbo.CartItems (CartId, ProductId, Quantity) SELECT @CartId, ProductId, @Qty1 FROM dbo.Products WHERE Sku = @Sku1;
-    IF @Sku2 IS NOT NULL
-        INSERT INTO dbo.CartItems (CartId, ProductId, Quantity) SELECT @CartId, ProductId, @Qty2 FROM dbo.Products WHERE Sku = @Sku2;
-
-    SELECT TOP 1 @Addr = AddressId FROM dbo.CustomerAddresses WHERE CustomerId = @CustId ORDER BY IsDefault DESC;
-    EXEC dbo.sp_PlaceOrderFromCart @CustomerId = @CustId, @AddressId = @Addr, @PaymentMethod = @Method,
-                                   @PromoCode = @Promo, @Note = N'Đơn dữ liệu mẫu', @OrderId = @OrderId OUTPUT;
-
-    SELECT @Acc = AccountId FROM dbo.Employees WHERE EmployeeCode = 'NV001';
-    IF @Action IN ('Approved','Completed','ApprovedCancelled') EXEC dbo.sp_ApproveOrder @OrderId = @OrderId, @AccountId = @Acc;
-    -- Dùng sp_CompleteOrder (không UPDATE Status trực tiếp) để đơn mẫu cũng đi qua đúng
-    -- nghiệp vụ: cộng điểm thành viên, nâng hạng, và chỉ cho hoàn tất khi đã thanh toán (hoặc COD).
-    IF @Action = 'Completed' EXEC dbo.sp_CompleteOrder @OrderId = @OrderId, @AccountId = @Acc;
-    IF @Action IN ('Cancelled','ApprovedCancelled')
-        EXEC dbo.sp_CancelOrder @OrderId = @OrderId, @Reason = N'Khách đổi ý (dữ liệu mẫu)', @AccountId = @Acc;
-
-    -- Lùi ngày để báo cáo theo thời gian có dữ liệu
-    UPDATE dbo.Orders SET CreatedAt = DATEADD(DAY, -@DaysAgo, CreatedAt), ApprovedAt = DATEADD(DAY, -@DaysAgo, ApprovedAt),
-                          CompletedAt = DATEADD(DAY, -@DaysAgo, CompletedAt), CancelledAt = DATEADD(DAY, -@DaysAgo, CancelledAt),
-                          PaidAt = DATEADD(DAY, -@DaysAgo, PaidAt)
-    WHERE OrderId = @OrderId;
-    UPDATE dbo.Invoices SET IssuedAt = DATEADD(DAY, -@DaysAgo, IssuedAt) WHERE OrderId = @OrderId;
-    UPDATE w SET w.StartDate = DATEADD(DAY, -@DaysAgo, w.StartDate), w.EndDate = DATEADD(DAY, -@DaysAgo, w.EndDate)
-    FROM dbo.Warranties w JOIN dbo.OrderDetails d ON d.OrderDetailId = w.OrderDetailId WHERE d.OrderId = @OrderId;
+    ELSE IF @Action = 'Cancelled'
+    BEGIN
+        DELETE s FROM dbo.ProductSerials s JOIN dbo.GoodsReceiptDetails d ON d.ReceiptDetailId = s.ReceiptDetailId WHERE d.ReceiptId = @g AND s.Status = 'Pending';
+        UPDATE dbo.GoodsReceipts SET Status = 'Cancelled' WHERE ReceiptId = @g;
+    END
 END
 GO
 
---                 SĐT khách     SP1              SL  SP2            SL  Voucher      Trạng thái          Ngày trước
+--                  MST nhà cung cấp  Ngày trước  Ghi chú                                  Dòng hàng (SKU:SL)                                                                                                   Trạng thái  % đã trả
+EXEC #QuickReceipt '0305678901', 90, N'Bổ sung chuột, bàn phím, cáp sạc',                  'LOGI-G102:10,ANKER-PL3:20,LOGI-K380:5',                                                                              'Posted',    100;
+EXEC #QuickReceipt '0304567890', 70, N'Nhập RAM, SSD lô mới (tồn kho chênh lệch để demo)',  'KIN-FURY-D5-32:2,CRU-D4-16:12,WD-SN770-1TB:6,SAM-870EVO-1TB:1,KIN-NV2-500:20',                                       'Posted',    100;
+EXEC #QuickReceipt '0301234567', 60, N'Bổ sung laptop bán chạy',                           'ASUS-TUF-F15:4,HP-15S:3',                                                                                            'Posted',    50;
+EXEC #QuickReceipt '0303456789', 45, N'Nhập phụ kiện gaming lô mới',                       'RAZER-VIPER-V2:3,LOGI-M331:25,LOGI-G512:2,STEEL-APEX5:7,STEEL-ARCTIS5:1,LOGI-G435:9,ASUS-TUF-BP:14,BASEUS-65W:30',  'Posted',    60;
+EXEC #QuickReceipt '0302345678', 20, N'Bổ sung RAM, SSD (chưa thanh toán)',                'KVR-D5-16:6,SAM-980-500:5,CRU-D5-8:4',                                                                               'Posted',    0;
+EXEC #QuickReceipt '0302345678', 12, N'Phiếu nhập huỷ (nhập nhầm mã hàng)',                'MBA-M2:3',                                                                                                           'Cancelled', 0;
+EXEC #QuickReceipt '0303456789', 6,  N'Bổ sung chuột, bàn phím cao cấp (chưa thanh toán)', 'LOGI-MXM3S:5,CORSAIR-K70:4',                                                                                  'Posted',    0;
+EXEC #QuickReceipt '0301234567', 1,  N'Phiếu nháp - chờ kiểm đếm và chốt',                 'MSI-KATANA-15:5,DELL-XPS-15:2',                                                                                      'Draft',     0;
+GO
+DROP PROCEDURE #QuickReceipt;
+GO
+
+/* ---------- 7. Đơn hàng mẫu (qua Stored Procedure -> đúng nghiệp vụ) ---------- */
+-- @Action: Pending (chờ kiểm tra / chờ thanh toán) | PaidPending (đã thanh toán, chờ nhân viên kiểm tra hàng) | Approved |
+--          Completed | Cancelled | ApprovedCancelled | Refunding (đã thanh toán rồi huỷ -> chờ hoàn tiền) | Refunded (đã hoàn tiền)
+-- Đơn chuyển khoản / Stripe chỉ được duyệt khi đã thanh toán, nên thủ tục tự ghi nhận thanh toán trước khi duyệt.
+-- Một đơn lỗi (vd hết hàng) chỉ in cảnh báo, không làm hỏng cả file seed.
+CREATE PROCEDURE #QuickOrder
+    @Phone VARCHAR(15), @Sku1 VARCHAR(40), @Qty1 INT, @Sku2 VARCHAR(40) = NULL, @Qty2 INT = 1,
+    @Promo VARCHAR(30) = NULL, @Action VARCHAR(20) = 'Pending', @DaysAgo INT = 0, @Method VARCHAR(15) = 'COD',
+    @Note NVARCHAR(500) = N'Đơn dữ liệu mẫu'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @CustId INT, @CartId INT, @Addr INT, @OrderId INT, @Acc INT, @Ref VARCHAR(100);
+    BEGIN TRY
+        SELECT @CustId = CustomerId FROM dbo.Customers WHERE Phone = @Phone;
+        SELECT @CartId = CartId FROM dbo.Carts WHERE CustomerId = @CustId;
+        IF @CartId IS NULL
+        BEGIN
+            INSERT INTO dbo.Carts (CustomerId) VALUES (@CustId);
+            SET @CartId = SCOPE_IDENTITY();
+        END
+        DELETE FROM dbo.CartItems WHERE CartId = @CartId;
+        INSERT INTO dbo.CartItems (CartId, ProductId, Quantity) SELECT @CartId, ProductId, @Qty1 FROM dbo.Products WHERE Sku = @Sku1;
+        IF @Sku2 IS NOT NULL
+            INSERT INTO dbo.CartItems (CartId, ProductId, Quantity) SELECT @CartId, ProductId, @Qty2 FROM dbo.Products WHERE Sku = @Sku2;
+
+        SELECT TOP 1 @Addr = AddressId FROM dbo.CustomerAddresses WHERE CustomerId = @CustId ORDER BY IsDefault DESC;
+        EXEC dbo.sp_PlaceOrderFromCart @CustomerId = @CustId, @AddressId = @Addr, @PaymentMethod = @Method,
+                                       @PromoCode = @Promo, @Note = @Note, @OrderId = @OrderId OUTPUT;
+
+        SELECT @Acc = AccountId FROM dbo.Employees WHERE EmployeeCode = 'NV001';
+
+        -- Thanh toán trước khi duyệt / hoàn tất
+        IF (@Method IN ('BankTransfer', 'Stripe') AND @Action IN ('PaidPending', 'Approved', 'Completed', 'Refunding', 'Refunded'))
+           OR (@Method IN ('Installment', 'Card') AND @Action IN ('Completed', 'Refunding', 'Refunded'))
+        BEGIN
+            IF @Method = 'Stripe'
+            BEGIN
+                SET @Ref = CONCAT('pi_seed_', @OrderId);
+                EXEC dbo.sp_MarkPaidByGateway @OrderId = @OrderId, @GatewayRef = @Ref;
+            END
+            ELSE
+                EXEC dbo.sp_ConfirmPayment @OrderId = @OrderId, @AccountId = @Acc;
+        END
+
+        -- Stripe: đơn 1 sản phẩm đã được hệ thống tự duyệt ngay khi thanh toán, nên chỉ duyệt nếu còn Pending
+        IF @Action IN ('Approved', 'Completed', 'ApprovedCancelled', 'Refunding', 'Refunded')
+           AND (SELECT Status FROM dbo.Orders WHERE OrderId = @OrderId) = 'Pending'
+            EXEC dbo.sp_ApproveOrder @OrderId = @OrderId, @AccountId = @Acc;
+        -- Dùng sp_CompleteOrder (không UPDATE Status trực tiếp) để đơn mẫu cũng đi qua đúng
+        -- nghiệp vụ: cộng điểm thành viên, nâng hạng, và chỉ cho hoàn tất khi đã thanh toán (hoặc COD).
+        IF @Action = 'Completed' EXEC dbo.sp_CompleteOrder @OrderId = @OrderId, @AccountId = @Acc;
+        IF @Action IN ('Cancelled', 'ApprovedCancelled', 'Refunding', 'Refunded')
+            EXEC dbo.sp_CancelOrder @OrderId = @OrderId, @Reason = N'Khách đổi ý (dữ liệu mẫu)', @AccountId = @Acc;
+        IF @Action = 'Refunded' EXEC dbo.sp_ConfirmRefund @OrderId = @OrderId, @AccountId = @Acc;
+
+        -- Lùi ngày để báo cáo theo thời gian có dữ liệu
+        UPDATE dbo.Orders SET CreatedAt = DATEADD(DAY, -@DaysAgo, CreatedAt), ApprovedAt = DATEADD(DAY, -@DaysAgo, ApprovedAt),
+                              CompletedAt = DATEADD(DAY, -@DaysAgo, CompletedAt), CancelledAt = DATEADD(DAY, -@DaysAgo, CancelledAt),
+                              PaidAt = DATEADD(DAY, -@DaysAgo, PaidAt)
+        WHERE OrderId = @OrderId;
+        UPDATE dbo.Invoices SET IssuedAt = DATEADD(DAY, -@DaysAgo, IssuedAt) WHERE OrderId = @OrderId;
+        UPDATE w SET w.StartDate = DATEADD(DAY, -@DaysAgo, w.StartDate), w.EndDate = DATEADD(DAY, -@DaysAgo, w.EndDate)
+        FROM dbo.Warranties w JOIN dbo.OrderDetails d ON d.OrderDetailId = w.OrderDetailId WHERE d.OrderId = @OrderId;
+    END TRY
+    BEGIN CATCH
+        PRINT CONCAT(N'[seed] Bỏ qua đơn ', @Phone, N' / ', @Sku1, N' / ', @Action, N': ', ERROR_MESSAGE());
+    END CATCH
+END
+GO
+
+DECLARE @inst NVARCHAR(500) = N'[TRẢ GÓP] 12 tháng · trả trước 30% · Thẻ tín dụng (0%) | Đơn dữ liệu mẫu';
+
+--                 SĐT khách     SP1              SL  SP2            SL  Voucher      Trạng thái          Ngày trước  Thanh toán
 EXEC #QuickOrder '0912000001', 'ASUS-TUF-F15',  1, 'KVR-D5-16',    1, 'WELCOME10', 'Completed',         20;
 EXEC #QuickOrder '0912000002', 'DELL-INS-15',   1, 'LOGI-G102',    1, NULL,        'Completed',         15;
 EXEC #QuickOrder '0912000003', 'MBA-M2',        1, NULL,           1, NULL,        'Approved',           9;
@@ -918,8 +1094,45 @@ EXEC #QuickOrder '0912000002', 'RAZER-DAV3',    2, NULL,           1, NULL,     
 EXEC #QuickOrder '0912000001', 'ASUS-VIVO-PRO', 1, NULL,           1, 'GIAM500K',  'Approved',           2;
 EXEC #QuickOrder '0912000001', 'SAM-980P-1TB',  1, 'LOGI-MXM3S',   1, NULL,        'Pending',            1;
 EXEC #QuickOrder '0912000003', 'LENOVO-IDEA5',  1, 'ANKER-737',    1, NULL,        'Pending',            0;
+
+-- Đơn bổ sung rải đều ~3 tháng, đủ phương thức thanh toán và trạng thái (đã giao / đang xử lý / huỷ / hoàn tiền)
+EXEC #QuickOrder '0912000004', 'HP-15S',        1, 'LOGI-G102',    1, NULL,        'Completed',         84, 'COD';
+EXEC #QuickOrder '0912000005', 'DELL-INS-15',   1, NULL,           1, NULL,        'Completed',         80, 'BankTransfer';
+EXEC #QuickOrder '0912000006', 'ASUS-TUF-F15',  1, 'ANKER-737',    1, 'WELCOME10', 'Completed',         76, 'Stripe';
+EXEC #QuickOrder '0912000007', 'LENOVO-IDEA5',  1, NULL,           1, NULL,        'Completed',         72, 'Installment', @inst;
+EXEC #QuickOrder '0912000008', 'MSI-KATANA-15', 1, 'RAZER-BSV2X',  1, NULL,        'Completed',         68, 'COD';
+EXEC #QuickOrder '0912000009', 'LENOVO-LOQ-15', 1, NULL,           1, NULL,        'Completed',         63, 'BankTransfer';
+EXEC #QuickOrder '0912000010', 'HP-15S',        1, 'KIN-A400-480', 1, NULL,        'Completed',         58, 'COD';
+EXEC #QuickOrder '0912000004', 'LOGI-K380',     1, 'ANKER-PL3',    2, NULL,        'Completed',         55, 'COD';
+EXEC #QuickOrder '0912000005', 'MSI-KATANA-15', 1, NULL,           1, 'LAPTOP5',   'Completed',         50, 'Stripe';
+EXEC #QuickOrder '0912000006', 'DELL-INS-15',   1, 'KVR-D4-8',     1, 'BTS2026',   'Completed',         46, 'BankTransfer';
+EXEC #QuickOrder '0912000007', 'ASUS-TUF-F15',  1, NULL,           1, NULL,        'Completed',         41, 'COD';
+EXEC #QuickOrder '0912000008', 'MBA-M2',        1, NULL,           1, NULL,        'Completed',         37, 'Installment', @inst;
+EXEC #QuickOrder '0912000009', 'CORSAIR-K70',   1, 'LOGI-MXM3S',   1, 'SAVE200K',  'Completed',         33, 'BankTransfer';
+EXEC #QuickOrder '0912000010', 'LENOVO-LOQ-15', 1, 'ASUS-ROG-BP',  1, NULL,        'Completed',         29, 'Stripe';
+EXEC #QuickOrder '0912000004', 'HP-15S',        1, NULL,           1, NULL,        'Refunded',          26, 'BankTransfer';
+EXEC #QuickOrder '0912000005', 'LENOVO-IDEA5',  1, NULL,           1, NULL,        'Refunding',         22, 'Stripe';
+EXEC #QuickOrder '0912000006', 'DELL-XPS-15',   1, 'SAM-980P-1TB', 1, NULL,        'Completed',         18, 'COD';
+EXEC #QuickOrder '0912000007', 'SAM-980-500',   1, 'KVR-D5-16',    1, NULL,        'Completed',         16, 'BankTransfer';
+EXEC #QuickOrder '0912000004', 'LENOVO-LOQ-15', 1, NULL,           1, NULL,        'ApprovedCancelled', 14, 'COD';
+EXEC #QuickOrder '0912000008', 'ASUS-TUF-F15',  1, 'CRU-D5-8',     1, NULL,        'Approved',          11, 'BankTransfer';
+EXEC #QuickOrder '0912000005', 'HP-15S',        1, 'RAZER-DAV3',   1, NULL,        'Cancelled',         10, 'COD';
+EXEC #QuickOrder '0912000009', 'MSI-KATANA-15', 1, NULL,           1, NULL,        'Approved',           8, 'Stripe';
+EXEC #QuickOrder '0912000010', 'DELL-INS-15',   1, 'LOGI-G102',    2, NULL,        'Approved',           6, 'Installment', @inst;
+EXEC #QuickOrder '0912000006', 'LENOVO-IDEA5',  1, 'ANKER-737',    1, NULL,        'PaidPending',        2, 'BankTransfer';
+EXEC #QuickOrder '0912000007', 'MSI-KATANA-15', 1, 'ANKER-PL3',    1, NULL,        'Pending',            1, 'BankTransfer';
+EXEC #QuickOrder '0912000008', 'ASUS-TUF-F15',  1, 'LOGI-K380',    1, NULL,        'Pending',            1, 'Stripe';
+EXEC #QuickOrder '0912000009', 'DELL-INS-15',   1, 'KIN-A400-480', 1, NULL,        'Pending',            0, 'COD';
+EXEC #QuickOrder '0912000010', 'HP-15S',        2, NULL,           1, NULL,        'Pending',            0, 'COD';
 GO
 DROP PROCEDURE #QuickOrder;
+GO
+
+-- Hạng thành viên: một vài khách có điểm tích luỹ cao để màn hình khách hàng / báo cáo có đủ các hạng
+UPDATE c SET c.LoyaltyPoints = v.pts, c.TierId = t.TierId
+FROM dbo.Customers c
+JOIN (VALUES ('0912000002', 5400, N'Vàng'), ('0912000007', 10800, N'Kim cương'), ('0912000005', 1250, N'Bạc'), ('0912000009', 1030, N'Bạc')) v(ph, pts, tier) ON v.ph = c.Phone
+JOIN dbo.MembershipTiers t ON t.TierName = v.tier;
 GO
 
 /* ---------- 8. Nhật ký mẫu ---------- */

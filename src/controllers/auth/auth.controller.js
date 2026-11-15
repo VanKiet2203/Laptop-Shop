@@ -31,9 +31,7 @@ exports.passwordError = passwordError;
 
 exports.showLogin = (req, res) => {
   if (req.session.user) return res.redirect(homeFor(req.session.user.role));
-  // Hộp "tài khoản thử nghiệm" chỉ hiện khi KHÔNG chạy production (đặt SHOW_DEMO_ACCOUNTS=false để tắt hẳn)
-  const showDemo = process.env.NODE_ENV !== 'production' && process.env.SHOW_DEMO_ACCOUNTS !== 'false';
-  res.render('auth/login', { title: 'Đăng nhập', googleEnabled: googleConfigured(), showDemo });
+  res.render('auth/login', { title: 'Đăng nhập', googleEnabled: googleConfigured() });
 };
 
 // Chống dò mật khẩu: sai 5 lần liên tiếp từ MỘT IP với cùng tài khoản thì khoá thử 15 phút; một tài khoản bị sai 20 lần

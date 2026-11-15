@@ -436,7 +436,7 @@ body.store a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .status-soft { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
 .status-text-warning { color: #b45309; } .status-text-success { color: #15803d; } .status-text-info { color: #0e7490; } .status-text-secondary { color: #475569; }
 .order-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-.order-progress { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; padding: 0; margin: 0 0 .6rem; position: relative; }
+.order-progress { display: grid; grid-template-columns: repeat(var(--steps, 3), 1fr); list-style: none; padding: 0; margin: 0 0 .6rem; position: relative; }
 .order-progress li { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .35rem; padding-top: .1rem; }
 .order-progress li::before { content: ""; position: absolute; top: .95rem; left: -50%; width: 100%; height: 4px; background: #dbe0ee; z-index: 0; }
 .order-progress li:first-child::before { display: none; }

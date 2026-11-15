@@ -5,7 +5,7 @@
 //           findAfterPlace(orderId), cancelPending(orderId, accountId, reason)
 const db = require('../config/db');
 
-const ORDER_COLUMNS = `o.OrderId, o.OrderNo, o.CustomerId, o.CreatedAt, o.ApprovedAt, o.CompletedAt, o.CancelledAt, o.Status,
+const ORDER_COLUMNS = `o.OrderId, o.OrderNo, o.CustomerId, o.CreatedAt, o.ApprovedAt, o.CompletedAt, o.CancelledAt, o.PaidAt, o.Status,
             o.ReceiverName, o.ReceiverPhone, o.ReceiverEmail, o.ShippingAddress,
             o.PaymentMethod, o.PaymentStatus,
             o.Subtotal, o.DiscountAmount, o.ShippingFee, o.VatAmount, o.TotalAmount,

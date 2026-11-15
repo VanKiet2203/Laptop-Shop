@@ -23,14 +23,14 @@ function recent(key, windowMs, now = Date.now()) {
 exports.count = (key, windowMs) => recent(key, windowMs).times.length;
 
 /** Ghi nhận một lần; trả về { allowed, count, retryAfterSec } so với `max`. */
-exports.hit = (key, max, windowMs) => {
+exports.hit = (key, max, windowMs, peek = false) => {
   const now = Date.now();
   sweep(now);
   const entry = recent(key, windowMs, now);
   if (entry.times.length >= max) {
     return { allowed: false, count: entry.times.length, retryAfterSec: Math.max(1, Math.ceil((windowMs - (now - entry.times[0])) / 1000)) };
   }
-  entry.times.push(now);
+  if (!peek) entry.times.push(now); // peek = chỉ kiểm tra, không ghi nhận lượt này
   return { allowed: true, count: entry.times.length, retryAfterSec: 0 };
 };
 
@@ -43,8 +43,8 @@ exports._clear = () => buckets.clear();
  * Middleware giới hạn theo IP. Vượt ngưỡng -> 429 (JSON nếu là request fetch/API, trang thông báo nếu là trang thường).
  *   router.post('/login', rateLimit.byIp('login', 30, 15 * 60 * 1000), ...)
  */
-exports.byIp = (name, max, windowMs, message = 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.') => (req, res, next) => {
-  const r = exports.hit(`${name}:ip:${req.ip}`, max, windowMs);
+exports.byIp = (name, max, windowMs, message = 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.', peek = false) => (req, res, next) => {
+  const r = exports.hit(`${name}:ip:${req.ip}`, max, windowMs, peek);
   if (r.allowed) return next();
   res.set('Retry-After', String(r.retryAfterSec));
   const wantsJson = req.get('X-Requested-With') === 'fetch' || /json/.test(req.get('Accept') || '') || /^\/(api|chat)\b/.test(req.path);

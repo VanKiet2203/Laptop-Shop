@@ -176,15 +176,7 @@ test('login: one account hammered from many IPs (20 failures) is locked for ever
   assert.equal(blocked, 5);
 });
 
-test('the demo-accounts hint is hidden in production and when SHOW_DEMO_ACCOUNTS=false', () => {
-  const run = () => { const h = http(); h.req.session = {}; controller.showLogin(h.req, h.res); return h.res.rendered.d.showDemo; };
-  const env = { ...process.env };
-  try {
-    delete process.env.NODE_ENV; delete process.env.SHOW_DEMO_ACCOUNTS;
-    assert.equal(run(), true);
-    process.env.SHOW_DEMO_ACCOUNTS = 'false';
-    assert.equal(run(), false);
-    delete process.env.SHOW_DEMO_ACCOUNTS; process.env.NODE_ENV = 'production';
-    assert.equal(run(), false);
-  } finally { process.env.NODE_ENV = env.NODE_ENV; if (env.NODE_ENV === undefined) delete process.env.NODE_ENV; if (env.SHOW_DEMO_ACCOUNTS === undefined) delete process.env.SHOW_DEMO_ACCOUNTS; else process.env.SHOW_DEMO_ACCOUNTS = env.SHOW_DEMO_ACCOUNTS; }
+test('the login page no longer exposes demo accounts', () => {
+  const h = http(); h.req.session = {}; controller.showLogin(h.req, h.res);
+  assert.equal(h.res.rendered.d.showDemo, undefined);
 });

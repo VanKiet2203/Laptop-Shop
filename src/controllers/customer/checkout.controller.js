@@ -12,6 +12,7 @@ const { orderConfirmation } = require('../../core/mailTemplates');
 const stripeCtrl = require('./stripe.controller');
 const geo = require('../../core/geo');
 const { isBusinessError } = require('../../core/helpers');
+const rateLimit = require('../../core/rateLimit');
 
 const isCustomer = (req) => Boolean(req.session.user && req.session.user.customerId);
 const textField = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -212,13 +213,16 @@ exports.place = async (req, res) => {
       note: noteText || null,
     });
   } catch (e) {
-    if (isBusinessError(e) && e.number >= 50020 && e.number <= 50026) {
+    if (isBusinessError(e) && ((e.number >= 50020 && e.number <= 50026) || e.number === 50070 || e.number === 50071)) {
       keepDraft();
       req.flash('danger', e.message);
       return res.redirect(e.number === 50020 ? '/cart' : '/checkout');
     }
     throw e;
   }
+
+  // Chỉ đơn đặt thành công mới tính vào giới hạn đặt hàng theo IP (nhập sai/thiếu thông tin không bị tính)
+  rateLimit.hit(`checkout:ip:${req.ip}`, 20, 60 * 60 * 1000);
 
   // Sau khi đặt thành công: dọn giỏ, nhớ đơn để hiện trang cảm ơn (kể cả khách chưa đăng nhập)
   if (isCustomer(req)) {
