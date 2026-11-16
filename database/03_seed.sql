@@ -910,6 +910,14 @@ INSERT INTO dbo.Promotions (Code, PromoName, DiscountType, DiscountValue, MinOrd
 INSERT INTO dbo.Brands (BrandName, Country) VALUES
  (N'Western Digital', N'Mỹ'), (N'SteelSeries', N'Đan Mạch'), (N'Baseus', N'Trung Quốc');
 
+INSERT INTO dbo.Attributes (AttrCode, AttrName, Unit, IsFilterable) VALUES
+ ('RAM_SPEED',N'Tốc độ bus',N'MT/s',0),('RAM_LATENCY',N'Độ trễ (CAS)',NULL,0),('FORM_FACTOR',N'Kích thước / chuẩn',NULL,0),
+ ('READ_SPEED',N'Tốc độ đọc',N'MB/s',0),('WRITE_SPEED',N'Tốc độ ghi',N'MB/s',0),
+ ('SENSOR',N'Cảm biến',NULL,0),('BATTERY_LIFE',N'Thời lượng pin',NULL,0),('SWITCH_TYPE',N'Loại switch / nút bấm',NULL,0),
+ ('LAYOUT',N'Bố cục phím',NULL,0),('BACKLIGHT',N'Đèn nền',NULL,0),('DRIVER',N'Driver loa',NULL,0),('MIC',N'Micro',NULL,0),
+ ('COMPAT_SIZE',N'Vừa laptop tối đa',N'inch',0),('MATERIAL',N'Chất liệu',NULL,0),
+ ('POWER_W',N'Công suất',N'W',0),('PORTS',N'Cổng kết nối',NULL,0),('BATTERY_MAH',N'Dung lượng pin',N'mAh',0);
+
 -- Linh kiện / phụ kiện bổ sung (mỗi danh mục có vài mức giá và thương hiệu để lọc, sắp xếp cho khác nhau)
 INSERT INTO dbo.Products (Sku, ProductName, Slug, CategoryId, BrandId, ShortDesc, CostPrice, SalePrice, WarrantyMonths, IsSerialTracked)
 SELECT v.sku, v.n, v.slug, c.CategoryId, b.BrandId, v.sd, v.cost, v.price, v.war, v.ser
@@ -936,6 +944,27 @@ INSERT INTO dbo.ProductImages (ProductId, ImageUrl, IsPrimary, SortOrder)
 SELECT p.ProductId, '/images/placeholder.svg', 1, 0 FROM dbo.Products p
 WHERE NOT EXISTS (SELECT 1 FROM dbo.ProductImages i WHERE i.ProductId = p.ProductId);
 
+-- Ảnh thật cho 14 sản phẩm bổ sung (ảnh sản phẩm từ các CDN bán lẻ)
+UPDATE i SET i.ImageUrl = v.url
+FROM dbo.ProductImages i
+JOIN dbo.Products p ON p.ProductId = i.ProductId AND i.IsPrimary = 1
+JOIN (VALUES
+ ('KIN-FURY-D5-32','https://product.hstatic.net/200000722513/product/ury-32gb-ddr5-4800mhz-kf548s38ib-32-1_4b783c77520c4a10a25345757d54fa70_1766435a39c247568e0f38d980927e29.png'),
+ ('CRU-D4-16','https://product.hstatic.net/200000722513/product/-16gb-ddr4-1x16gb-3200-crucial-222233_81d7a3106d2d43e182165a36269cf442_6d1bd9ebbbd3413b932de9fd7a64e77e.jpg'),
+ ('WD-SN770-1TB','https://product.hstatic.net/200000722513/product/5332_164907d5e5d8f83c22ecaff124497311_8d004d439ad047c3b68cbf3d9650cb91_1becbb6811864c91aff4825da9f5dfc8.jpg'),
+ ('SAM-870EVO-1TB','https://product.hstatic.net/200000722513/product/870_evo_1_8c7f126580d248968c3fd6852c64861e_23741adcd5f44d6ebc43e8eed41b5b8b.jpg'),
+ ('KIN-NV2-500','https://product.hstatic.net/200000722513/product/500_2c3dab1f31804c5d865af3a26cebda03_cd349308894542fe97b02876d80270f1.png'),
+ ('RAZER-VIPER-V2','https://product.hstatic.net/200000722513/product/1_572f2bc7338449078637140d487f2ed8_c746dd3ce9124c41bfc38fc3ebcac7ab.png'),
+ ('LOGI-M331','https://cdn2.cellphones.com.vn/x/media/catalog/product/c/h/chuot-khong-day-logitech-m331_1__1.png'),
+ ('LOGI-G512','https://cdn.hstatic.net/products/200000722513/ban-phim-logitech-g512-carbon-1_f275baccb8f048f39c656ab175908f26.jpg'),
+ ('STEEL-APEX5','https://product.hstatic.net/200000722513/product/ban-phim-co-steelseries-apex-5-1_69793610244944e79404c981c17cb87d_098e6ec0b7d145199a807c64570c8f7c.jpg'),
+ ('STEEL-ARCTIS5','https://product.hstatic.net/200000722513/product/tai-nghe-steelseries-arctis-nova_14f0288c65c74340b1f5a075b44cc677.png'),
+ ('LOGI-G435','https://bizweb.dktcdn.net/thumb/grande/100/329/122/products/tai-nghe-gaming-khong-day-logitech-lightspeed-g435-1689929624040-d9c72523-a5c5-4b0b-9aa8-2825787c8acb-98829ffa-e71a-4ad9-91fd-fed3be1d75a6.png?v=1775012894797'),
+ ('ASUS-TUF-BP','https://product.hstatic.net/200000722513/product/gearvn-bp1500_1870f744cf854bbf9a1d05a847fc2882.png'),
+ ('BASEUS-65W','https://lh3.googleusercontent.com/uq44SIW-qNjgTIDwgdY7mH_3HUsDOHfCQHmWngs9xGxKYhFnLkl4Tnjk4Cf-2u7plcn9pB68idFRZLRhw-BCG5kpvB1pYOcNyw'),
+ ('ANKER-622','https://cdn2.cellphones.com.vn/x/media/catalog/product/p/i/pin-sac-du-phong-anker-622-magnetic-maggo-5000mah-a1611_1_.png')
+) v(sku,url) ON v.sku = p.Sku;
+
 INSERT INTO dbo.ProductAttributeValues (ProductId, AttributeId, AttrValue)
 SELECT p.ProductId, a.AttributeId, v.val FROM (VALUES
  ('KIN-FURY-D5-32','RAM_SIZE',N'32'),('KIN-FURY-D5-32','RAM_TYPE',N'DDR5'),
@@ -946,7 +975,22 @@ SELECT p.ProductId, a.AttributeId, v.val FROM (VALUES
  ('RAZER-VIPER-V2','CONNECTION',N'Không dây'),('RAZER-VIPER-V2','DPI',N'30000'),
  ('LOGI-M331','CONNECTION',N'Không dây'),('LOGI-M331','DPI',N'1000'),
  ('LOGI-G512','CONNECTION',N'Có dây'),('STEEL-APEX5','CONNECTION',N'Có dây'),
- ('STEEL-ARCTIS5','CONNECTION',N'Không dây'),('LOGI-G435','CONNECTION',N'Không dây')
+ ('STEEL-ARCTIS5','CONNECTION',N'Không dây'),('LOGI-G435','CONNECTION',N'Không dây'),
+ -- thông số kỹ thuật bổ sung cho từng nhóm (để trang chi tiết đầy đủ như các laptop)
+ ('KIN-FURY-D5-32','RAM_SPEED',N'5600'),('KIN-FURY-D5-32','RAM_LATENCY',N'CL40'),('KIN-FURY-D5-32','FORM_FACTOR',N'SO-DIMM (laptop)'),
+ ('CRU-D4-16','RAM_SPEED',N'3200'),('CRU-D4-16','RAM_LATENCY',N'CL22'),('CRU-D4-16','FORM_FACTOR',N'SO-DIMM (laptop)'),
+ ('WD-SN770-1TB','READ_SPEED',N'5150'),('WD-SN770-1TB','WRITE_SPEED',N'4900'),('WD-SN770-1TB','FORM_FACTOR',N'M.2 2280'),
+ ('SAM-870EVO-1TB','READ_SPEED',N'560'),('SAM-870EVO-1TB','WRITE_SPEED',N'530'),('SAM-870EVO-1TB','FORM_FACTOR',N'2.5 inch'),
+ ('KIN-NV2-500','READ_SPEED',N'3500'),('KIN-NV2-500','WRITE_SPEED',N'2100'),('KIN-NV2-500','FORM_FACTOR',N'M.2 2280'),
+ ('RAZER-VIPER-V2','SENSOR',N'Focus Pro 30K optical'),('RAZER-VIPER-V2','BATTERY_LIFE',N'Tối đa 80 giờ'),('RAZER-VIPER-V2','WEIGHT',N'0.058'),
+ ('LOGI-M331','SENSOR',N'Quang học 1000 DPI'),('LOGI-M331','BATTERY_LIFE',N'Tối đa 24 tháng'),('LOGI-M331','SWITCH_TYPE',N'Nút bấm êm (giảm 90% tiếng click)'),
+ ('LOGI-G512','SWITCH_TYPE',N'GX Mechanical'),('LOGI-G512','LAYOUT',N'Full-size (có phím số)'),('LOGI-G512','BACKLIGHT',N'RGB LIGHTSYNC'),
+ ('STEEL-APEX5','SWITCH_TYPE',N'Hybrid Hall Effect'),('STEEL-APEX5','LAYOUT',N'Full-size (có phím số)'),('STEEL-APEX5','BACKLIGHT',N'RGB từng vùng'),
+ ('STEEL-ARCTIS5','DRIVER',N'40 mm'),('STEEL-ARCTIS5','BATTERY_LIFE',N'Tối đa 60 giờ'),('STEEL-ARCTIS5','MIC',N'Micro ClearCast, gập được'),
+ ('LOGI-G435','DRIVER',N'40 mm'),('LOGI-G435','BATTERY_LIFE',N'Tối đa 18 giờ'),('LOGI-G435','WEIGHT',N'0.165'),
+ ('ASUS-TUF-BP','COMPAT_SIZE',N'15.6'),('ASUS-TUF-BP','MATERIAL',N'Vải chống nước'),
+ ('BASEUS-65W','POWER_W',N'65'),('BASEUS-65W','PORTS',N'2 x USB-C'),
+ ('ANKER-622','BATTERY_MAH',N'5000'),('ANKER-622','POWER_W',N'12'),('ANKER-622','PORTS',N'1 x USB-C, sạc không dây từ tính')
 ) v(sku,code,val)
 JOIN dbo.Products p ON p.Sku = v.sku JOIN dbo.Attributes a ON a.AttrCode = v.code;
 GO
